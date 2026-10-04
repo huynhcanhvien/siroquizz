@@ -7,12 +7,11 @@ import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
 import { EmptyState, ProgressBar } from "@/components/ui/misc";
 import { QueryError } from "@/components/ui/QueryState";
-import { useToast } from "@/components/ui/Toast";
 import { Flashcard } from "@/features/flashcards/components/Flashcard";
 import { StudySessionContext } from "@/features/study/session-context";
 import type { LangCode } from "@/lib/types";
-import { useErrorMessage } from "@/lib/use-messages";
 import { useDue, useReview, useSessionRecording } from "../hooks";
+import { useBackgroundSave } from "../use-background-save";
 import type { dueResponseSchema } from "../schemas";
 import { StarButton } from "./StarButton";
 // Read the clock outside render so timing stays in effects/handlers, not the render path.
@@ -28,35 +27,31 @@ function ActiveReview({
     [index, setIndex] = useState(0),
     [flipped, setFlipped] = useState(false),
     review = useReview(),
-    { toast } = useToast(),
-    errorMessage = useErrorMessage(),
+    persist = useBackgroundSave(),
     started = useRef(0),
     eventId = useRef(v7()),
-    busy = useRef(false),
+    ratedIndex = useRef(-1),
     card = data.cards[index];
   useEffect(() => {
     started.current = nowMs();
   }, []);
-  const rate = async (rating: number) => {
-    if (!card || busy.current) return;
-    busy.current = true;
-    try {
-      await review.mutateAsync({
-        cardId: card.id,
-        rating,
-        mode: "review",
-        durationMs: Math.min(3600000, nowMs() - started.current),
-        eventId: eventId.current,
-      });
-      setIndex((i) => i + 1);
-      setFlipped(false);
-      eventId.current = v7();
-      started.current = nowMs();
-    } catch (error) {
-      toast(errorMessage(error), "error");
-    } finally {
-      busy.current = false;
-    }
+  // Rating needs no server answer, so show the next card at once and save in the background.
+  const rate = (rating: number) => {
+    // A double click lands before the re-render; rate each card only once.
+    if (!card || ratedIndex.current === index) return;
+    ratedIndex.current = index;
+    const input = {
+      cardId: card.id,
+      rating,
+      mode: "review" as const,
+      durationMs: Math.min(3600000, nowMs() - started.current),
+      eventId: eventId.current,
+    };
+    persist(() => review.mutateAsync(input));
+    setIndex((i) => i + 1);
+    setFlipped(false);
+    eventId.current = v7();
+    started.current = nowMs();
   };
   if (!card)
     return (
@@ -90,12 +85,7 @@ function ActiveReview({
       {flipped ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {([1, 2, 3, 4] as const).map((rating) => (
-            <Button
-              key={rating}
-              variant="secondary"
-              disabled={review.isPending}
-              onClick={() => void rate(rating)}
-            >
+            <Button key={rating} variant="secondary" onClick={() => rate(rating)}>
               {t(`rating${rating}`)}
             </Button>
           ))}

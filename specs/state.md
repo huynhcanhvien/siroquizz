@@ -3,7 +3,7 @@
 > File này ghi lại **đã làm gì, đang làm dở gì, làm tiếp thế nào** để bất kỳ ai (người hoặc agent) cũng có thể tiếp tục.
 > Thời gian theo giờ Việt Nam (UTC+7). Mục mới nhất ở trên cùng của phần Nhật ký.
 
-**Cập nhật lần cuối:** 2026-10-04 21:10 +07
+**Cập nhật lần cuối:** 2026-10-04 21:45 +07
 **Phase hiện tại:** Phase 2–3 hoàn tất local (Groq live pass). Đã thêm hạ tầng **deploy Vercel free + chia nhỏ job AI (resumable step)**, đang chờ nghiệm thu production. Phase 4 (SRS) vẫn đang dở. Google OAuth/R2/Resend production còn chờ credentials.
 **Tình trạng:** Người dùng yêu cầu hoàn thành toàn bộ Phase 2–6 và cập nhật state khi từng phase xong. Không coi credentials, deployment hay beta bên ngoài đã hoàn tất nếu chưa thực hiện.
 
@@ -45,6 +45,13 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 **Bước tiếp theo:** Phase 4: learn-engine7cards/round, FSRS, due queue/new limits/preferences, stars, study sessions/stats/goals/streak/reminders/images. `ts-fsrs@5.4.2` đã cài, @types/node lên22 cho Vitest. Dataviz skill không có trong catalog/filesystem; dùng chart accessible theo design tokens và bảng thay thế. Sau P4 tiếp tục P5–6.
 
 ## Nhật ký
+
+### 2026-10-04 21:45 +07: ⚡ Kiểm tra đáp án tức thì + sửa trang Ôn tập/Thống kê (nhánh `perf/optimize-load`)
+
+- **Chậm khi "Kiểm tra đáp án" (Học) và chấm thẻ (Ôn tập):** chấm điểm vốn chạy local nhưng UI `await` `POST /reviews` (transaction ~11 query) mới hiện kết quả. Giờ hiện kết quả/thẻ tiếp ngay, lưu nền qua hook dùng chung [use-background-save.ts](../src/features/srs/use-background-save.ts): hàng đợi tuần tự (giữ thứ tự cho FSRS), tự thử lại lỗi NETWORK/UNKNOWN (an toàn nhờ `eventId` idempotent), lỗi hẳn thì toast. Chặn bấm đúp.
+- **Bug có từ trước, phát hiện khi viết E2E:** (1) `/review` luôn báo "Đã có lỗi" vì API due trả `imageAlt/imageId/reps: null` từ LEFT JOIN, schema client không nhận null → server giờ trả đúng các field đã khai báo. (2) `/stats/overview` lỗi 500: biểu thức `timezone($n, …)` trong GROUP BY bị bind thành tham số khác → group theo vị trí cột (`BY_FIRST_COLUMN`).
+- **Test mới:** `LearnMode.test.tsx` (3), `use-background-save.test.tsx`, integration "review queue & stats cho tài khoản mới" (kiểm tra đúng contract `dueResponseSchema`), E2E `learning.spec.ts` (giả lập lưu chậm 3s, kết quả vẫn hiện <1s).
+- **Kết quả:** 384 unit, 51 integration, E2E 31 pass (1 live opt-in skip).
 
 ### 2026-10-04 21:10 +07: 🔧 Nhánh `perf/optimize-load`: tối ưu tốc độ + sửa AI trên Vercel (chưa merge production)
 

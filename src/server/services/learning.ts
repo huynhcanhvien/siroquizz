@@ -235,9 +235,17 @@ export async function dueCards(
     })
     .slice(0, limit);
   return {
+    // Explicit fields only: left-joined columns come back as null, which the client schema
+    // (optional, not nullable) rejects — that used to break the whole review page.
     cards: queue.map((row) => ({
-      ...row,
-      phonetic: row.phonetic ?? undefined,
+      id: row.id,
+      term: row.term,
+      definition: row.definition,
+      ...(row.phonetic ? { phonetic: row.phonetic } : {}),
+      setId: row.setId,
+      setTitle: row.setTitle,
+      termLang: row.termLang,
+      definitionLang: row.definitionLang,
       due: (row.due ?? now).toISOString(),
       isNew: !row.reps,
       ...(row.imageId

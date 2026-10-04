@@ -5,6 +5,7 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { eq, sql } from "drizzle-orm";
 import { v7 } from "uuid";
 import * as schema from "@/server/db/schema";
+import { dueResponseSchema } from "@/features/srs/schemas";
 import { GET, POST, PUT, PATCH, DELETE } from "@/app/api/v1/[...path]/route";
 
 const state = vi.hoisted(() => ({
@@ -226,6 +227,17 @@ describe("domain HTTP handlers", () => {
     expect((await request("GET", "me")).status).toBe(200);
     expect(state.freshReads).toBe(0);
     expect((await (await request("GET", "sets")).json()).data).toHaveLength(0);
+  });
+  it("serves the review queue and stats to a freshly seeded account", async () => {
+    expect((await request("GET", "me")).status).toBe(200);
+    const due = await request("GET", "reviews/due?starred=0");
+    const body = await due.json();
+    expect(due.status, JSON.stringify(body)).toBe(200);
+    expect(body.data.cards.length).toBeGreaterThan(0);
+    // The client validates this exact contract; a stray null used to break the review page.
+    expect(dueResponseSchema.safeParse(body.data).success).toBe(true);
+    const stats = await request("GET", "stats/overview");
+    expect(stats.status, "stats/overview").toBe(200);
   });
   it("soft-deletes accounts and rejects subsequent session use", async () => {
     expect((await request("DELETE", "me", { password: "correct" })).status).toBe(200);

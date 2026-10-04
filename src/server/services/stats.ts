@@ -12,6 +12,9 @@ import {
   streakFreezes,
 } from "../db/schema";
 import { getPreferences } from "./learning";
+// Day buckets bind the time zone as a parameter; repeating the expression in GROUP BY would bind
+// it again as a different parameter, which Postgres rejects. Group by the select position instead.
+const BY_FIRST_COLUMN = sql`1`;
 type Preferences = Awaited<ReturnType<typeof getPreferences>>;
 export async function activityStats(
   db: Database,
@@ -44,7 +47,7 @@ export async function activityStats(
         lte(reviewLogs.reviewedAt, new Date(end.getTime() - 1)),
       ),
     )
-    .groupBy(reviewDay);
+    .groupBy(BY_FIRST_COLUMN);
   const sessionDay = sql<string>`to_char(timezone(${prefs.timeZone},${studySessions.startedAt}),'YYYY-MM-DD')`;
   const sessionsQuery = db
     .select({
@@ -61,7 +64,7 @@ export async function activityStats(
         lte(studySessions.startedAt, new Date(end.getTime() - 1)),
       ),
     )
-    .groupBy(sessionDay);
+    .groupBy(BY_FIRST_COLUMN);
   // Independent reads: issued together so they pipeline instead of paying one round trip each.
   const [reviews, sessions] = await Promise.all([reviewsQuery, sessionsQuery]);
   const reviewByDay = new Map(reviews.map((row) => [row.day, row])),
@@ -127,7 +130,7 @@ export async function statsOverview(db: Database, userId: string, now = new Date
           lte(cardProgress.due, dayStart(shiftDay(today, 7), prefs.timeZone)),
         ),
       )
-      .groupBy(dueDay),
+      .groupBy(BY_FIRST_COLUMN),
     // First known review per card, aggregated by day, gives an "ever learned" timeline without double counting reviews.
     db.execute(
       sql`select to_char(timezone(${prefs.timeZone}, first_review),'YYYY-MM-DD') as day, count(*)::int as count from (select min(reviewed_at) as first_review from review_logs r inner join study_sets s on s.id=r.set_id where r.user_id=${userId} and r.rating>=3 and s.deleted_at is null group by r.card_id) t group by day order by day`,

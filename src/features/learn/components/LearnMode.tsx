@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
 import { Select, Label } from "@/components/ui/fields";
 import { ProgressBar } from "@/components/ui/misc";
-import { useToast } from "@/components/ui/Toast";
 import { useReview } from "@/features/srs/hooks";
+import { useBackgroundSave } from "@/features/srs/use-background-save";
 import { StarButton } from "@/features/srs/components/StarButton";
 import { useSaveCardStatus } from "@/features/progress/hooks";
 import { generateTest } from "@/features/test/lib/generate-test";
@@ -15,8 +15,8 @@ import { gradeQuestion, isAnswered } from "@/features/test/lib/grade";
 import { QuestionBody, QuestionShell } from "@/features/test/components/QuestionViews";
 import type { Answer, AnswerWith } from "@/features/test/lib/types";
 import type { StudySet } from "@/lib/types";
-import { useErrorMessage } from "@/lib/use-messages";
 import { createLearn, learnReducer } from "../lib/learn-engine";
+
 function LearningSession({
   set,
   written,
@@ -36,9 +36,8 @@ function LearningSession({
     [answer, setAnswer] = useState<Answer>(),
     review = useReview(),
     localSave = useSaveCardStatus(set.id),
-    { toast } = useToast(),
-    errorMessage = useErrorMessage(),
-    busy = useRef(false);
+    persist = useBackgroundSave(),
+    submittedEvent = useRef("");
   const item = state.round[0],
     card = set.cards.find((c) => c.id === item?.cardId);
   const question = useMemo(
@@ -59,31 +58,28 @@ function LearningSession({
     eventId.current = v7();
     started.current = Date.now();
   }, [item]);
-  const submit = async () => {
-    if (!question || state.phase !== "question" || busy.current) return;
-    busy.current = true;
+  // Grading is local, so feedback is shown at once; the server write follows in the background.
+  const submit = () => {
+    if (!question || state.phase !== "question") return;
+    if (submittedEvent.current === eventId.current) return;
+    submittedEvent.current = eventId.current;
     const correct = gradeQuestion(question, answer).correct,
-      durationMs = Math.min(3600000, Date.now() - started.current);
-    try {
-      if (process.env.NEXT_PUBLIC_DATA_SOURCE === "http")
-        await review.mutateAsync({
-          eventId: eventId.current,
-          cardId: item.cardId,
-          rating: !correct ? 1 : item.level === "multipleChoice" || durationMs > 10000 ? 2 : 3,
-          mode: "learn",
-          durationMs,
-        });
-      else
-        await localSave.mutateAsync({
-          cardId: item.cardId,
-          status: correct && (item.level === "written" || !written) ? "known" : "learning",
-        });
-      dispatch({ type: "answer", correct });
-    } catch (error) {
-      toast(errorMessage(error), "error");
-    } finally {
-      busy.current = false;
-    }
+      durationMs = Math.min(3600000, Date.now() - started.current),
+      { cardId, level } = item,
+      reviewInput = {
+        eventId: eventId.current,
+        cardId,
+        rating: !correct ? 1 : level === "multipleChoice" || durationMs > 10000 ? 2 : 3,
+        mode: "learn" as const,
+        durationMs,
+      },
+      status = correct && (level === "written" || !written) ? "known" : "learning";
+    dispatch({ type: "answer", correct });
+    persist(() =>
+      process.env.NEXT_PUBLIC_DATA_SOURCE === "http"
+        ? review.mutateAsync(reviewInput)
+        : localSave.mutateAsync({ cardId, status }),
+    );
   };
   const advance = () => {
     dispatch({ type: state.phase === "round" ? "nextRound" : "continue" });
@@ -145,11 +141,7 @@ function LearningSession({
               </Button>
             </div>
           ) : (
-            <Button
-              disabled={!isAnswered(question, answer)}
-              loading={review.isPending || localSave.isPending}
-              onClick={() => void submit()}
-            >
+            <Button disabled={!isAnswered(question, answer)} onClick={submit}>
               {t("check")}
             </Button>
           )}
