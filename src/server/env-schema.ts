@@ -38,6 +38,11 @@ export const serverEnvSchema = z
     TRUSTED_IP_HEADER: z
       .enum(["x-vercel-forwarded-for", "cf-connecting-ip", "x-real-ip"])
       .default("x-vercel-forwarded-for"),
+    // System variables Vercel injects into every deployment (hostnames, no protocol).
+    // Kept as a free string: an unexpected platform value must never fail env validation.
+    VERCEL_ENV: optionalString,
+    VERCEL_URL: optionalString,
+    VERCEL_BRANCH_URL: optionalString,
   })
   .superRefine((env, ctx) => {
     const issue = (key: keyof typeof env, message: string) =>
@@ -101,4 +106,24 @@ export function parseServerEnv(values: Record<string, string | undefined>): Serv
     throw new Error(`Invalid server environment: ${fields.join(", ")}`);
   }
   return result.data;
+}
+
+/**
+ * Origins allowed to make authenticated writes. A Vercel preview is served from generated hosts
+ * (per-deployment and per-branch), so those are trusted there in addition to BETTER_AUTH_URL.
+ */
+export function trustedOrigins(env: ServerEnv): string[] {
+  const origins = new Set<string>();
+  if (env.BETTER_AUTH_URL) origins.add(new URL(env.BETTER_AUTH_URL).origin);
+  if (env.VERCEL_ENV === "preview")
+    for (const host of [env.VERCEL_BRANCH_URL, env.VERCEL_URL])
+      if (host) origins.add(`https://${host}`);
+  return [...origins];
+}
+
+/** Better Auth's public URL: on a preview, links in emails must point back at that preview. */
+export function authBaseUrl(env: ServerEnv): string | undefined {
+  if (env.VERCEL_ENV === "preview" && env.VERCEL_BRANCH_URL)
+    return `https://${env.VERCEL_BRANCH_URL}`;
+  return env.BETTER_AUTH_URL;
 }

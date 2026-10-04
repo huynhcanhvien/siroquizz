@@ -7,21 +7,23 @@ import { v7 } from "uuid";
 import { getDatabase } from "./db/client";
 import * as schema from "./db/schema";
 import { getServerEnv } from "./env";
+import { authBaseUrl, trustedOrigins } from "./env-schema";
 import { sendAccountEmail } from "./email";
 import { registerSchema, profileUpdateSchema, passwordSchema } from "@/features/auth/schemas";
 import { after } from "next/server";
 
+const SESSION_COOKIE_CACHE_SECONDS = 5 * 60;
 let instance: ReturnType<typeof makeAuth> | undefined;
 function makeAuth() {
   const env = getServerEnv();
-  if (!env.BETTER_AUTH_SECRET || !env.BETTER_AUTH_URL)
-    throw new Error("Better Auth environment is required");
+  const baseURL = authBaseUrl(env);
+  if (!env.BETTER_AUTH_SECRET || !baseURL) throw new Error("Better Auth environment is required");
   return betterAuth({
     appName: "SiroQuizz",
-    baseURL: env.BETTER_AUTH_URL,
+    baseURL,
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(getDatabase(), { provider: "pg", schema, transaction: true }),
-    trustedOrigins: [env.BETTER_AUTH_URL],
+    trustedOrigins: trustedOrigins(env),
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,
@@ -51,6 +53,7 @@ function makeAuth() {
         avatarColor: { type: "string", defaultValue: "indigo" },
         uiLocale: { type: "string", defaultValue: "vi" },
         deletedAt: { type: "date", required: false, input: false },
+        samplesSeeded: { type: "boolean", defaultValue: false, input: false },
       },
       changeEmail: {
         enabled: true,
@@ -68,7 +71,12 @@ function makeAuth() {
     account: {
       accountLinking: { enabled: true, trustedProviders: ["google"], allowDifferentEmails: false },
     },
-    session: { expiresIn: 60 * 60 * 24 * 30, cookieCache: { enabled: false } },
+    session: {
+      expiresIn: 60 * 60 * 24 * 30,
+      // Signed session+user snapshot in a cookie: most requests skip the session/user queries.
+      // Revocation elsewhere (password reset, deletion on another device) lags by up to maxAge.
+      cookieCache: { enabled: true, maxAge: SESSION_COOKIE_CACHE_SECONDS },
+    },
     advanced: {
       ipAddress: {
         ipAddressHeaders:

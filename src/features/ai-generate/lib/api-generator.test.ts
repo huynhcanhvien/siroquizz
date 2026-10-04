@@ -119,6 +119,19 @@ describe("HTTP AI generator", () => {
       generator().generate({ files: [new File(["x"], "a.txt")], prompt: "", options }),
     ).rejects.toMatchObject({ code: "VALIDATION" });
   });
+  it("reports remote storage refusals and network failures as storage errors", async () => {
+    const remote = { data: { uploadId, url: "https://store.test/put", mime: "text/plain" } };
+    request.mockResolvedValueOnce(remote);
+    fetcher.mockReset().mockResolvedValueOnce(new Response(null, { status: 403 }));
+    await expect(
+      generator().generate({ files: [new File(["x"], "a.txt")], prompt: "", options }),
+    ).rejects.toMatchObject({ code: "STORAGE_UNAVAILABLE" });
+    request.mockResolvedValueOnce(remote);
+    fetcher.mockReset().mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    await expect(
+      generator().generate({ files: [new File(["x"], "a.txt")], prompt: "", options }),
+    ).rejects.toMatchObject({ code: "STORAGE_UNAVAILABLE" });
+  });
   it.each([
     [401, "UNAUTHENTICATED"],
     [500, "UNKNOWN"],

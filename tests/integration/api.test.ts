@@ -2,12 +2,20 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { v7 } from "uuid";
 import * as schema from "@/server/db/schema";
 import { GET, POST, PUT, PATCH, DELETE } from "@/app/api/v1/[...path]/route";
 
-const state = vi.hoisted(() => ({ owner: "", authenticated: true, passwordValid: true }));
+const state = vi.hoisted(() => ({
+  owner: "",
+  authenticated: true,
+  passwordValid: true,
+  // Cookie-cache Set-Cookie headers Better Auth would emit, keyed by whether the cache was bypassed.
+  cachedCookie: "",
+  freshCookie: "",
+  freshReads: 0,
+}));
 vi.mock("@/server/env", () => ({
   getServerEnv: () => ({
     NEXT_PUBLIC_DATA_SOURCE: "http",
@@ -18,7 +26,22 @@ vi.mock("@/server/env", () => ({
 vi.mock("@/server/auth", () => ({
   getAuth: () => ({
     api: {
-      getSession: async () => (state.authenticated ? { user: { id: state.owner } } : null),
+      // Mirrors Better Auth without a cookie cache hit: the user snapshot comes from the database.
+      getSession: async (options: {
+        returnHeaders?: boolean;
+        query?: { disableCookieCache?: boolean };
+      }) => {
+        const fresh = Boolean(options.query?.disableCookieCache);
+        if (fresh) state.freshReads++;
+        const [record] = state.authenticated
+          ? await db.select().from(schema.user).where(eq(schema.user.id, state.owner))
+          : [];
+        const response = record ? { user: record, session: { createdAt: new Date() } } : null;
+        const headers = new Headers();
+        const cookie = fresh ? state.freshCookie : state.cachedCookie;
+        if (cookie) headers.append("Set-Cookie", cookie);
+        return options.returnHeaders ? { headers, response } : response;
+      },
       verifyPassword: async () => {
         if (!state.passwordValid) throw new Error("Invalid password");
       },
@@ -75,6 +98,9 @@ beforeEach(async () => {
   state.owner = v7();
   state.authenticated = true;
   state.passwordValid = true;
+  state.cachedCookie = "";
+  state.freshCookie = "";
+  state.freshReads = 0;
   await db
     .insert(schema.user)
     .values({ id: state.owner, name: "Tester", email: "tester@example.com", emailVerified: true });
@@ -176,6 +202,30 @@ describe("domain HTTP handlers", () => {
     };
     expect((await request("POST", "import/local", { sets: [local] })).status).toBe(200);
     expect((await (await request("GET", "sets")).json()).data[0].ownerId).toBe(state.owner);
+  });
+  it("forwards Better Auth cookie-cache refreshes to the browser", async () => {
+    state.cachedCookie = "better-auth.session_data=cached; Path=/; HttpOnly";
+    const res = await request("GET", "sets");
+    expect(res.headers.getSetCookie()).toEqual([state.cachedCookie]);
+    expect(state.freshReads).toBe(0);
+  });
+  it("re-issues the session cookie cache after seeding and profile changes", async () => {
+    state.freshCookie = "better-auth.session_data=fresh; Path=/; HttpOnly";
+    const seeded = await request("GET", "me");
+    expect(seeded.headers.getSetCookie()).toEqual([state.freshCookie]);
+    expect(state.freshReads).toBe(1);
+    const patched = await request("PATCH", "me", { displayName: "Renamed" });
+    expect(patched.headers.getSetCookie()).toEqual([state.freshCookie]);
+    expect(state.freshReads).toBe(2);
+  });
+  it("skips seeding work once the session says samples exist", async () => {
+    await db
+      .update(schema.user)
+      .set({ samplesSeeded: true })
+      .where(eq(schema.user.id, state.owner));
+    expect((await request("GET", "me")).status).toBe(200);
+    expect(state.freshReads).toBe(0);
+    expect((await (await request("GET", "sets")).json()).data).toHaveLength(0);
   });
   it("soft-deletes accounts and rejects subsequent session use", async () => {
     expect((await request("DELETE", "me", { password: "correct" })).status).toBe(200);

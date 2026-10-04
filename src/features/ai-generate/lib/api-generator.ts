@@ -38,15 +38,25 @@ export function createApiGenerator(
           const target = new URL(data.url, window.location.origin);
           if (target.origin !== window.location.origin && target.protocol !== "https:")
             throw new RepositoryError("VALIDATION");
-          const response = await fetcher(data.url, {
-            method: "PUT",
-            headers: { "Content-Type": data.mime },
-            body: file,
-            signal,
-            credentials: target.origin === window.location.origin ? "same-origin" : "omit",
-            redirect: "error",
-          });
-          if (!response.ok) throw new RepositoryError("VALIDATION");
+          const sameOrigin = target.origin === window.location.origin;
+          let response: Response;
+          try {
+            response = await fetcher(data.url, {
+              method: "PUT",
+              headers: { "Content-Type": data.mime },
+              body: file,
+              signal,
+              credentials: sameOrigin ? "same-origin" : "omit",
+              redirect: "error",
+            });
+          } catch (error) {
+            if (signal.aborted) throw error;
+            // Remote object storage unreachable or blocked by CORS.
+            throw new RepositoryError(sameOrigin ? "NETWORK" : "STORAGE_UNAVAILABLE");
+          }
+          // Our own upload route rejects bad files; a remote store refusing means misconfiguration.
+          if (!response.ok)
+            throw new RepositoryError(sameOrigin ? "VALIDATION" : "STORAGE_UNAVAILABLE");
           uploadIds.push(data.uploadId);
         }
         signal.throwIfAborted();

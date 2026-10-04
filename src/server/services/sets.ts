@@ -97,20 +97,22 @@ export async function updateSet(db: Database, ownerId: string, id: string, input
     });
     const removed = existing.filter((c) => !used.has(c.id)).map((c) => c.id);
     if (removed.length) await tx.delete(cards).where(inArray(cards.id, removed));
-    for (const row of rows) {
-      if (existingIds.has(row.id))
-        await tx
-          .update(cards)
-          .set({
-            term: row.term,
-            definition: row.definition,
-            phonetic: row.phonetic ?? null,
-            position: row.position,
-            updatedAt: row.updatedAt,
-          })
-          .where(and(eq(cards.id, row.id), eq(cards.setId, id)));
-      else await tx.insert(cards).values(row);
-    }
+    // One statement for the whole deck instead of a round trip per card. Reused IDs come only
+    // from this set's own cards (checked above); position uniqueness is deferred to commit.
+    await tx
+      .insert(cards)
+      .values(rows.map((row) => ({ ...row, phonetic: row.phonetic ?? null })))
+      .onConflictDoUpdate({
+        target: cards.id,
+        set: {
+          term: sql`excluded.term`,
+          definition: sql`excluded.definition`,
+          phonetic: sql`excluded.phonetic`,
+          position: sql`excluded.position`,
+          updatedAt: sql`excluded.updated_at`,
+        },
+        setWhere: eq(cards.setId, id),
+      });
     await tx
       .update(studySets)
       .set({ ...metadata(data), cardCount: rows.length, updatedAt: new Date() })

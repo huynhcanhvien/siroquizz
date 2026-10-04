@@ -21,6 +21,7 @@ function localPath(key: string) {
   z.uuid().parse(key.slice(8));
   return path.join(root, key.slice(8));
 }
+let s3Instance: S3Client | undefined;
 function client() {
   const env = getServerEnv();
   if (!env.S3_ENDPOINT) {
@@ -28,12 +29,16 @@ function client() {
       throw new ApiError(503, "STORAGE_UNAVAILABLE");
     return null;
   }
-  return new S3Client({
+  return (s3Instance ??= new S3Client({
     endpoint: env.S3_ENDPOINT,
     region: env.S3_REGION,
     credentials: { accessKeyId: env.S3_ACCESS_KEY_ID!, secretAccessKey: env.S3_SECRET_ACCESS_KEY! },
     forcePathStyle: true,
-  });
+    // SDK defaults bake a CRC32 of the *empty* body into presigned PUT URLs, so S3-compatible
+    // stores (Supabase, R2) reject the browser's real upload. Only checksum when an API demands it.
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
+  }));
 }
 function signature(id: string, size: number, mime: string, expires: number) {
   return createHmac("sha256", getServerEnv().BETTER_AUTH_SECRET!)

@@ -50,11 +50,37 @@ it("extracts image text after bounded pixel decoding", async () => {
   expect(result.text).toContain("cat");
   expect(result.usage.input).toBe(10);
 });
-it("rejects spoofed files, binary text, malformed DOCX and invalid UTF-8", async () => {
+it("decodes text exports from Notepad and Excel in their native encodings", async () => {
+  const signal = new AbortController().signal;
+  const utf8Bom = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from("cat,mèo")]);
+  const utf16le = Buffer.concat([
+    Buffer.from([0xff, 0xfe]),
+    Buffer.from("cat\tmèo\n北京", "utf16le"),
+  ]);
+  const utf16be = Buffer.from(
+    Buffer.concat([Buffer.from([0xfe, 0xff]), Buffer.from("dog - chó", "utf16le").swap16()]),
+  );
+  // "mèo" in Windows-1258, as Excel writes CSV on Vietnamese Windows.
+  const cp1258 = Buffer.from([0x63, 0x61, 0x74, 0x2c, 0x6d, 0xe8, 0x6f]);
+  expect((await extractDocument(utf8Bom, "a.csv", "text/csv", signal)).text).toBe("cat,mèo");
+  expect((await extractDocument(utf16le, "a.txt", "text/plain", signal)).text).toBe(
+    "cat\tmèo\n北京",
+  );
+  expect((await extractDocument(utf16be, "a.md", "text/markdown", signal)).text).toBe("dog - chó");
+  expect((await extractDocument(cp1258, "a.csv", "application/vnd.ms-excel", signal)).text).toBe(
+    "cat,mèo",
+  );
+});
+it("rejects spoofed files, binary text and malformed DOCX", async () => {
   expect(() => validateMagic(Buffer.from("exe"), "document.pdf", "application/pdf")).toThrow();
   expect(() => validateMagic(Buffer.from([0, 1, 2]), "a.txt", "text/plain")).toThrow();
   await expect(
-    extractDocument(Buffer.from([0xff]), "a.txt", "text/plain", new AbortController().signal),
+    extractDocument(
+      Buffer.from([0x01, 0x02, 0xff]),
+      "a.txt",
+      "text/plain",
+      new AbortController().signal,
+    ),
   ).rejects.toMatchObject({ code: "INVALID_FILE" });
   await expect(
     extractDocument(

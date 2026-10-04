@@ -7,7 +7,8 @@
     "cards": "{count, plural, other {# thẻ}}",
     "speak": "Phát âm",
     "skipToContent": "Bỏ qua tới nội dung chính",
-    "counter": "{current} / {total}"
+    "counter": "{current} / {total}",
+    "loading": "Đang tải…"
   },
   "errors": {
     "AI_UNAVAILABLE": "Tính năng AI chưa sẵn sàng. Vui lòng liên hệ quản trị viên để kiểm tra cấu hình.",

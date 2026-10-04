@@ -2,11 +2,12 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState, type ReactNode } from "react";
 import { Logo } from "@/components/ui/misc";
 import { safeNextPath } from "@/lib/safe-redirect";
 import type { User } from "@/lib/types";
-import { useSession } from "../hooks";
+import { sessionKey, useSession } from "../hooks";
 
 function FullPageLoader() {
   const t = useTranslations("guard");
@@ -22,8 +23,27 @@ function FullPageLoader() {
   );
 }
 
-/** Client-side guard for Phase 1 (session lives in localStorage). Phase 2 moves this to the server. */
-export function AuthGuard({ children }: { children: (user: User) => ReactNode }) {
+/** Seeds the session query with the user the server layout already verified (skips a `/me` fetch). */
+function useServerSession(initialUser: User | null | undefined) {
+  const queryClient = useQueryClient();
+  useState(() => {
+    if (initialUser && queryClient.getQueryData(sessionKey) === undefined)
+      queryClient.setQueryData<User | null>(sessionKey, initialUser);
+  });
+}
+
+/**
+ * Client-side guard. In HTTP mode the server layout has already checked the session and passes
+ * `initialUser`, so this renders immediately; in local mode the session lives in localStorage.
+ */
+export function AuthGuard({
+  children,
+  initialUser,
+}: {
+  children: (user: User) => ReactNode;
+  initialUser?: User | null;
+}) {
+  useServerSession(initialUser);
   const { data: user, isPending } = useSession();
   const router = useRouter();
   const pathname = usePathname();

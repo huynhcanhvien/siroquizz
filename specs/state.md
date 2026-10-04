@@ -3,7 +3,7 @@
 > File này ghi lại **đã làm gì, đang làm dở gì, làm tiếp thế nào** để bất kỳ ai (người hoặc agent) cũng có thể tiếp tục.
 > Thời gian theo giờ Việt Nam (UTC+7). Mục mới nhất ở trên cùng của phần Nhật ký.
 
-**Cập nhật lần cuối:** 2026-10-04 19:37 +07
+**Cập nhật lần cuối:** 2026-10-04 21:10 +07
 **Phase hiện tại:** Phase 2–3 hoàn tất local (Groq live pass). Đã thêm hạ tầng **deploy Vercel free + chia nhỏ job AI (resumable step)**, đang chờ nghiệm thu production. Phase 4 (SRS) vẫn đang dở. Google OAuth/R2/Resend production còn chờ credentials.
 **Tình trạng:** Người dùng yêu cầu hoàn thành toàn bộ Phase 2–6 và cập nhật state khi từng phase xong. Không coi credentials, deployment hay beta bên ngoài đã hoàn tất nếu chưa thực hiện.
 
@@ -45,6 +45,18 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 **Bước tiếp theo:** Phase 4: learn-engine7cards/round, FSRS, due queue/new limits/preferences, stars, study sessions/stats/goals/streak/reminders/images. `ts-fsrs@5.4.2` đã cài, @types/node lên22 cho Vitest. Dataviz skill không có trong catalog/filesystem; dùng chart accessible theo design tokens và bảng thay thế. Sau P4 tiếp tục P5–6.
 
 ## Nhật ký
+
+### 2026-10-04 21:10 +07: 🔧 Nhánh `perf/optimize-load`: tối ưu tốc độ + sửa AI trên Vercel (chưa merge production)
+
+- **Tốc độ (nguyên nhân chính):** function mặc định chạy `iad1` (Mỹ) trong khi Neon ở Singapore → `vercel.json` thêm `regions: ["sin1"]`. Better Auth bật `cookieCache` 5 phút ([auth.ts](../src/server/auth.ts)); `getSessionContext` ([api.ts](../src/server/api.ts)) đọc user từ cookie ký thay vì 3 query DB/request, forward `Set-Cookie` refresh về trình duyệt, `refreshSession()` sau khi seed/đổi profile/xóa tài khoản. Thêm field `samplesSeeded` vào session → `GET /me` không còn mở transaction `FOR UPDATE` mỗi lần.
+- **Bỏ waterfall:** layout server truyền user xuống `AuthGuard` (`initialUser`) → không còn loader toàn màn + gọi lại `/me`; seed bộ mẫu ngay trên server; `requirePageSession` dùng `cache()`. Thêm `loading.tsx`/`error.tsx` cho `(app)` và `(study)` (Next 16 dùng prop `retry`).
+- **Query:** `updateSet` 1 câu upsert thay vì UPDATE từng thẻ; `statsOverview`/`activityStats`/`dueCards` chạy song song (`Promise.all`); `getPreferences` đọc trước, chỉ insert khi chưa có. Ảnh thẻ `Cache-Control: private, max-age=1y, immutable` (id mới mỗi lần upload). 4 game tách chunk bằng `next/dynamic`.
+- **AI hỏng trên production — đã sửa 3 lỗi code:** (1) presigned PUT của AWS SDK mới tự gắn `x-amz-checksum-crc32` của body rỗng → Supabase/R2 từ chối mọi upload; S3Client đặt `requestChecksumCalculation/responseChecksumValidation: "WHEN_REQUIRED"` + test `ai-storage-s3.test.ts`. (2) `pdf.worker.mjs` không được file-trace vào function → PDF lỗi "fake worker" trên Vercel; `openPdf()` import tĩnh worker và đăng ký `globalThis.pdfjsWorker` (đã xác nhận có trong `.nft.json`). (3) Preview URL bị 403 vì `checkOrigin`/`trustedOrigins` chỉ nhận `BETTER_AUTH_URL`; giờ nhận thêm `VERCEL_URL`/`VERCEL_BRANCH_URL` khi `VERCEL_ENV=preview`, link email trỏ về branch URL.
+- **Hỗ trợ đủ định dạng FE quảng cáo:** TXT/MD/CSV giải mã UTF-8 BOM, UTF-16 LE/BE (Notepad/Excel "Unicode"), fallback Windows-1258 (Excel CSV tiếng Việt), vẫn chặn dữ liệu nhị phân; ảnh xoay theo EXIF trước OCR. Upload lên storage lỗi → báo `STORAGE_UNAVAILABLE` thay vì "file không hợp lệ".
+- **Cấu hình cần user kiểm tra trên Vercel:** template `.env.production.local` có `GROQ_LLM_API` rỗng → nếu Vercel cũng rỗng, AI luôn trả `AI_UNAVAILABLE`. Các biến phải tick cả scope **Preview** (nên dùng Neon branch riêng cho Preview).
+- **Kiểm tra:** typecheck/lint 0 lỗi; **380 unit pass** (thêm test origin, generator), **50 integration pass**; build webpack pass. **E2E Chrome 28 pass** + chạy lại bộ AI 5/5 pass gồm **live Groq** (`E2E_AI_LIVE=1`). Lưu ý chạy E2E local: `.env.production.local` (template prod) đè `.env.local` khi `next start` → phải tạm cất file đó; `.env.local` có `RESEND_API_KEY` → chạy với `RESEND_API_KEY=` để mail về Mailpit.
+- **Đánh đổi đã được user đồng ý:** thu hồi session ở thiết bị khác trễ tối đa 5 phút do cookie cache.
+- **Chưa làm (follow-up):** prefetch dữ liệu trang trên server bằng `HydrationBoundary`; gộp N+1 progress ở Home (3 request song song); giảm weight font.
 
 ### 2026-10-04 19:37 +07: ✅ Hạ tầng deploy Vercel free + chia nhỏ xử lý AI (resumable)
 

@@ -5,7 +5,7 @@ import { learningApi } from "@/server/learning-api";
 import { api, readJson } from "@/server/api";
 import { ApiError } from "@/server/api-error";
 import { getDatabase } from "@/server/db/client";
-import { account, session, user } from "@/server/db/schema";
+import { account, session as sessionTable, user } from "@/server/db/schema";
 import {
   createSetInTransaction,
   getSet,
@@ -30,7 +30,7 @@ import { ensureSampleSets } from "@/server/services/seed";
 export const runtime = "nodejs";
 type Context = { params: Promise<{ path: string[] }> };
 async function handle(request: Request, context: Context) {
-  return api(request, async (current) => {
+  return api(request, async (current, session) => {
     const { path } = await context.params;
     const [domain, id, sub] = path;
     const method = request.method;
@@ -41,7 +41,10 @@ async function handle(request: Request, context: Context) {
     if (learning) return learning;
     if (domain === "me" && path.length === 1) {
       if (method === "GET") {
-        await ensureSampleSets(db, current.id, current.uiLocale);
+        if (!session.samplesSeeded) {
+          await ensureSampleSets(db, current.id, current.uiLocale);
+          session.refreshSession();
+        }
         return { data: current };
       }
       if (method === "PATCH") {
@@ -56,6 +59,7 @@ async function handle(request: Request, context: Context) {
           })
           .where(eq(user.id, current.id))
           .returning();
+        session.refreshSession();
         return {
           data: {
             ...current,
@@ -93,8 +97,9 @@ async function handle(request: Request, context: Context) {
             .update(user)
             .set({ deletedAt: new Date(), updatedAt: new Date() })
             .where(eq(user.id, current.id));
-          await tx.delete(session).where(eq(session.userId, current.id));
+          await tx.delete(sessionTable).where(eq(sessionTable.userId, current.id));
         });
+        session.refreshSession();
         return { data: null };
       }
     }

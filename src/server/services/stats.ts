@@ -12,16 +12,23 @@ import {
   streakFreezes,
 } from "../db/schema";
 import { getPreferences } from "./learning";
-export async function activityStats(db: Database, userId: string, from: string, to: string) {
+type Preferences = Awaited<ReturnType<typeof getPreferences>>;
+export async function activityStats(
+  db: Database,
+  userId: string,
+  from: string,
+  to: string,
+  knownPrefs?: Preferences,
+) {
   z.iso.date().parse(from);
   z.iso.date().parse(to);
   if (from > to || (new Date(to).getTime() - new Date(from).getTime()) / 86400000 > 366)
     throw new z.ZodError([]);
-  const prefs = await getPreferences(db, userId),
+  const prefs = knownPrefs ?? (await getPreferences(db, userId)),
     start = dayStart(from, prefs.timeZone),
     end = dayStart(shiftDay(to, 1), prefs.timeZone);
   const reviewDay = sql<string>`to_char(timezone(${prefs.timeZone},${reviewLogs.reviewedAt}),'YYYY-MM-DD')`;
-  const reviews = await db
+  const reviewsQuery = db
     .select({
       day: reviewDay,
       count: sql<number>`count(*)::int`,
@@ -39,7 +46,7 @@ export async function activityStats(db: Database, userId: string, from: string, 
     )
     .groupBy(reviewDay);
   const sessionDay = sql<string>`to_char(timezone(${prefs.timeZone},${studySessions.startedAt}),'YYYY-MM-DD')`;
-  const sessions = await db
+  const sessionsQuery = db
     .select({
       day: sessionDay,
       cards: sql<number>`coalesce(sum(${studySessions.cardsSeen}),0)::int`,
@@ -55,6 +62,8 @@ export async function activityStats(db: Database, userId: string, from: string, 
       ),
     )
     .groupBy(sessionDay);
+  // Independent reads: issued together so they pipeline instead of paying one round trip each.
+  const [reviews, sessions] = await Promise.all([reviewsQuery, sessionsQuery]);
   const reviewByDay = new Map(reviews.map((row) => [row.day, row])),
     sessionByDay = new Map(sessions.map((row) => [row.day, row]));
   const days = [];
@@ -77,59 +86,62 @@ export async function activityStats(db: Database, userId: string, from: string, 
 export async function statsOverview(db: Database, userId: string, now = new Date()) {
   const prefs = await getPreferences(db, userId),
     today = dayKey(now, prefs.timeZone);
-  const activity = await activityStats(db, userId, shiftDay(today, -364), today);
-  const freezes = await db.select().from(streakFreezes).where(eq(streakFreezes.userId, userId));
+  const dueDay = sql<string>`to_char(timezone(${prefs.timeZone},${cardProgress.due}),'YYYY-MM-DD')`;
+  // Everything below depends only on prefs, so the reads go out together and pipeline.
+  const [activity, freezes, [known], tests, dueRows, learnedRows] = await Promise.all([
+    activityStats(db, userId, shiftDay(today, -364), today, prefs),
+    db.select().from(streakFreezes).where(eq(streakFreezes.userId, userId)),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(cardProgress)
+      .innerJoin(studySets, eq(studySets.id, cardProgress.setId))
+      .where(
+        and(
+          eq(cardProgress.userId, userId),
+          eq(cardProgress.status, "known"),
+          isNull(studySets.deletedAt),
+        ),
+      ),
+    db
+      .select({
+        setId: studySets.id,
+        title: studySets.title,
+        score: sql<number>`sum(${testResults.score})::int`,
+        total: sql<number>`sum(${testResults.total})::int`,
+      })
+      .from(testResults)
+      .innerJoin(studySets, eq(studySets.id, testResults.setId))
+      .where(and(eq(testResults.userId, userId), isNull(studySets.deletedAt)))
+      .groupBy(studySets.id, studySets.title)
+      .limit(1000),
+    db
+      .select({ day: dueDay, count: sql<number>`count(*)::int` })
+      .from(cardProgress)
+      .innerJoin(studySets, eq(studySets.id, cardProgress.setId))
+      .where(
+        and(
+          eq(cardProgress.userId, userId),
+          gt(cardProgress.reps, 0),
+          isNull(studySets.deletedAt),
+          gte(cardProgress.due, dayStart(today, prefs.timeZone)),
+          lte(cardProgress.due, dayStart(shiftDay(today, 7), prefs.timeZone)),
+        ),
+      )
+      .groupBy(dueDay),
+    // First known review per card, aggregated by day, gives an "ever learned" timeline without double counting reviews.
+    db.execute(
+      sql`select to_char(timezone(${prefs.timeZone}, first_review),'YYYY-MM-DD') as day, count(*)::int as count from (select min(reviewed_at) as first_review from review_logs r inner join study_sets s on s.id=r.set_id where r.user_id=${userId} and r.rating>=3 and s.deleted_at is null group by r.card_id) t group by day order by day`,
+    ),
+  ]);
   const streak = computeStreak(
     activity.filter((d) => d.goalMet).map((d) => d.day),
     today,
     freezes.map((f) => f.day),
   );
-  const [known] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(cardProgress)
-    .innerJoin(studySets, eq(studySets.id, cardProgress.setId))
-    .where(
-      and(
-        eq(cardProgress.userId, userId),
-        eq(cardProgress.status, "known"),
-        isNull(studySets.deletedAt),
-      ),
-    );
-  const tests = await db
-    .select({
-      setId: studySets.id,
-      title: studySets.title,
-      score: sql<number>`sum(${testResults.score})::int`,
-      total: sql<number>`sum(${testResults.total})::int`,
-    })
-    .from(testResults)
-    .innerJoin(studySets, eq(studySets.id, testResults.setId))
-    .where(and(eq(testResults.userId, userId), isNull(studySets.deletedAt)))
-    .groupBy(studySets.id, studySets.title)
-    .limit(1000);
-  const dueDay = sql<string>`to_char(timezone(${prefs.timeZone},${cardProgress.due}),'YYYY-MM-DD')`;
-  const dueRows = await db
-    .select({ day: dueDay, count: sql<number>`count(*)::int` })
-    .from(cardProgress)
-    .innerJoin(studySets, eq(studySets.id, cardProgress.setId))
-    .where(
-      and(
-        eq(cardProgress.userId, userId),
-        gt(cardProgress.reps, 0),
-        isNull(studySets.deletedAt),
-        gte(cardProgress.due, dayStart(today, prefs.timeZone)),
-        lte(cardProgress.due, dayStart(shiftDay(today, 7), prefs.timeZone)),
-      ),
-    )
-    .groupBy(dueDay);
   const forecast = Array.from({ length: 7 }, (_, i) => {
     const day = shiftDay(today, i);
     return { day, count: dueRows.find((r) => r.day === day)?.count ?? 0 };
   });
-  // First known review per card, aggregated by day, gives an "ever learned" timeline without double counting reviews.
-  const learnedRows = await db.execute(
-    sql`select to_char(timezone(${prefs.timeZone}, first_review),'YYYY-MM-DD') as day, count(*)::int as count from (select min(reviewed_at) as first_review from review_logs r inner join study_sets s on s.id=r.set_id where r.user_id=${userId} and r.rating>=3 and s.deleted_at is null group by r.card_id) t group by day order by day`,
-  );
   let learned = learnedRows
     .filter((row) => String(row.day) < activity[0].day)
     .reduce((n, row) => n + Number(row.count), 0);

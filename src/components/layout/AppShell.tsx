@@ -5,10 +5,17 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import { SideNav } from "@/components/layout/SideNav";
 import { AuthGuard } from "@/features/auth/components/AuthGuard";
 import { LocalImportBanner } from "@/features/auth/components/LocalImportBanner";
+import type { User } from "@/lib/types";
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  initialUser,
+}: {
+  children: ReactNode;
+  initialUser?: User | null;
+}) {
   return (
-    <AuthGuard>
+    <AuthGuard initialUser={initialUser}>
       {(user) => (
         <div className="flex min-h-dvh flex-col">
           <AppHeader user={user} />

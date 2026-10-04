@@ -35,9 +35,34 @@ export function validateMagic(bytes: Buffer, name: string, mime: string) {
                   "text/csv",
                   "application/vnd.ms-excel",
                 ].includes(mime) &&
-                !bytes.includes(0);
+                (utf16Encoding(bytes) !== null || !bytes.includes(0));
   if (!valid || !bytes.length) throw new ApiError(400, "INVALID_FILE");
   return ext!;
+}
+function utf16Encoding(bytes: Buffer): "utf-16le" | "utf-16be" | null {
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) return "utf-16le";
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) return "utf-16be";
+  return null;
+}
+// Control characters other than tab/newline/carriage return mean the "text" is really binary.
+const BINARY_CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/;
+/**
+ * Text exports come in whatever encoding the tool used: UTF-8 (with or without BOM), UTF-16 from
+ * Notepad "Unicode" / Excel "Unicode Text", or Windows-1258 from Excel CSV on Vietnamese Windows.
+ */
+export function decodeText(bytes: Buffer): string {
+  const utf16 = utf16Encoding(bytes);
+  let text: string;
+  if (utf16) text = new TextDecoder(utf16).decode(bytes.subarray(2));
+  else {
+    try {
+      text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(bytes);
+    } catch {
+      text = new TextDecoder("windows-1258").decode(bytes);
+    }
+  }
+  if (BINARY_CONTROL.test(text)) throw new ApiError(400, "INVALID_FILE");
+  return text;
 }
 function checkDocx(bytes: Buffer) {
   return new Promise<void>((resolve, reject) => {
@@ -72,6 +97,8 @@ function checkDocx(bytes: Buffer) {
 }
 async function ocr(bytes: Buffer, signal: AbortSignal) {
   const image = await sharp(bytes, { limitInputPixels: 40_000_000 })
+    // Phone photos store orientation in EXIF; OCR needs the pixels upright.
+    .rotate()
     .resize({ width: 1800, height: 1800, fit: "inside", withoutEnlargement: true })
     .jpeg({ quality: 85 })
     .toBuffer();
@@ -101,11 +128,7 @@ export async function extractDocument(
     usage.cost += u.cost;
   };
   if (["txt", "md", "csv"].includes(ext)) {
-    try {
-      text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-    } catch {
-      throw new ApiError(400, "INVALID_FILE");
-    }
+    text = decodeText(bytes);
   } else if (ext === "docx") {
     await checkDocx(bytes);
     text = (await mammoth.extractRawText({ buffer: bytes })).value;
@@ -136,19 +159,7 @@ export async function extractPdfPages(
   maxPages: number,
   signal: AbortSignal,
 ): Promise<{ text: string; nextPage: number; totalPages: number; usage: Usage }> {
-  const canvas = await import("@napi-rs/canvas");
-  // PDF.js needs these web primitives on Node, even for text-only extraction.
-  Object.assign(globalThis, {
-    DOMMatrix: canvas.DOMMatrix,
-    Path2D: canvas.Path2D,
-    ImageData: canvas.ImageData,
-  });
-  const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const loading = getDocument({
-    data: new Uint8Array(bytes),
-    useSystemFonts: true,
-    disableFontFace: true,
-  });
+  const { canvas, loading } = await openPdf(bytes);
   const pdf = await loading.promise;
   const usage = emptyUsage();
   const add = (u: Usage) => {
@@ -192,20 +203,30 @@ export async function extractPdfPages(
   }
 }
 
-/** Inspect page counts before any OCR/provider call across a multi-file job. */
-export async function countPdfPages(bytes: Buffer) {
+async function openPdf(bytes: Buffer) {
   const canvas = await import("@napi-rs/canvas");
+  // PDF.js needs these web primitives on Node, even for text-only extraction.
   Object.assign(globalThis, {
     DOMMatrix: canvas.DOMMatrix,
     Path2D: canvas.Path2D,
     ImageData: canvas.ImageData,
   });
+  // Without a worker PDF.js imports "./pdf.worker.mjs" by a computed path, which serverless file
+  // tracing cannot see, so deployed functions fail with "Setting up fake worker failed". A static
+  // import ships the file, and registering it lets PDF.js run the worker in-process.
+  const worker = await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
+  (globalThis as { pdfjsWorker?: unknown }).pdfjsWorker ??= worker;
   const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const loading = getDocument({
     data: new Uint8Array(bytes),
     useSystemFonts: true,
     disableFontFace: true,
   });
+  return { canvas, loading };
+}
+/** Inspect page counts before any OCR/provider call across a multi-file job. */
+export async function countPdfPages(bytes: Buffer) {
+  const { loading } = await openPdf(bytes);
   try {
     return (await loading.promise).numPages;
   } finally {

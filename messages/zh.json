@@ -7,7 +7,8 @@
     "cards": "{count, plural, other {# 张卡片}}",
     "speak": "发音",
     "skipToContent": "跳到主要内容",
-    "counter": "{current} / {total}"
+    "counter": "{current} / {total}",
+    "loading": "加载中…"
   },
   "errors": {
     "AI_UNAVAILABLE": "AI 暂不可用。请联系管理员检查配置。",

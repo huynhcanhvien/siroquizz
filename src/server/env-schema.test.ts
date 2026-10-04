@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseServerEnv } from "./env-schema";
+import { authBaseUrl, parseServerEnv, trustedOrigins } from "./env-schema";
 
 const httpEnv = {
   NEXT_PUBLIC_DATA_SOURCE: "http",
@@ -85,5 +85,30 @@ describe("server environment", () => {
     expect(() => parseServerEnv({ ...production, BETTER_AUTH_URL: "http://example.com" })).toThrow(
       "BETTER_AUTH_URL",
     );
+  });
+  it("trusts only BETTER_AUTH_URL outside Vercel previews", () => {
+    const env = parseServerEnv({
+      ...httpEnv,
+      BETTER_AUTH_URL: "https://www.example.com/app",
+      VERCEL_ENV: "production",
+      VERCEL_URL: "siro-abc.vercel.app",
+    });
+    expect(trustedOrigins(env)).toEqual(["https://www.example.com"]);
+    expect(authBaseUrl(env)).toBe("https://www.example.com/app");
+  });
+  it("trusts a preview deployment's own hosts and points auth links at the branch URL", () => {
+    const env = parseServerEnv({
+      ...httpEnv,
+      BETTER_AUTH_URL: "https://www.example.com",
+      VERCEL_ENV: "preview",
+      VERCEL_URL: "siro-abc123.vercel.app",
+      VERCEL_BRANCH_URL: "siro-git-perf.vercel.app",
+    });
+    expect(trustedOrigins(env)).toEqual([
+      "https://www.example.com",
+      "https://siro-git-perf.vercel.app",
+      "https://siro-abc123.vercel.app",
+    ]);
+    expect(authBaseUrl(env)).toBe("https://siro-git-perf.vercel.app");
   });
 });

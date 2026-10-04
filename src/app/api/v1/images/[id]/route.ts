@@ -18,7 +18,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     return new Response(new Uint8Array(await getUpload(image.key, image.size, request.signal)), {
       headers: {
         "Content-Type": "image/webp",
-        "Cache-Control": "private, no-store",
+        // Each upload gets a fresh id, so the bytes behind a URL never change.
+        "Cache-Control": "private, max-age=31536000, immutable",
         "X-Content-Type-Options": "nosniff",
       },
     });

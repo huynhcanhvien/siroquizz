@@ -1,6 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "pnpm build",
+  "regions": [
+    "sin1"
+  ],
   "crons": [
     {
       "path": "/api/cron/cleanup",

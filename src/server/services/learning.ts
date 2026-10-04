@@ -23,11 +23,15 @@ import {
 import { requireOwnedSet, type Transaction, type Db } from "./sets";
 
 export async function getPreferences(db: Db, userId: string) {
+  const read = () => db.select().from(userPreferences).where(eq(userPreferences.userId, userId));
+  // Read first: the row almost always exists, so the default-row write is a one-time cost.
+  const [existing] = await read();
+  if (existing) return preferencesSchema.parse(existing);
   await db
     .insert(userPreferences)
     .values({ userId, ...preferenceDefaults })
     .onConflictDoNothing();
-  const [row] = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId));
+  const [row] = await read();
   return preferencesSchema.parse(row);
 }
 export async function savePreferences(db: Database, userId: string, input: unknown) {
@@ -169,23 +173,25 @@ export async function dueCards(
   starred = false,
 ) {
   z.number().int().min(1).max(200).parse(limit);
-  const { remaining } = await newAllowance(db, userId, now);
   const starFilter = starred
     ? sql`exists(select 1 from card_stars where card_stars.user_id=${userId} and card_stars.card_id=${cards.id})`
     : undefined;
   const base = and(eq(studySets.ownerId, userId), isNull(studySets.deletedAt));
-  const [count] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(cardProgress)
-    .innerJoin(studySets, eq(studySets.id, cardProgress.setId))
-    .where(
-      and(
-        base,
-        eq(cardProgress.userId, userId),
-        gt(cardProgress.reps, 0),
-        lte(cardProgress.due, now),
+  const [{ remaining }, [count]] = await Promise.all([
+    newAllowance(db, userId, now),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(cardProgress)
+      .innerJoin(studySets, eq(studySets.id, cardProgress.setId))
+      .where(
+        and(
+          base,
+          eq(cardProgress.userId, userId),
+          gt(cardProgress.reps, 0),
+          lte(cardProgress.due, now),
+        ),
       ),
-    );
+  ]);
   const rows = await db
     .select({
       id: cards.id,
