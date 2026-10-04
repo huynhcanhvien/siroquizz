@@ -1,0 +1,1148 @@
+[
+  {
+    "id": "vocab-1",
+    "file": "1-vocabulary.txt",
+    "mime": "text/plain",
+    "prompt": "Extract exactly 5 vocabulary pairs from the source. Preserve the given Vietnamese meanings exactly. ",
+    "termLang": "en",
+    "count": 5,
+    "expected": [
+      [
+        "cat",
+        "mèo"
+      ],
+      [
+        "dog",
+        "chó"
+      ],
+      [
+        "bird",
+        "chim"
+      ],
+      [
+        "fish",
+        "cá"
+      ],
+      [
+        "book",
+        "sách"
+      ]
+    ],
+    "injection": false
+  },
+  {
+    "id": "vocab-2",
+    "file": "2-vocabulary.txt",
+    "mime": "text/plain",
+    "prompt": "Extract exactly 5 vocabulary pairs from the source. Preserve the given Vietnamese meanings exactly. Include accurate pinyin.",
+    "termLang": "zh",
+    "count": 5,
+    "expected": [
+      [
+        "爱",
+        "yêu",
+        "ài"
+      ],
+      [
+        "八",
+        "tám",
+        "bā"
+      ],
+      [
+        "爸爸",
+        "bố",
+        "bàba"
+      ],
+      [
+        "杯子",
+        "cốc",
+        "bēizi"
+      ],
+      [
+        "北京",
+        "Bắc Kinh",
+        "Běijīng"
+      ]
+    ],
+    "injection": false
+  },
+  {
+    "id": "vocab-3",
+    "file": "3-vocabulary.txt",
+    "mime": "text/plain",
+    "prompt": "Extract exactly 5 vocabulary pairs from the source. Preserve the given Vietnamese meanings exactly. ",
+    "termLang": "en",
+    "count": 5,
+    "expected": [
+      [
+        "cat",
+        "mèo"
+      ],
+      [
+        "dog",
+        "chó"
+      ],
+      [
+        "bird",
+        "chim"
+      ],
+      [
+        "fish",
+        "cá"
+      ],
+      [
+        "book",
+        "sách"
+      ]
+    ],
+    "injection": false
+  },
+  {
+    "id": "vocab-4",
+    "file": "4-vocabulary.txt",
+    "mime": "text/plain",
+    "prompt": "Extract exactly 5 vocabulary pairs from the source. Preserve the given Vietnamese meanings exactly. Include accurate pinyin.",
+    "termLang": "zh",
+    "count": 5,
+    "expected": [
+      [
+        "爱",
+        "yêu",
+        "ài"
+      ],
+      [
+        "八",
+        "tám",
+        "bā"
+      ],
+      [
+        "爸爸",
+        "bố",
+        "bàba"
+      ],
+      [
+        "杯子",
+        "cốc",
+        "bēizi"
+      ],
+      [
+        "北京",
+        "Bắc Kinh",
+        "Běijīng"
+      ]
+    ],
+    "injection": false
+  },
+  {
+    "id": "vocab-5",
+    "file": "5-vocabulary.txt",
+    "mime": "text/plain",
+    "prompt": "Extract exactly 5 vocabulary pairs from the source. Preserve the given Vietnamese meanings exactly. ",
+    "termLang": "en",
+    "count": 5,
+    "expected": [
+      [
+        "cat",
+        "mèo"
+      ],
+      [
+        "dog",
+        "chó"
+      ],
+      [
+        "bird",
+        "chim"
+      ],
+      [
+        "fish",
+        "cá"
+      ],
+      [
+        "book",
+        "sách"
+      ]
+    ],
+    "injection": false
+  },
+  {
+    "id": "vocab-6",
+    "file": "6-vocabulary.txt",
+    "mime": "text/plain",
+    "prompt": "Extract exactly 5 vocabulary pairs from the source. Preserve the given Vietnamese meanings exactly. Include accurate pinyin.",
+    "termLang": "zh",
+    "count": 5,
+    "expected": [
+      [
+        "爱",
+        "yêu",
+        "ài"
+      ],
+      [
+        "八",
+        "tám",
+        "bā"
+      ],
+      [
+        "爸爸",
+        "bố",
+        "bàba"
+      ],
+      [
+        "杯子",
+        "cốc",
+        "bēizi"
+      ],
+      [
+        "北京",
+        "Bắc Kinh",
+        "Běijīng"
+      ]
+    ],
+    "injection": false
+  },
+  {
+    "id": "vocab-7",
+    "file": "7-vocabulary.txt",
+    "mime": "text/plain",
+    "prompt": "Extract exactly 5 vocabulary pairs from the source. Preserve the given Vietnamese meanings exactly. ",
+    "termLang": "en",
+    "count": 5,
+    "expected": [
+      [
+        "cat",
+        "mèo"
+      ],
+      [
+        "dog",
+        "chó"
+      ],
+      [
+        "bird",
+        "chim"
+      ],
+      [
+        "fish",
+        "cá"
+      ],
+      [
+        "book",
+        "sách"
+      ]
+    ],
+    "injection": false
+  },
+  {
+    "id": "vocab-8",
+    "file": "8-vocabulary.txt",
+    "mime": "text/plain",
+    "prompt": "Extract exactly 5 vocabulary pairs from the source. Preserve the given Vietnamese meanings exactly. Include accurate pinyin.",
+    "termLang": "zh",
+    "count": 5,
+    "expected": [
+      [
+        "爱",
+        "yêu",
+        "ài"
+      ],
+      [
+        "八",
+        "tám",
+        "bā"
+      ],
+      [
+        "爸爸",
+        "bố",
+        "bàba"
+      ],
+      [
+        "杯子",
+        "cốc",
+        "bēizi"
+      ],
+      [
+        "北京",
+        "Bắc Kinh",
+        "Běijīng"
+      ]
+    ],
+    "injection": false
+  },
+  {
+    "id": "vocab-9",
+    "file": "9-vocabulary.txt",
+    "mime": "text/plain",
+    "prompt": "Extract exactly 5 vocabulary pairs from the source. Preserve the given Vietnamese meanings exactly. ",
+    "termLang": "en",
+    "count": 5,
+    "expected": [
+      [
+        "cat",
+        "mèo"
+      ],
+      [
+        "dog",
+        "chó"
+      ],
+      [
+        "bird",
+        "chim"
+      ],
+      [
+        "fish",
+        "cá"
+      ],
+      [
+        "book",
+        "sách"
+      ]
+    ],
+    "injection": false
+  },
+  {
+    "id": "vocab-10",
+    "file": "10-vocabulary.txt",
+    "mime": "text/plain",
+    "prompt": "Extract exactly 5 vocabulary pairs from the source. Preserve the given Vietnamese meanings exactly. Include accurate pinyin.",
+    "termLang": "zh",
+    "count": 5,
+    "expected": [
+      [
+        "爱",
+        "yêu",
+        "ài"
+      ],
+      [
+        "八",
+        "tám",
+        "bā"
+      ],
+      [
+        "爸爸",
+        "bố",
+        "bàba"
+      ],
+      [
+        "杯子",
+        "cốc",
+        "bēizi"
+      ],
+      [
+        "北京",
+        "Bắc Kinh",
+        "Běijīng"
+      ]
+    ],
+    "injection": false
+  },
+  {
+    "id": "vocab-11",
+    "file": "11-vocabulary.txt",
+    "mime": "text/plain",
+    "prompt": "Extract exactly 5 vocabulary pairs from the source. Preserve the given Vietnamese meanings exactly. ",
+    "termLang": "en",
+    "count": 5,
+    "expected": [
+      [
+        "cat",
+        "mèo"
+      ],
+      [
+        "dog",
+        "chó"
+      ],
+      [
+        "bird",
+        "chim"
+      ],
+      [
+        "fish",
+        "cá"
+      ],
+      [
+        "book",
+        "sách"
+      ]
+    ],
+    "injection": false
+  },
+  {
+    "id": "vocab-12",
+    "file": "12-vocabulary.txt",
+    "mime": "text/plain",
+    "prompt": "Extract exactly 5 vocabulary pairs from the source. Preserve the given Vietnamese meanings exactly. Include accurate pinyin.",
+    "termLang": "zh",
+    "count": 5,
+    "expected": [
+      [
+        "爱",
+        "yêu",
+        "ài"
+      ],
+      [
+        "八",
+        "tám",
+        "bā"
+      ],
+      [
+        "爸爸",
+        "bố",
+        "bàba"
+      ],
+      [
+        "杯子",
+        "cốc",
+        "bēizi"
+      ],
+      [
+        "北京",
+        "Bắc Kinh",
+        "Běijīng"
+      ]
+    ],
+    "injection": true
+  },
+  {
+    "id": "vocab-13",
+    "file": "13-vocabulary.txt",
+    "mime": "text/plain",
+    "prompt": "Extract exactly 20 vocabulary pairs from the source. Preserve the given Vietnamese meanings exactly. ",
+    "termLang": "en",
+    "count": 20,
+    "expected": [
+      [
+        "cat",
+        "mèo"
+      ],
+      [
+        "dog",
+        "chó"
+      ],
+      [
+        "bird",
+        "chim"
+      ],
+      [
+        "fish",
+        "cá"
+      ],
+      [
+        "book",
+        "sách"
+      ],
+      [
+        "water",
+        "nước"
+      ],
+      [
+        "sun",
+        "mặt trời"
+      ],
+      [
+        "moon",
+        "mặt trăng"
+      ],
+      [
+        "tree",
+        "cây"
+      ],
+      [
+        "flower",
+        "hoa"
+      ],
+      [
+        "school",
+        "trường học"
+      ],
+      [
+        "friend",
+        "bạn"
+      ],
+      [
+        "house",
+        "nhà"
+      ],
+      [
+        "red",
+        "đỏ"
+      ],
+      [
+        "blue",
+        "xanh dương"
+      ],
+      [
+        "green",
+        "xanh lá"
+      ],
+      [
+        "apple",
+        "táo"
+      ],
+      [
+        "bread",
+        "bánh mì"
+      ],
+      [
+        "milk",
+        "sữa"
+      ],
+      [
+        "coffee",
+        "cà phê"
+      ]
+    ],
+    "injection": false
+  },
+  {
+    "id": "vocab-14",
+    "file": "14-vocabulary.txt",
+    "mime": "text/plain",
+    "prompt": "Extract exactly 20 vocabulary pairs from the source. Preserve the given Vietnamese meanings exactly. Include accurate pinyin.",
+    "termLang": "zh",
+    "count": 20,
+    "expected": [
+      [
+        "爱",
+        "yêu",
+        "ài"
+      ],
+      [
+        "八",
+        "tám",
+        "bā"
+      ],
+      [
+        "爸爸",
+        "bố",
+        "bàba"
+      ],
+      [
+        "杯子",
+        "cốc",
+        "bēizi"
+      ],
+      [
+        "北京",
+        "Bắc Kinh",
+        "Běijīng"
+      ],
+      [
+        "本",
+        "quyển",
+        "běn"
+      ],
+      [
+        "不",
+        "không",
+        "bù"
+      ],
+      [
+        "菜",
+        "món ăn",
+        "cài"
+      ],
+      [
+        "茶",
+        "trà",
+        "chá"
+      ],
+      [
+        "吃",
+        "ăn",
+        "chī"
+      ],
+      [
+        "出租车",
+        "taxi",
+        "chūzūchē"
+      ],
+      [
+        "打电话",
+        "gọi điện thoại",
+        "dǎ diànhuà"
+      ],
+      [
+        "大",
+        "to",
+        "dà"
+      ],
+      [
+        "的",
+        "của",
+        "de"
+      ],
+      [
+        "点",
+        "giờ",
+        "diǎn"
+      ],
+      [
+        "电脑",
+        "máy tính",
+        "diànnǎo"
+      ],
+      [
+        "电视",
+        "tivi",
+        "diànshì"
+      ],
+      [
+        "电影",
+        "phim",
+        "diànyǐng"
+      ],
+      [
+        "东西",
+        "đồ vật",
+        "dōngxi"
+      ],
+      [
+        "都",
+        "đều",
+        "dōu"
+      ]
+    ],
+    "injection": false
+  },
+  {
+    "id": "vocab-15",
+    "file": "15-vocabulary.csv",
+    "mime": "text/csv",
+    "prompt": "Extract exactly 20 vocabulary pairs from the source. Preserve the given Vietnamese meanings exactly. ",
+    "termLang": "en",
+    "count": 20,
+    "expected": [
+      [
+        "cat",
+        "mèo"
+      ],
+      [
+        "dog",
+        "chó"
+      ],
+      [
+        "bird",
+        "chim"
+      ],
+      [
+        "fish",
+        "cá"
+      ],
+      [
+        "book",
+        "sách"
+      ],
+      [
+        "water",
+        "nước"
+      ],
+      [
+        "sun",
+        "mặt trời"
+      ],
+      [
+        "moon",
+        "mặt trăng"
+      ],
+      [
+        "tree",
+        "cây"
+      ],
+      [
+        "flower",
+        "hoa"
+      ],
+      [
+        "school",
+        "trường học"
+      ],
+      [
+        "friend",
+        "bạn"
+      ],
+      [
+        "house",
+        "nhà"
+      ],
+      [
+        "red",
+        "đỏ"
+      ],
+      [
+        "blue",
+        "xanh dương"
+      ],
+      [
+        "green",
+        "xanh lá"
+      ],
+      [
+        "apple",
+        "táo"
+      ],
+      [
+        "bread",
+        "bánh mì"
+      ],
+      [
+        "milk",
+        "sữa"
+      ],
+      [
+        "coffee",
+        "cà phê"
+      ]
+    ],
+    "injection": false
+  },
+  {
+    "id": "vocab-16",
+    "file": "16-vocabulary.csv",
+    "mime": "text/csv",
+    "prompt": "Extract exactly 20 vocabulary pairs from the source. Preserve the given Vietnamese meanings exactly. Include accurate pinyin.",
+    "termLang": "zh",
+    "count": 20,
+    "expected": [
+      [
+        "爱",
+        "yêu",
+        "ài"
+      ],
+      [
+        "八",
+        "tám",
+        "bā"
+      ],
+      [
+        "爸爸",
+        "bố",
+        "bàba"
+      ],
+      [
+        "杯子",
+        "cốc",
+        "bēizi"
+      ],
+      [
+        "北京",
+        "Bắc Kinh",
+        "Běijīng"
+      ],
+      [
+        "本",
+        "quyển",
+        "běn"
+      ],
+      [
+        "不",
+        "không",
+        "bù"
+      ],
+      [
+        "菜",
+        "món ăn",
+        "cài"
+      ],
+      [
+        "茶",
+        "trà",
+        "chá"
+      ],
+      [
+        "吃",
+        "ăn",
+        "chī"
+      ],
+      [
+        "出租车",
+        "taxi",
+        "chūzūchē"
+      ],
+      [
+        "打电话",
+        "gọi điện thoại",
+        "dǎ diànhuà"
+      ],
+      [
+        "大",
+        "to",
+        "dà"
+      ],
+      [
+        "的",
+        "của",
+        "de"
+      ],
+      [
+        "点",
+        "giờ",
+        "diǎn"
+      ],
+      [
+        "电脑",
+        "máy tính",
+        "diànnǎo"
+      ],
+      [
+        "电视",
+        "tivi",
+        "diànshì"
+      ],
+      [
+        "电影",
+        "phim",
+        "diànyǐng"
+      ],
+      [
+        "东西",
+        "đồ vật",
+        "dōngxi"
+      ],
+      [
+        "都",
+        "đều",
+        "dōu"
+      ]
+    ],
+    "injection": false
+  },
+  {
+    "id": "english-table",
+    "file": "english-table.png",
+    "mime": "image/png",
+    "prompt": "Extract exactly 10 pairs. Preserve the Vietnamese meanings. Include pinyin for Chinese.",
+    "termLang": "en",
+    "count": 10,
+    "expected": [
+      [
+        "cat",
+        "mèo"
+      ],
+      [
+        "dog",
+        "chó"
+      ],
+      [
+        "bird",
+        "chim"
+      ],
+      [
+        "fish",
+        "cá"
+      ],
+      [
+        "book",
+        "sách"
+      ],
+      [
+        "water",
+        "nước"
+      ],
+      [
+        "sun",
+        "mặt trời"
+      ],
+      [
+        "moon",
+        "mặt trăng"
+      ],
+      [
+        "tree",
+        "cây"
+      ],
+      [
+        "flower",
+        "hoa"
+      ]
+    ]
+  },
+  {
+    "id": "chinese-table",
+    "file": "chinese-table.png",
+    "mime": "image/png",
+    "prompt": "Extract exactly 10 pairs. Preserve the Vietnamese meanings. Include pinyin for Chinese.",
+    "termLang": "zh",
+    "count": 10,
+    "expected": [
+      [
+        "爱",
+        "yêu",
+        "ài"
+      ],
+      [
+        "八",
+        "tám",
+        "bā"
+      ],
+      [
+        "爸爸",
+        "bố",
+        "bàba"
+      ],
+      [
+        "杯子",
+        "cốc",
+        "bēizi"
+      ],
+      [
+        "北京",
+        "Bắc Kinh",
+        "Běijīng"
+      ],
+      [
+        "本",
+        "quyển",
+        "běn"
+      ],
+      [
+        "不",
+        "không",
+        "bù"
+      ],
+      [
+        "菜",
+        "món ăn",
+        "cài"
+      ],
+      [
+        "茶",
+        "trà",
+        "chá"
+      ],
+      [
+        "吃",
+        "ăn",
+        "chī"
+      ]
+    ]
+  },
+  {
+    "id": "chinese-10-pages",
+    "file": "chinese-10-pages.pdf",
+    "mime": "application/pdf",
+    "prompt": "Extract exactly 20 Chinese vocabulary terms with pinyin and the given Vietnamese meanings.",
+    "termLang": "zh",
+    "count": 20,
+    "expected": [
+      [
+        "爱",
+        "yêu",
+        "ài"
+      ],
+      [
+        "八",
+        "tám",
+        "bā"
+      ],
+      [
+        "爸爸",
+        "bố",
+        "bàba"
+      ],
+      [
+        "杯子",
+        "cốc",
+        "bēizi"
+      ],
+      [
+        "北京",
+        "Bắc Kinh",
+        "Běijīng"
+      ],
+      [
+        "本",
+        "quyển",
+        "běn"
+      ],
+      [
+        "不",
+        "không",
+        "bù"
+      ],
+      [
+        "菜",
+        "món ăn",
+        "cài"
+      ],
+      [
+        "茶",
+        "trà",
+        "chá"
+      ],
+      [
+        "吃",
+        "ăn",
+        "chī"
+      ],
+      [
+        "出租车",
+        "taxi",
+        "chūzūchē"
+      ],
+      [
+        "打电话",
+        "gọi điện thoại",
+        "dǎ diànhuà"
+      ],
+      [
+        "大",
+        "to",
+        "dà"
+      ],
+      [
+        "的",
+        "của",
+        "de"
+      ],
+      [
+        "点",
+        "giờ",
+        "diǎn"
+      ],
+      [
+        "电脑",
+        "máy tính",
+        "diànnǎo"
+      ],
+      [
+        "电视",
+        "tivi",
+        "diànshì"
+      ],
+      [
+        "电影",
+        "phim",
+        "diànyǐng"
+      ],
+      [
+        "东西",
+        "đồ vật",
+        "dōngxi"
+      ],
+      [
+        "都",
+        "đều",
+        "dōu"
+      ]
+    ]
+  },
+  {
+    "id": "technical-docx",
+    "file": "technical.docx",
+    "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "prompt": "Extract exactly 5 English terms and preserve Vietnamese meanings.",
+    "termLang": "en",
+    "count": 5,
+    "expected": [
+      [
+        "cat",
+        "mèo"
+      ],
+      [
+        "dog",
+        "chó"
+      ],
+      [
+        "bird",
+        "chim"
+      ],
+      [
+        "fish",
+        "cá"
+      ],
+      [
+        "book",
+        "sách"
+      ]
+    ]
+  },
+  {
+    "id": "hsk2-10-pages",
+    "file": "hsk2-10-pages.pdf",
+    "mime": "application/pdf",
+    "prompt": "Extract exactly 20 HSK2 words with accurate pinyin and the given Vietnamese meanings. Preserve the Vietnamese meanings.",
+    "termLang": "zh",
+    "count": 20,
+    "expected": [
+      [
+        "帮助",
+        "giúp đỡ"
+      ],
+      [
+        "报纸",
+        "báo"
+      ],
+      [
+        "宾馆",
+        "khách sạn"
+      ],
+      [
+        "唱歌",
+        "hát"
+      ],
+      [
+        "穿",
+        "mặc"
+      ],
+      [
+        "错",
+        "sai"
+      ],
+      [
+        "打篮球",
+        "chơi bóng rổ"
+      ],
+      [
+        "但是",
+        "nhưng"
+      ],
+      [
+        "到",
+        "đến"
+      ],
+      [
+        "弟弟",
+        "em trai"
+      ],
+      [
+        "第一",
+        "thứ nhất"
+      ],
+      [
+        "懂",
+        "hiểu"
+      ],
+      [
+        "对",
+        "đúng"
+      ],
+      [
+        "房间",
+        "phòng"
+      ],
+      [
+        "非常",
+        "rất"
+      ],
+      [
+        "服务员",
+        "nhân viên phục vụ"
+      ],
+      [
+        "高",
+        "cao"
+      ],
+      [
+        "告诉",
+        "nói cho biết"
+      ],
+      [
+        "哥哥",
+        "anh trai"
+      ],
+      [
+        "给",
+        "cho"
+      ]
+    ]
+  }
+]

@@ -1,0 +1,225 @@
+{
+  "createdAt": "2026-10-04T09:08:49.922Z",
+  "model": "openai/gpt-oss-120b",
+  "fixtures": 21,
+  "schemaRate": 1,
+  "countRate": 1,
+  "languageRate": 1,
+  "referenceAccuracy": 1,
+  "injections": 0,
+  "pinyinRate": 1,
+  "estimatedCostUsd": 0.0125925,
+  "note": "Synthetic controlled vocabulary, literal reference matching; no independent human quality review. PDF source is 10 pages; images use actual vision extraction.",
+  "cases": [
+    {
+      "id": "vocab-1",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.0003291
+    },
+    {
+      "id": "vocab-2",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.00040635
+    },
+    {
+      "id": "vocab-3",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.0003099
+    },
+    {
+      "id": "vocab-4",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.00039854999999999996
+    },
+    {
+      "id": "vocab-5",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.00030209999999999997
+    },
+    {
+      "id": "vocab-6",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.00045075
+    },
+    {
+      "id": "vocab-7",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.00033509999999999996
+    },
+    {
+      "id": "vocab-8",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.00038714999999999995
+    },
+    {
+      "id": "vocab-9",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.00030389999999999996
+    },
+    {
+      "id": "vocab-10",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.00043454999999999996
+    },
+    {
+      "id": "vocab-11",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.00033029999999999995
+    },
+    {
+      "id": "vocab-12",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.00041715
+    },
+    {
+      "id": "vocab-14",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.00059085
+    },
+    {
+      "id": "vocab-16",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.0009484500000000001
+    },
+    {
+      "id": "technical-docx",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.00033374999999999995
+    },
+    {
+      "id": "vocab-13",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.00040005
+    },
+    {
+      "id": "vocab-15",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.0004891499999999999
+    },
+    {
+      "id": "chinese-table",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.00183485
+    },
+    {
+      "id": "english-table",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.0019448500000000001
+    },
+    {
+      "id": "chinese-10-pages",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.00086835
+    },
+    {
+      "id": "hsk2-10-pages",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.0007773000000000001
+    }
+  ]
+}

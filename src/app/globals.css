@@ -1,0 +1,280 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------- Design tokens: light ---------- */
+:root {
+  --bg: oklch(97.6% 0.008 275);
+  --bg-dot: oklch(89% 0.02 275);
+  --surface: oklch(100% 0 0);
+  --surface-2: oklch(96.6% 0.012 275);
+  --surface-3: oklch(93.4% 0.02 275);
+  --border: oklch(91.5% 0.015 275);
+  --border-strong: oklch(84% 0.025 275);
+
+  --text: oklch(24% 0.045 275);
+  --text-muted: oklch(48% 0.035 275);
+  --text-subtle: oklch(54% 0.03 275);
+
+  --primary: oklch(52% 0.23 268);
+  --primary-hover: oklch(48% 0.23 268);
+  --primary-press: oklch(38% 0.19 268);
+  --primary-soft: oklch(94.5% 0.04 268);
+  --primary-text: oklch(44% 0.21 268);
+  --on-primary: oklch(100% 0 0);
+
+  --accent: oklch(83% 0.16 80);
+  --accent-strong: oklch(72% 0.17 65);
+  --accent-soft: oklch(96% 0.06 88);
+  --on-accent: oklch(30% 0.07 60);
+
+  --success: oklch(50% 0.14 155);
+  --success-soft: oklch(95.5% 0.05 155);
+  --danger: oklch(52% 0.2 25);
+  --danger-soft: oklch(96% 0.03 25);
+
+  --ring: oklch(52% 0.23 268 / 0.55);
+  --overlay: oklch(20% 0.04 275 / 0.45);
+
+  --shadow-sm: 0 1px 2px oklch(30% 0.05 275 / 0.06), 0 1px 1px oklch(30% 0.05 275 / 0.04);
+  --shadow-md: 0 1px 2px oklch(30% 0.05 275 / 0.06), 0 8px 24px -10px oklch(30% 0.08 275 / 0.18);
+  --shadow-lg: 0 2px 4px oklch(30% 0.05 275 / 0.06), 0 24px 48px -16px oklch(30% 0.1 275 / 0.28);
+
+  --duration-fast: 150ms;
+  --duration-normal: 280ms;
+  --duration-flip: 520ms;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  color-scheme: light;
+}
+
+/* ---------- Design tokens: dark ---------- */
+.dark {
+  --bg: oklch(17.5% 0.03 275);
+  --bg-dot: oklch(25% 0.035 275);
+  --surface: oklch(22% 0.035 275);
+  --surface-2: oklch(25.5% 0.04 275);
+  --surface-3: oklch(30% 0.045 275);
+  --border: oklch(30% 0.04 275);
+  --border-strong: oklch(38% 0.045 275);
+
+  --text: oklch(95% 0.01 275);
+  --text-muted: oklch(76% 0.03 275);
+  --text-subtle: oklch(64% 0.03 275);
+
+  --primary: oklch(54% 0.2 270);
+  --primary-hover: oklch(58% 0.2 270);
+  --primary-press: oklch(42% 0.17 270);
+  --primary-soft: oklch(30% 0.08 270);
+  --primary-text: oklch(80% 0.11 272);
+  --on-primary: oklch(100% 0 0);
+
+  --accent: oklch(82% 0.15 80);
+  --accent-strong: oklch(76% 0.16 70);
+  --accent-soft: oklch(32% 0.06 75);
+  --on-accent: oklch(24% 0.06 60);
+
+  --success: oklch(72% 0.15 155);
+  --success-soft: oklch(30% 0.06 155);
+  --danger: oklch(70% 0.17 25);
+  --danger-soft: oklch(30% 0.07 25);
+
+  --ring: oklch(72% 0.16 270 / 0.7);
+  --overlay: oklch(8% 0.02 275 / 0.65);
+
+  --shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.3);
+  --shadow-md: 0 1px 2px oklch(0% 0 0 / 0.3), 0 10px 28px -12px oklch(0% 0 0 / 0.55);
+  --shadow-lg: 0 2px 4px oklch(0% 0 0 / 0.3), 0 28px 56px -18px oklch(0% 0 0 / 0.7);
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-subtle: var(--text-subtle);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-press: var(--primary-press);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-text: var(--primary-text);
+  --color-on-primary: var(--on-primary);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-ring: var(--ring);
+  --color-overlay: var(--overlay);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1.125rem;
+  --radius-xl: 1.75rem;
+
+  /* Chinese glyphs fall back to system CJK fonts: web-loading a full CJK font costs megabytes. */
+  --font-sans:
+    var(--font-be-vietnam), "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC",
+    "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
+
+  --text-display: clamp(2.25rem, 1.4rem + 3.6vw, 4.25rem);
+  --text-display--line-height: 1.05;
+  --text-display--letter-spacing: -0.035em;
+  --text-title: clamp(1.5rem, 1.2rem + 1.2vw, 2.125rem);
+  --text-title--line-height: 1.15;
+  --text-title--letter-spacing: -0.02em;
+
+  --animate-shake: shake 360ms var(--ease-out-expo);
+  --animate-pop: pop 320ms var(--ease-out-expo);
+  --animate-rise: rise 420ms var(--ease-out-expo) both;
+}
+
+/* ---------- Base ---------- */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--bg);
+    background-image: radial-gradient(var(--bg-dot) 1px, transparent 1.2px);
+    background-size: 22px 22px;
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+}
+
+/* ---------- Signature details ---------- */
+@utility marker-highlight {
+  background-image: linear-gradient(
+    transparent 58%,
+    color-mix(in oklch, var(--accent) 75%, transparent) 58%,
+    color-mix(in oklch, var(--accent) 75%, transparent) 92%,
+    transparent 92%
+  );
+  padding-inline: 0.08em;
+  box-decoration-break: clone;
+}
+
+/* ---------- 3D flashcard ---------- */
+@utility flip-scene {
+  perspective: 1600px;
+}
+
+@utility flip-inner {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform var(--duration-flip) var(--ease-out-expo);
+}
+
+@utility flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+@utility flip-back {
+  transform: rotateY(180deg);
+}
+
+@utility is-flipped {
+  transform: rotateY(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flip-inner,
+  .is-flipped {
+    transform: none !important;
+    transition: none;
+  }
+
+  .flip-face {
+    backface-visibility: visible;
+    transition: opacity var(--duration-normal) ease;
+  }
+
+  .flip-back {
+    transform: none;
+  }
+
+  .flip-inner:not(.is-flipped) > .flip-back,
+  .flip-inner.is-flipped > .flip-front {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-7px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.92);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes rise {
+  0% {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "samples_seeded" boolean DEFAULT false NOT NULL;

@@ -1,0 +1,1 @@
+ALTER TABLE "ai_generation_jobs" ADD COLUMN "state" jsonb;

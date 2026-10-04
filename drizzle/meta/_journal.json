@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791101820642,
+      "tag": "0000_futuristic_naoko",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791102290735,
+      "tag": "0001_last_ink",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791103614731,
+      "tag": "0002_exotic_norrin_radd",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791105480578,
+      "tag": "0003_curved_sinister_six",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791116920259,
+      "tag": "0004_panoramic_pretty_boy",
+      "breakpoints": true
+    }
+  ]
+}

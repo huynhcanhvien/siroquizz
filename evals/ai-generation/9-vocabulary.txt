@@ -1,0 +1,5 @@
+cat	mèo
+dog	chó
+bird	chim
+fish	cá
+book	sách

@@ -1,0 +1,37 @@
+import { timingSafeEqual } from "node:crypto";
+import { lt } from "drizzle-orm";
+import { getDatabase } from "@/server/db/client";
+import { user, studySets } from "@/server/db/schema";
+import { cleanupAi } from "@/server/ai/cleanup";
+import { getServerEnv } from "@/server/env";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+/** Removes 30-day-old account/set tombstones and expired AI uploads/jobs. Invoked by Vercel Cron. */
+function authorized(request: Request) {
+  const secret = getServerEnv().CRON_SECRET;
+  if (!secret) return false;
+  const header = request.headers.get("authorization") ?? "";
+  const expected = `Bearer ${secret}`;
+  const received = Buffer.from(header);
+  const want = Buffer.from(expected);
+  return received.length === want.length && timingSafeEqual(received, want);
+}
+
+async function handle(request: Request) {
+  if (!authorized(request)) return new Response("Unauthorized", { status: 401 });
+  const db = getDatabase();
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  await db.transaction(async (tx) => {
+    await tx.delete(user).where(lt(user.deletedAt, cutoff));
+    await tx.delete(studySets).where(lt(studySets.deletedAt, cutoff));
+  });
+  const removedUploads = await cleanupAi(db);
+  return Response.json(
+    { success: true, data: { removedUploads } },
+    { headers: { "Cache-Control": "no-store" } },
+  );
+}
+
+export { handle as GET, handle as POST };
