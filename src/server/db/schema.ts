@@ -344,6 +344,8 @@ export const studySessions = pgTable(
     cardsSeen: integer("cards_seen").notNull().default(0),
     correct: integer("correct").notNull().default(0),
     incorrect: integer("incorrect").notNull().default(0),
+    // Engaged time reported by the client (idle gaps capped); null on sessions recorded before it.
+    activeSeconds: integer("active_seconds"),
   },
   (t) => [index("session_study_user_time_idx").on(t.userId, t.startedAt)],
 );

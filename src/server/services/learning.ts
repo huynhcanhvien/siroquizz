@@ -287,6 +287,12 @@ export async function startSession(db: Database, userId: string, input: unknown)
   await db.insert(studySessions).values({ ...data, id, userId });
   return { id };
 }
+const MAX_SESSION_MS = 12 * 3600_000;
+/**
+ * The client reports cumulative counts and engaged time whenever the tab hides or the study
+ * screen closes, so a session can be reported several times. Values only ever grow, and engaged
+ * time is clamped to the time actually elapsed since the session started.
+ */
 export async function finishSession(
   db: Database,
   userId: string,
@@ -300,6 +306,7 @@ export async function finishSession(
       cardsSeen: z.number().int().min(0).max(20000),
       correct: z.number().int().min(0).max(20000),
       incorrect: z.number().int().min(0).max(20000),
+      activeSeconds: z.number().int().min(0).max(MAX_SESSION_MS / 1000).optional(),
     })
     .refine((v) => v.correct + v.incorrect <= v.cardsSeen)
     .parse(input);
@@ -311,12 +318,20 @@ export async function finishSession(
       .for("update")
       .limit(1);
     if (!session) throw new ApiError(404, "NOT_FOUND");
-    if (session.endedAt) return { id };
+    const startedMs = session.startedAt.getTime();
+    if (now.getTime() > startedMs + MAX_SESSION_MS) return { id };
     if (session.setId) await requireOwnedSet(tx, userId, session.setId);
-    const endedAt = new Date(Math.min(now.getTime(), session.startedAt.getTime() + 12 * 3600_000));
+    const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - startedMs) / 1000));
+    const reported = Math.min(data.activeSeconds ?? 0, elapsedSeconds);
     await tx
       .update(studySessions)
-      .set({ ...data, endedAt })
+      .set({
+        cardsSeen: Math.max(session.cardsSeen, data.cardsSeen),
+        correct: Math.max(session.correct, data.correct),
+        incorrect: Math.max(session.incorrect, data.incorrect),
+        activeSeconds: Math.max(session.activeSeconds ?? 0, reported),
+        endedAt: new Date(Math.max(session.endedAt?.getTime() ?? 0, now.getTime())),
+      })
       .where(eq(studySessions.id, id));
     return { id };
   });

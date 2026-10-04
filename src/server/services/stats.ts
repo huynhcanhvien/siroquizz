@@ -15,6 +15,7 @@ import { getPreferences } from "./learning";
 // Day buckets bind the time zone as a parameter; repeating the expression in GROUP BY would bind
 // it again as a different parameter, which Postgres rejects. Group by the select position instead.
 const BY_FIRST_COLUMN = sql`1`;
+const LEGACY_SESSION_CAP_SECONDS = 600;
 type Preferences = Awaited<ReturnType<typeof getPreferences>>;
 export async function activityStats(
   db: Database,
@@ -54,7 +55,9 @@ export async function activityStats(
       day: sessionDay,
       cards: sql<number>`coalesce(sum(${studySessions.cardsSeen}),0)::int`,
       correct: sql<number>`coalesce(sum(${studySessions.correct}),0)::int`,
-      minutes: sql<number>`coalesce(sum(least(43200,extract(epoch from (${studySessions.endedAt}-${studySessions.startedAt}))))/60,0)::float8`,
+      // Engaged seconds when the client reported them; older sessions only know open/close times,
+      // which include idle tabs, so each of those counts for at most LEGACY_SESSION_CAP_SECONDS.
+      minutes: sql<number>`coalesce(sum(coalesce(${studySessions.activeSeconds}, least(${LEGACY_SESSION_CAP_SECONDS}, extract(epoch from (${studySessions.endedAt}-${studySessions.startedAt})))))/60,0)::float8`,
     })
     .from(studySessions)
     .where(

@@ -1,200 +1,179 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { Button } from "@/components/ui/Button";
+import { useMemo } from "react";
 import { QueryError } from "@/components/ui/QueryState";
+import { Skeleton } from "@/components/ui/misc";
 import { useToast } from "@/components/ui/Toast";
+import { useSession } from "@/features/auth/hooks";
+import { useFreeze, useStats } from "@/features/srs/hooks";
 import { useErrorMessage } from "@/lib/use-messages";
-import { useStats, useFreeze } from "@/features/srs/hooks";
-function Bars({
-  rows,
-  valueLabel,
-}: {
-  rows: { label: string; value: number }[];
-  valueLabel: string;
-}) {
-  const max = Math.max(1, ...rows.map((r) => r.value));
+import type { z } from "zod";
+import { recentGain, summarizeActivity, weekOverWeek } from "../lib/chart-data";
+import type { statsSchema } from "../schemas";
+import { AccuracyBars } from "./AccuracyBars";
+import { ActivityHeatmap } from "./ActivityHeatmap";
+import { ActivityTable } from "./ActivityTable";
+import { Panel, useDayFormat } from "./chart-kit";
+import { ColumnChart, type Column } from "./ColumnChart";
+import { LearnedChart } from "./LearnedChart";
+import { GoalTile, KnownTile, StreakHero, WeekTimeTile } from "./StatTiles";
+
+type Stats = z.infer<typeof statsSchema>;
+
+function StatsSkeleton() {
+  const t = useTranslations("stats");
   return (
-    <>
-      <div className="space-y-2" aria-hidden>
-        {rows.map((row) => (
-          <div
-            key={row.label}
-            className="grid grid-cols-[6.5rem_1fr_3rem] items-center gap-2 text-sm"
-          >
-            <span className="truncate">{row.label}</span>
-            <span className="h-3 overflow-hidden rounded bg-surface-3">
-              <span
-                className="block h-full rounded bg-primary"
-                style={{ width: `${(row.value / max) * 100}%` }}
-              />
-            </span>
-            <span className="text-right tabular-nums">{row.value}</span>
-          </div>
+    <div role="status" className="flex flex-col gap-6">
+      <span className="sr-only">{t("loading")}</span>
+      <Skeleton className="h-10 w-72" />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <Skeleton key={i} className="h-40 rounded-2xl" />
         ))}
       </div>
-      <table className="sr-only">
-        <caption>{valueLabel}</caption>
-        <thead>
-          <tr>
-            <th scope="col">{valueLabel}</th>
-            <th scope="col">{valueLabel}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.label}>
-              <th scope="row">{row.label}</th>
-              <td>{row.value}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </>
+      <Skeleton className="h-64 rounded-2xl" />
+    </div>
   );
 }
+
+function useCharts(data: Stats) {
+  const t = useTranslations("stats");
+  const formatDay = useDayFormat();
+  return useMemo(() => {
+    const forecast: Column[] = data.forecast.map((row, i) => ({
+      key: row.day,
+      label: i === 0 ? t("today") : formatDay(row.day, { weekday: "short" }),
+      shortLabel: formatDay(row.day, { weekday: "short" }),
+      value: row.count,
+      current: i === 0,
+      tip: {
+        title: formatDay(row.day, { weekday: "long", day: "numeric", month: "long" }),
+        value: t("cardsValue", { count: row.count }),
+      },
+    }));
+    const weekly: Column[] = data.weekly.map((row, i) => ({
+      key: row.day,
+      label: formatDay(row.day, { day: "numeric", month: "numeric" }),
+      value: Math.round(row.minutes),
+      current: i === data.weekly.length - 1,
+      tip: {
+        title: t("weekOf", { date: formatDay(row.day, { day: "numeric", month: "long" }) }),
+        value: t("minutesValue", { count: Math.round(row.minutes) }),
+      },
+    }));
+    return { forecast, weekly };
+  }, [data, formatDay, t]);
+}
+
 export function StatsView() {
-  const t = useTranslations("stats"),
-    query = useStats(),
-    freeze = useFreeze(),
-    { toast } = useToast(),
-    errorMessage = useErrorMessage();
+  const t = useTranslations("stats");
+  const query = useStats();
+  const { data: user } = useSession();
   if (query.isError) return <QueryError error={query.error} onRetry={() => void query.refetch()} />;
-  if (!query.data) return <p role="status">{t("loading")}</p>;
-  const data = query.data,
-    goal = data.preferences.goal,
-    value = data.preferences.goalType === "cards" ? data.today.cards : data.today.minutes;
-  const metric = [
-    { label: t("currentStreak"), value: data.streak.current },
-    { label: t("longestStreak"), value: data.streak.longest },
-    { label: t("knownCards"), value: data.knownCards },
-    { label: t("dailyGoal"), value: `${value}/${goal}` },
-  ];
+  if (!query.data) return <StatsSkeleton />;
+  return <StatsDashboard data={query.data} name={user?.displayName ?? ""} title={t("title")} />;
+}
+
+function StatsDashboard({ data, name, title }: { data: Stats; name: string; title: string }) {
+  const t = useTranslations("stats");
+  const freeze = useFreeze();
+  const { toast } = useToast();
+  const errorMessage = useErrorMessage();
+  const charts = useCharts(data);
+  const summary = summarizeActivity(data.activity);
+  const week = weekOverWeek(data.weekly);
+  const goalUnit = data.preferences.goalType === "cards" ? "cards" : "minutes";
+  const learned = data.learnedHistory.at(-1)?.count ?? 0;
+  const onFreeze = () =>
+    freeze.mutate(undefined, {
+      onSuccess: () => toast(t("freezeSaved")),
+      onError: (e) => toast(errorMessage(e), "error"),
+    });
+
   return (
-    <div className="flex flex-col gap-7">
-      <h1 className="text-title font-extrabold">{t("title")}</h1>
-      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {metric.map((m) => (
-          <div key={m.label} className="rounded-xl border border-border bg-surface p-4">
-            <dt className="text-sm text-muted">{m.label}</dt>
-            <dd className="mt-2 text-2xl font-extrabold tabular-nums">{m.value}</dd>
-          </div>
-        ))}
-      </dl>
-      <div>
-        <Button
-          variant="secondary"
-          loading={freeze.isPending}
-          onClick={() =>
-            freeze.mutate(undefined, {
-              onSuccess: () => toast(t("freezeSaved")),
-              onError: (e) => toast(errorMessage(e), "error"),
-            })
-          }
-        >
-          {t("freeze")}
-        </Button>
-        <p className="mt-2 text-sm text-muted">{t("freezeHint")}</p>
-      </div>
-      <section className="rounded-xl border border-border bg-surface p-5">
-        <h2 className="mb-4 text-lg font-bold">{t("activity")}</h2>
-        <div className="overflow-x-auto pb-3">
-          <div className="grid w-max grid-flow-col grid-rows-7 gap-1" aria-hidden>
-            {data.activity.map((day) => (
-              <span
-                key={day.day}
-                title={`${day.day}: ${day.cards}`}
-                className="size-3 rounded-sm"
-                style={{
-                  background: day.goalMet
-                    ? "var(--primary)"
-                    : day.cards > 0
-                      ? "var(--primary-soft)"
-                      : "var(--surface-3)",
-                }}
-              />
-            ))}
-          </div>
-        </div>
-        <p className="mt-2 text-sm text-muted">{t("activityLegend")}</p>
-        <details className="mt-3">
-          <summary className="cursor-pointer text-sm font-semibold">{t("dataTable")}</summary>
-          <div className="max-h-80 overflow-auto">
-            <table className="mt-3 w-full text-sm">
-              <caption className="sr-only">{t("activity")}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">{t("day")}</th>
-                  <th scope="col">{t("cards")}</th>
-                  <th scope="col">{t("minutes")}</th>
-                  <th scope="col">{t("goalMet")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.activity.toReversed().map((day) => (
-                  <tr key={day.day}>
-                    <th scope="row" className="p-1 font-normal">
-                      {day.day}
-                    </th>
-                    <td className="text-center">{day.cards}</td>
-                    <td className="text-center">{day.minutes}</td>
-                    <td className="text-center">{day.goalMet ? t("yes") : t("no")}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </details>
-      </section>
-      <div className="grid gap-5 lg:grid-cols-2">
-        <section className="rounded-xl border border-border bg-surface p-5">
-          <h2 className="mb-4 font-bold">{t("forecast")}</h2>
-          <Bars
-            rows={data.forecast.map((r) => ({ label: r.day, value: r.count }))}
-            valueLabel={t("cards")}
-          />
-        </section>
-        <section className="rounded-xl border border-border bg-surface p-5">
-          <h2 className="mb-4 font-bold">{t("weeklyTime")}</h2>
-          <Bars
-            rows={data.weekly.map((r) => ({ label: r.day, value: r.minutes }))}
-            valueLabel={t("minutes")}
-          />
-        </section>
-      </div>
-      <section className="rounded-xl border border-border bg-surface p-5">
-        <h2 className="mb-4 font-bold">{t("learnedHistory")}</h2>
-        <Bars
-          rows={data.learnedHistory
-            .filter((_, i) => i % 30 === 0 || i === data.learnedHistory.length - 1)
-            .map((r) => ({ label: r.day, value: r.count }))}
-          valueLabel={t("cards")}
+    <div className="flex flex-col gap-6">
+      <header>
+        <p className="text-sm font-bold tracking-wide text-primary-text uppercase">
+          {t("eyebrow")}
+        </p>
+        <h1 className="mt-1 text-title font-extrabold">{title}</h1>
+        <p className="mt-2 text-muted">{t("subtitle", { name })}</p>
+      </header>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.35fr_1fr_1fr_1fr]">
+        <StreakHero
+          current={data.streak.current}
+          longest={data.streak.longest}
+          freezing={freeze.isPending}
+          onFreeze={onFreeze}
         />
-      </section>
-      <section className="rounded-xl border border-border bg-surface p-5">
-        <h2 className="mb-4 font-bold">{t("accuracy")}</h2>
-        <div className="overflow-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr>
-                <th scope="col" className="text-left">
-                  {t("set")}
-                </th>
-                <th scope="col">{t("accuracy")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.accuracy.map((row) => (
-                <tr key={row.setId}>
-                  <th scope="row" className="p-2 text-left font-normal">
-                    {row.title}
-                  </th>
-                  <td className="text-center tabular-nums">{Math.round(row.accuracy * 100)}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+        <GoalTile
+          value={goalUnit === "cards" ? data.today.cards : data.today.minutes}
+          goal={data.preferences.goal}
+          unit={goalUnit}
+        />
+        <WeekTimeTile
+          minutes={week.current}
+          delta={week.delta}
+          trend={data.weekly.map((w) => w.minutes)}
+        />
+        <KnownTile count={data.knownCards} gain={recentGain(data.learnedHistory)} />
+      </div>
+      <Panel
+        title={t("activity")}
+        aside={t("activitySummary", {
+          days: summary.studyDays,
+          cards: summary.cards,
+          goals: summary.goalDays,
+        })}
+      >
+        <ActivityHeatmap days={data.activity} />
+        <p className="mt-3 text-sm text-muted">{t("activityLegend")}</p>
+        <ActivityTable days={data.activity} />
+      </Panel>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel title={t("forecast")}>
+          {charts.forecast.some((c) => c.value > 0) ? (
+            <ColumnChart
+              columns={charts.forecast}
+              caption={t("forecast")}
+              formatValue={(v) => String(Math.round(v))}
+              labelValues={() => true}
+            />
+          ) : (
+            <p className="text-sm text-muted">{t("noForecast")}</p>
+          )}
+        </Panel>
+        <Panel title={t("weeklyTime")}>
+          {charts.weekly.some((c) => c.value > 0) ? (
+            <ColumnChart
+              columns={charts.weekly}
+              caption={t("weeklyTime")}
+              formatValue={(v) => String(Math.round(v))}
+              labelValues={(column, i) =>
+                i === charts.weekly.length - 1 ||
+                column.value === Math.max(...charts.weekly.map((c) => c.value))
+              }
+            />
+          ) : (
+            <p className="text-sm text-muted">{t("noWeekly")}</p>
+          )}
+        </Panel>
+      </div>
+      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+        <Panel
+          title={t("learnedHistory")}
+          aside={learned ? t("learnedNow", { count: learned }) : undefined}
+        >
+          {learned ? (
+            <LearnedChart history={data.learnedHistory} />
+          ) : (
+            <p className="text-sm text-muted">{t("noLearned")}</p>
+          )}
+        </Panel>
+        <Panel title={t("accuracy")}>
+          <AccuracyBars rows={data.accuracy} />
+        </Panel>
+      </div>
     </div>
   );
 }

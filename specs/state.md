@@ -3,7 +3,7 @@
 > File này ghi lại **đã làm gì, đang làm dở gì, làm tiếp thế nào** để bất kỳ ai (người hoặc agent) cũng có thể tiếp tục.
 > Thời gian theo giờ Việt Nam (UTC+7). Mục mới nhất ở trên cùng của phần Nhật ký.
 
-**Cập nhật lần cuối:** 2026-10-04 21:45 +07
+**Cập nhật lần cuối:** 2026-10-04 22:30 +07
 **Phase hiện tại:** Phase 2–3 hoàn tất local (Groq live pass). Đã thêm hạ tầng **deploy Vercel free + chia nhỏ job AI (resumable step)**, đang chờ nghiệm thu production. Phase 4 (SRS) vẫn đang dở. Google OAuth/R2/Resend production còn chờ credentials.
 **Tình trạng:** Người dùng yêu cầu hoàn thành toàn bộ Phase 2–6 và cập nhật state khi từng phase xong. Không coi credentials, deployment hay beta bên ngoài đã hoàn tất nếu chưa thực hiện.
 
@@ -45,6 +45,14 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 **Bước tiếp theo:** Phase 4: learn-engine7cards/round, FSRS, due queue/new limits/preferences, stars, study sessions/stats/goals/streak/reminders/images. `ts-fsrs@5.4.2` đã cài, @types/node lên22 cho Vitest. Dataviz skill không có trong catalog/filesystem; dùng chart accessible theo design tokens và bảng thay thế. Sau P4 tiếp tục P5–6.
 
 ## Nhật ký
+
+### 2026-10-04 22:30 +07: 📊 Thiết kế lại trang Thống kê + đo thời gian học thực (nhánh `perf/optimize-load`)
+
+- **Số liệu vốn theo từng user** (mọi query lọc `userId`); thêm `tests/integration/stats.test.ts` chứng minh user A không thấy dữ liệu user B.
+- **Bug "1446 phút/tuần":** thời gian = `ended_at − started_at` (tối đa 12h/phiên) nên tab để mở qua đêm tính 12h. Giờ client đo **thời gian tương tác** ([engagement-timer.ts](../src/features/srs/engagement-timer.ts): khoảng giữa hai thao tác tối đa 60s, không tính khi tab ẩn) và gửi `activeSeconds` dồn mỗi lần ẩn tab/rời trang; server chỉ tăng, kẹp theo thời gian đã trôi. Cột mới `study_sessions.active_seconds` (**migration `drizzle/0005_awesome_calypso.sql`**, chỉ thêm cột nullable); phiên cũ không có cột này tính tối đa 10 phút.
+- **Giao diện mới** ([components/](../src/features/stats/components/)): bento streak (số lớn) + vòng mục tiêu + thời gian tuần (so tuần trước, sparkline 12 tuần) + thẻ đã thuộc; heatmap 12 tháng có nhãn tháng/thứ, 4 bậc màu một hue đã chạy validator dataviz (sáng/tối), viền vàng ngày đạt mục tiêu; cột 7 ngày và 12 tuần (≤24px, tooltip, focus bàn phím); biểu đồ vùng thẻ đã thuộc (crosshair, phím mũi tên); độ chính xác theo bộ thẻ. Có bảng dữ liệu cho trình đọc màn hình, trạng thái rỗng, nhãn rút gọn trên điện thoại. Token `--heat-1..4` trong `globals.css`.
+- **Cảnh báo vận hành:** `drizzle.config.ts` dùng `loadEnvConfig` chế độ production → trên máy có `.env.production.local` thì `pnpm db:migrate` chạy vào **DB production**. Migrate DB local phải truyền `DATABASE_URL` local tường minh. **Production/Preview cần chạy migration 0005 trước khi deploy commit này**, nếu không trang thống kê và việc lưu phiên sẽ lỗi.
+- **Kiểm tra:** 395 unit, 56 integration, E2E 30 pass (quality spec giờ quét axe + overflow cả `/stats`, `/review`); ảnh chụp desktop sáng/tối + 375px đã xem bằng dữ liệu mẫu 7 tháng trên DB local.
 
 ### 2026-10-04 21:45 +07: ⚡ Kiểm tra đáp án tức thì + sửa trang Ôn tập/Thống kê (nhánh `perf/optimize-load`)
 

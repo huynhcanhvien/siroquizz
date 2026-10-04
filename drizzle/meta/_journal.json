@@ -36,6 +36,13 @@
       "when": 1791116920259,
       "tag": "0004_panoramic_pretty_boy",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791125108633,
+      "tag": "0005_awesome_calypso",
+      "breakpoints": true
     }
   ]
 }

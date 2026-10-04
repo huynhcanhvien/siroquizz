@@ -32,6 +32,11 @@
   --success-soft: oklch(95.5% 0.05 155);
   --danger: oklch(52% 0.2 25);
   --danger-soft: oklch(96% 0.03 25);
+  /* Activity heatmap: one-hue ordinal ramp (validated: monotone, distinct steps, >=2:1 vs surface). */
+  --heat-1: #8faaf6;
+  --heat-2: #6b8df3;
+  --heat-3: #4a6dee;
+  --heat-4: #3452ea;
 
   --ring: oklch(52% 0.23 268 / 0.55);
   --overlay: oklch(20% 0.04 275 / 0.45);
@@ -78,6 +83,11 @@
   --success-soft: oklch(30% 0.06 155);
   --danger: oklch(70% 0.17 25);
   --danger-soft: oklch(30% 0.07 25);
+  /* On dark surfaces "more" reads brighter. */
+  --heat-1: #4f5b8a;
+  --heat-2: #6576b2;
+  --heat-3: #7e94dd;
+  --heat-4: #97b3ff;
 
   --ring: oklch(72% 0.16 270 / 0.7);
   --overlay: oklch(8% 0.02 275 / 0.65);

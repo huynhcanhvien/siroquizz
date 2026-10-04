@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { v7 } from "uuid";
 import type { z } from "zod";
 import { useCountStudyAnswer, type SessionCounts } from "@/features/study/session-context";
+import { createEngagementTimer } from "./engagement-timer";
 import { createLearningRepository } from "./http-repository";
 import type { preferencesSchema } from "./schemas";
 const repository = createLearningRepository();
@@ -95,37 +96,47 @@ export function useFreeze() {
     onSuccess: () => client.invalidateQueries({ queryKey: learningKeys.stats }),
   });
 }
+const ENGAGEMENT_EVENTS = ["pointerdown", "keydown", "wheel", "touchstart"] as const;
 export function useSessionRecording(setId: string | null, mode: string) {
   const counts = useRef<SessionCounts>({ cardsSeen: 0, correct: 0, incorrect: 0 });
   useEffect(() => {
     if (!isHttp) return;
     let id: string | null = null,
       closed = false;
-    const finish = () => {
+    const timer = createEngagementTimer(Date.now());
+    const touch = () => timer.touch(Date.now());
+    // Reports are cumulative: the server keeps the largest values, so sending on every hide is safe.
+    const report = () => {
       if (!id) return;
       void fetch(`/api/v1/sessions/${id}`, {
         method: "PATCH",
         credentials: "same-origin",
         keepalive: true,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(counts.current),
+        body: JSON.stringify({ ...counts.current, activeSeconds: timer.seconds(Date.now()) }),
       }).catch(() => {});
     };
     void repository
       .startSession(setId, mode)
       .then((result) => {
         id = result.id;
-        if (closed) finish();
+        if (closed) report();
       })
       .catch(() => {});
-    const hidden = () => {
-      if (document.visibilityState === "hidden") finish();
+    const visibility = () => {
+      if (document.visibilityState !== "hidden") return touch();
+      timer.pause(Date.now());
+      report();
     };
-    document.addEventListener("visibilitychange", hidden);
+    for (const event of ENGAGEMENT_EVENTS)
+      window.addEventListener(event, touch, { passive: true, capture: true });
+    document.addEventListener("visibilitychange", visibility);
     return () => {
       closed = true;
-      document.removeEventListener("visibilitychange", hidden);
-      finish();
+      for (const event of ENGAGEMENT_EVENTS)
+        window.removeEventListener(event, touch, { capture: true });
+      document.removeEventListener("visibilitychange", visibility);
+      report();
     };
   }, [setId, mode]);
   return (correct: boolean) => {

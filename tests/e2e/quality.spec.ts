@@ -17,6 +17,12 @@ async function pagesToCheck(page: Page) {
     { name: "games", path: `/study/${set.id}/games` },
     { name: "ai", path: "/sets/new/ai" },
     { name: "settings", path: "/settings" },
+    ...(process.env.NEXT_PUBLIC_DATA_SOURCE === "http"
+      ? [
+          { name: "stats", path: "/stats" },
+          { name: "review", path: "/review" },
+        ]
+      : []),
   ];
 }
 
