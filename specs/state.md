@@ -3,7 +3,7 @@
 > File này ghi lại **đã làm gì, đang làm dở gì, làm tiếp thế nào** để bất kỳ ai (người hoặc agent) cũng có thể tiếp tục.
 > Thời gian theo giờ Việt Nam (UTC+7). Mục mới nhất ở trên cùng của phần Nhật ký.
 
-**Cập nhật lần cuối:** 2026-10-05 14:40 +07
+**Cập nhật lần cuối:** 2026-10-05 15:40 +07
 **Phase hiện tại:** Phase 2–3 hoàn tất local (Groq live pass). Đã thêm hạ tầng **deploy Vercel free + chia nhỏ job AI (resumable step)**, đang chờ nghiệm thu production. Phase 4 (SRS) vẫn đang dở. Google OAuth/R2/Resend production còn chờ credentials.
 **Tình trạng:** Người dùng yêu cầu hoàn thành toàn bộ Phase 2–6 và cập nhật state khi từng phase xong. Không coi credentials, deployment hay beta bên ngoài đã hoàn tất nếu chưa thực hiện.
 
@@ -45,6 +45,17 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 **Bước tiếp theo:** Phase 4: learn-engine7cards/round, FSRS, due queue/new limits/preferences, stars, study sessions/stats/goals/streak/reminders/images. `ts-fsrs@5.4.2` đã cài, @types/node lên22 cho Vitest. Dataviz skill không có trong catalog/filesystem; dùng chart accessible theo design tokens và bảng thay thế. Sau P4 tiếp tục P5–6.
 
 ## Nhật ký
+
+### 2026-10-05 15:40 +07: 🪙 Credit AI thay cho "5 lượt/ngày" (nhánh `feat/ai-credits`, merge vào `feat/ai-pipeline-speed`)
+
+- **Lý do:** key Groq free có 200k token/ngày/model (bảng giới hạn của Groq). Một tài liệu 60k ký tự tốn ~40k token ⇒ 5 lượt/ngày không giới hạn kích thước cho phép một người dùng hết hạn mức của cả app.
+- **Quy tắc (người dùng chốt):** 1 credit = 1.000 token thực dùng; 20 credit miễn phí/ngày, reset 0h VN, không cộng dồn; credit thưởng không hết hạn (`credit_ledger`); dùng miễn phí trước; chỉ hoàn khi lỗi hệ thống (`SYSTEM_ERROR_CODES` trong [credits.ts](../src/features/ai-generate/lib/credits.ts)); lỗi người dùng/tự hủy trừ đúng token đã dùng.
+- **Luồng:** đọc tài liệu (TXT/DOCX/PDF có chữ không tốn AI) → kiểm tra trước OCR (≤ 10 trang scan, đủ credit cho ~2 credit/trang) → **báo giá** theo token từng chunk. ≤ 5 credit và đủ credit miễn phí → tự giữ credit rồi chạy; còn lại job ở trạng thái mới `awaiting`, màn hình [ConfirmEstimate](../src/features/ai-generate/components/ConfirmEstimate.tsx) cho chỉnh số thẻ (giá tính lại ngay trên trình duyệt bằng cùng hàm) → `POST /jobs/:id/confirm` giữ credit → chạy. Hoàn tất/lỗi/hủy: trừ theo token thực, nhả phần giữ.
+- **Giảm chi phí:** chỉ đọc ~1 chunk cho mỗi 8 thẻ, chọn chunk cách đều. Đo live trên tài liệu 60k ký tự: 20 thẻ ước tính 12 / thực 11 credit (trước: ~41); 40 thẻ ước tính 20 / thực 18. Cache kết quả theo hash file + yêu cầu + tùy chọn (`ai_result_cache`, 30 ngày) → 0 credit; không cache yêu cầu chỉ có prompt.
+- **Giới hạn:** 40 credit/lần tạo, 2 lần tạo chưa xong/người (`AI_BUSY`), toàn app `AI_GLOBAL_DAILY_CREDITS` (mặc định 480) → `AI_GLOBAL_LIMIT`. Thông báo lỗi cụ thể cho từng mã (vi/en/zh) + câu "đã hoàn credit"/"đã trừ X credit".
+- **Code:** `jobs.ts` tách thành [jobs.ts](../src/server/ai/jobs.ts) (API, hàng đợi, lease) + [job-steps.ts](../src/server/ai/job-steps.ts) (các bước, trừ credit); [server/ai/credits.ts](../src/server/ai/credits.ts) (số dư, giữ, trừ, thưởng/thu hồi). **Migration `drizzle/0008_next_screwball.sql`** (bảng `credit_ledger`, `ai_result_cache`, cột credit trên job). Thưởng khi công khai/sao chép đã có hàm + test, **chưa nối** vì Phase 5 (công khai, sao chép, kiểm duyệt) chưa làm — xem `phase-5-community.md` §8.
+- **Kiểm tra:** typecheck/lint 0 lỗi; **415 unit**, **95 integration** (thêm `ai-credits.test.ts`), **E2E 32 pass** gồm live Groq và màn hình xác nhận chi phí. Coverage integration lines 88%.
+- **Deploy:** chạy migration 0006, 0007, 0008 trên Neon trước khi deploy.
 
 ### 2026-10-05 14:40 +07: 🤖 AI tạo thẻ nhanh & ổn định hơn trên Groq free + hàng đợi dùng chung (nhánh `feat/ai-pipeline-speed`, chưa merge)
 

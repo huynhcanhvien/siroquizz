@@ -237,6 +237,94 @@ describe("HTTP AI generator", () => {
       vi.useRealTimers();
     }
   });
+  it("asks the user to confirm the estimate, then confirms the chosen card count", async () => {
+    const estimate = {
+      credits: 9,
+      usedCredits: 2,
+      cardCount: 60,
+      chunkTokens: [2500, 2500],
+      quota: {
+        dailyLimit: 20,
+        dailyUsed: 0,
+        dailyRemaining: 20,
+        earned: 0,
+        reserved: 0,
+        available: 20,
+        resetsAt: "2026-10-05T17:00:00.000Z",
+      },
+      maxJobCredits: 40,
+    };
+    fetcher
+      .mockReset()
+      .mockResolvedValueOnce(step({ status: "awaiting", stage: "analyzing", estimate }))
+      .mockResolvedValueOnce(step({ status: "done", stage: "done", result, creditsCharged: 7 }));
+    request.mockResolvedValueOnce({ data: { jobId } }).mockResolvedValueOnce({ data: null });
+    const onConfirm = vi.fn(async () => 30);
+    await expect(
+      generator().generate({ files: [], prompt: "x", options }, { onConfirm }),
+    ).resolves.toEqual({ ...result, creditsCharged: 7 });
+    expect(onConfirm).toHaveBeenCalledWith(estimate);
+    expect(request).toHaveBeenLastCalledWith(
+      `/api/v1/ai/jobs/${jobId}/confirm`,
+      expect.anything(),
+      {
+        method: "POST",
+        body: { cardCount: 30 },
+      },
+    );
+  });
+  it("cancels the job when the user declines the estimate", async () => {
+    fetcher
+      .mockReset()
+      .mockResolvedValueOnce(
+        step({
+          status: "awaiting",
+          stage: "analyzing",
+          estimate: {
+            credits: 9,
+            usedCredits: 0,
+            cardCount: 60,
+            chunkTokens: [2500],
+            quota: {
+              dailyLimit: 20,
+              dailyUsed: 0,
+              dailyRemaining: 20,
+              earned: 0,
+              reserved: 0,
+              available: 20,
+              resetsAt: "2026-10-05T17:00:00.000Z",
+            },
+            maxJobCredits: 40,
+          },
+        }),
+      )
+      .mockResolvedValue(new Response(null, { status: 200 }));
+    await expect(
+      generator().generate({ files: [], prompt: "x", options }, { onConfirm: async () => null }),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(fetcher).toHaveBeenCalledWith(
+      `/api/v1/ai/jobs/${jobId}/cancel`,
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+  it("tells the caller whether a failed job's credits were refunded", async () => {
+    fetcher.mockReset().mockResolvedValueOnce(
+      step({
+        status: "error",
+        stage: "done",
+        errorCode: "AI_PROVIDER_ERROR",
+        creditsCharged: 0,
+        refunded: true,
+      }),
+    );
+    const error = await generator()
+      .generate({ files: [], prompt: "x", options })
+      .catch((e: unknown) => e);
+    expect(error).toMatchObject({
+      code: "AI_PROVIDER_ERROR",
+      cause: { creditsCharged: 0, refunded: true },
+    });
+  });
   it("rejects a done step that is missing its result", async () => {
     fetcher.mockReset().mockResolvedValueOnce(step({ status: "done", stage: "done" }));
     await expect(generator().generate({ files: [], prompt: "x", options })).rejects.toMatchObject({

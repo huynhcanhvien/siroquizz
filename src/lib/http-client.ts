@@ -19,6 +19,8 @@ const ERROR_CODES = new Map<string, RepositoryErrorCode>([
   ["VALIDATION_ERROR", "VALIDATION"],
   ["AI_QUOTA_EXCEEDED", "RATE_LIMITED"],
   ["INTERNAL", "UNKNOWN"],
+  ["AI_OUTPUT_TRUNCATED", "AI_INVALID_OUTPUT"],
+  ["AI_INPUT_TOO_LARGE", "AI_PROVIDER_ERROR"],
 ]);
 
 export function mapApiErrorCode(code: string): RepositoryErrorCode {

@@ -27,10 +27,14 @@ export function GenerationHistory({
     >
       {quota.data ? (
         <p className="mb-4 text-sm text-muted">
-          {t("quota", {
-            remaining: quota.data.remaining,
-            limit: quota.data.limit,
-            time: new Date(quota.data.resetsAt).toLocaleString(),
+          {t("credits", {
+            remaining: quota.data.dailyRemaining,
+            limit: quota.data.dailyLimit,
+            earned: quota.data.earned,
+            time: new Date(quota.data.resetsAt).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
           })}
         </p>
       ) : null}
@@ -42,6 +46,9 @@ export function GenerationHistory({
           <li key={job.id} className="flex items-center justify-between gap-3 text-sm">
             <span className="min-w-0 truncate">
               {new Date(job.createdAt).toLocaleString()} · {t(`jobStatus.${job.status}`)} ·{" "}
+              {job.creditsCharged
+                ? `${t("historyCredits", { credits: job.creditsCharged })} · `
+                : ""}
               {job.prompt}
             </span>
             {job.result ? (

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import type { GenerationOptions } from "../lib/generator";
 import { useAiGeneration } from "../use-ai-generation";
+import { ConfirmEstimate } from "./ConfirmEstimate";
 import { GenerationProgress } from "./GenerationProgress";
 import { OptionsPanel, PromptPanel } from "./PromptPanel";
 import { ReviewGeneratedCards } from "./ReviewGeneratedCards";
@@ -49,6 +50,9 @@ export function AiGenerator() {
   const [options, setOptions] = useState<GenerationOptions>(DEFAULT_OPTIONS);
   const { phase, setPhase, generate, generationNotice, cancel, save, saving } = useAiGeneration();
   const hasInput = files.length > 0 || prompt.trim().length > 0;
+
+  if (phase.name === "confirm")
+    return <ConfirmEstimate estimate={phase.estimate} onDecide={phase.decide} />;
 
   if (phase.name === "generating")
     return <GenerationProgress stage={phase.stage} progress={phase.progress} onCancel={cancel} />;

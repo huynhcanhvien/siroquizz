@@ -176,11 +176,33 @@ export function createApiGenerator(
                 : {}),
           });
           if (step.status === "done") {
-            if (step.result) return step.result;
+            if (step.result)
+              return step.creditsCharged === undefined
+                ? step.result
+                : { ...step.result, creditsCharged: step.creditsCharged };
             throw new RepositoryError("UNKNOWN");
           }
           if (step.status === "error" || step.status === "cancelled")
-            throw new RepositoryError(mapApiErrorCode(step.errorCode ?? "AI_CANCELLED"));
+            throw new RepositoryError(
+              mapApiErrorCode(step.errorCode ?? "AI_CANCELLED"),
+              undefined,
+              { cause: { creditsCharged: step.creditsCharged, refunded: step.refunded } },
+            );
+          if (step.status === "awaiting") {
+            // The document is read; the user decides whether the estimated credits are worth it.
+            if (!step.estimate || !handlers.onConfirm) throw new RepositoryError("UNKNOWN");
+            const cardCount = await handlers.onConfirm(step.estimate);
+            signal.throwIfAborted();
+            if (cardCount === null) {
+              cancel();
+              throw new DOMException("Cancelled", "AbortError");
+            }
+            await client.request(`/api/v1/ai/jobs/${jobId}/confirm`, z.null(), {
+              method: "POST",
+              body: { cardCount },
+            });
+            continue;
+          }
           // Queued behind other jobs or throttled by the free AI tier; the server says when to retry.
           if (step.retryAfterMs) await delay(step.retryAfterMs, signal);
         }

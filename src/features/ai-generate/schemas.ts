@@ -67,10 +67,18 @@ export const aiJobStateSchema = z.object({
   stalls: z.number().int().min(0).optional(),
   /** Provider wait accumulated since the job last made progress. */
   throttledMs: z.number().int().min(0).optional(),
+  /** Hash of the files + request + options; a finished identical job is reused for free. */
+  cacheKey: z.string().optional(),
+  /** Set when the result came from the cache, so nothing is charged. */
+  cached: z.boolean().optional(),
+  /** Estimated tokens of each chunk, used to price the generation for any card count. */
+  chunkTokens: z.array(z.number().int().min(0)).optional(),
 });
 export type AiJobState = z.infer<typeof aiJobStateSchema>;
 
 export const jobStatusSchema = z.enum([
+  // The document was read; the job waits for the user to accept its credit estimate.
+  "awaiting",
   "queued",
   "extracting",
   "generating",
@@ -79,6 +87,28 @@ export const jobStatusSchema = z.enum([
   "error",
   "cancelled",
 ]);
+export const quotaSchema = z.object({
+  dailyLimit: z.number().int(),
+  dailyUsed: z.number().int(),
+  dailyRemaining: z.number().int(),
+  earned: z.number().int(),
+  reserved: z.number().int(),
+  available: z.number().int(),
+  resetsAt: z.string(),
+});
+export type CreditQuota = z.infer<typeof quotaSchema>;
+export const creditEstimateSchema = z.object({
+  /** Credits the generation will take at `cardCount`. */
+  credits: z.number().int().min(0),
+  /** Credits already spent reading the document (OCR). */
+  usedCredits: z.number().int().min(0),
+  cardCount: z.number().int(),
+  /** Per-chunk token sizes, so the browser can re-price other card counts. */
+  chunkTokens: z.array(z.number().int().min(0)),
+  quota: quotaSchema,
+  maxJobCredits: z.number().int(),
+});
+export type CreditEstimate = z.infer<typeof creditEstimateSchema>;
 export const jobStepSchema = z.object({
   status: jobStatusSchema,
   stage: z.enum(GENERATION_STAGES),
@@ -89,28 +119,20 @@ export const jobStepSchema = z.object({
   /** The provider throttled the job; wait this long before the next step. */
   retryAfterMs: z.number().int().min(0).optional(),
   queuePosition: z.number().int().min(1).optional(),
-});
-
-export const quotaSchema = z.object({
-  remaining: z.number().int(),
-  limit: z.number().int(),
-  resetsAt: z.string(),
+  /** Present while the job is `awaiting` the user's go-ahead. */
+  estimate: creditEstimateSchema.optional(),
+  /** On a finished or failed job: credits taken, and whether a system failure refunded them. */
+  creditsCharged: z.number().int().min(0).optional(),
+  refunded: z.boolean().optional(),
 });
 export const jobSummarySchema = z.object({
   id: z.uuid(),
-  status: z.enum([
-    "queued",
-    "extracting",
-    "generating",
-    "validating",
-    "done",
-    "error",
-    "cancelled",
-  ]),
+  status: jobStatusSchema,
   createdAt: z.string(),
   finishedAt: z.string().nullable(),
   prompt: z.string(),
   options: generationOptionsSchema,
   result: generationResultSchema.nullable(),
   errorCode: z.string().nullable(),
+  creditsCharged: z.number().int().min(0).default(0),
 });

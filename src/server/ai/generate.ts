@@ -2,13 +2,12 @@ import "server-only";
 import { z } from "zod";
 import type { AiJobState, GenerationOptions, GenerationTask } from "@/features/ai-generate/schemas";
 import { estimateTokens } from "@/features/ai-generate/lib/output";
+import { planRequests } from "@/features/ai-generate/lib/credits";
 import { ApiError } from "../api-error";
 import { getServerEnv } from "../env";
 import { addUsage } from "./extract";
 import { groqJson, RateLimitError } from "./groq";
 
-// Keeps each answer well inside one model's 8,000 tokens/minute free-tier quota.
-export const MAX_CARDS_PER_CALL = 40;
 const TOKENS_PER_CARD = 90;
 const RESPONSE_OVERHEAD_TOKENS = 1024;
 const MAX_TASK_ATTEMPTS = 3;
@@ -31,24 +30,9 @@ const modelOutputSchema = z.object({
   ),
 });
 
-/**
- * Spreads the requested cards over the chunks, at most MAX_CARDS_PER_CALL per request. When the
- * document has more chunks than requested cards, evenly spaced chunks are sampled so the set still
- * covers the whole document without a request per chunk.
- */
+/** The generation requests for a job, in the same plan its credit estimate was priced on. */
 export function planTasks(chunkCount: number, cardCount: number): GenerationTask[] {
-  const used = Math.min(chunkCount, cardCount);
-  const chunks = Array.from({ length: used }, (_, i) => Math.floor((i * chunkCount) / used));
-  const perChunk = Math.ceil(cardCount / used);
-  const parts = Math.ceil(perChunk / MAX_CARDS_PER_CALL);
-  return chunks.flatMap((chunk) =>
-    Array.from({ length: parts }, (_, part) => ({
-      chunk,
-      part,
-      count: Math.ceil(perChunk / parts),
-      attempts: 0,
-    })),
-  );
+  return planRequests(chunkCount, cardCount).map((request) => ({ ...request, attempts: 0 }));
 }
 
 /** Picks up to CONCURRENCY tasks from different chunks so parts of one chunk stay sequential. */

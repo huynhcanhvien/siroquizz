@@ -57,6 +57,13 @@
       "when": 1791186845370,
       "tag": "0007_wide_sprite",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791187444239,
+      "tag": "0008_next_screwball",
+      "breakpoints": true
     }
   ]
 }

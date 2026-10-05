@@ -13,6 +13,8 @@ export default defineConfig({
         "src/server/services/**/*.ts",
         "src/server/ai/jobs.ts",
         "src/server/ai/generate.ts",
+        "src/server/ai/job-steps.ts",
+        "src/server/ai/credits.ts",
         "src/server/ai/auxiliary.ts",
         "src/server/ai/extract.ts",
         "src/server/ai/storage.ts",

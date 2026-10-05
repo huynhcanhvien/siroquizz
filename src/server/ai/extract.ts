@@ -13,6 +13,19 @@ const MAX_TEXT = 180_000;
 // are kept just large enough for printed text.
 const OCR_MAX_SIDE = 1400;
 const OCR_CONCURRENCY = 3;
+/** Text shorter than this on a page means the page is a scan and needs OCR. */
+const MIN_PAGE_TEXT = 4;
+type TextContent = { items: readonly object[] };
+/** A PDF page's text layer, one line per text run that ends a line. */
+const pageTextOf = (content: TextContent) =>
+  content.items
+    .map((item) =>
+      "str" in item
+        ? (item as { str: string; hasEOL?: boolean }).str +
+          ((item as { hasEOL?: boolean }).hasEOL ? "\n" : " ")
+        : "",
+    )
+    .join("");
 const emptyUsage = (): Usage => ({ input: 0, output: 0, cached: 0, cost: 0 });
 export function addUsage(total: Usage, usage: Usage) {
   total.input += usage.input;
@@ -194,10 +207,8 @@ export async function extractPdfPages(
       signal.throwIfAborted();
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
-      const pageText = content.items
-        .map((item) => ("str" in item ? item.str + (item.hasEOL ? "\n" : " ") : ""))
-        .join("");
-      if (pageText.trim().length >= 4) pages.push(pageText);
+      const pageText = pageTextOf(content);
+      if (pageText.trim().length >= MIN_PAGE_TEXT) pages.push(pageText);
       else {
         const viewport = page.getViewport({ scale: 1.5 });
         if (viewport.width * viewport.height > 10_000_000) throw new ApiError(400, "INVALID_FILE");
@@ -266,12 +277,28 @@ async function openPdf(bytes: Buffer) {
   });
   return { canvas, loading };
 }
-/** Inspect page counts before any OCR/provider call across a multi-file job. */
-export async function countPdfPages(bytes: Buffer) {
+/**
+ * Counts a PDF's pages and how many of them are scans needing OCR, before any provider call, so
+ * page limits and credit checks happen up front.
+ */
+export async function inspectPdf(bytes: Buffer) {
   const { loading } = await openPdf(bytes);
   try {
-    return (await loading.promise).numPages;
+    const pdf = await loading.promise;
+    let scannedPages = 0;
+    if (pdf.numPages <= 30)
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        if (pageTextOf(content).trim().length < MIN_PAGE_TEXT) scannedPages++;
+        page.cleanup();
+      }
+    return { pages: pdf.numPages, scannedPages };
   } finally {
     await loading.destroy();
   }
+}
+/** Inspect page counts before any OCR/provider call across a multi-file job. */
+export async function countPdfPages(bytes: Buffer) {
+  return (await inspectPdf(bytes)).pages;
 }

@@ -65,9 +65,13 @@ it("plans at most 40 cards per request and spreads cards over chunks", () => {
     [0, 3, 40],
     [0, 4, 40],
   ]);
+  // About eight cards per chunk, spread over the document.
   const spread = planTasks(10, 20);
-  expect(spread).toHaveLength(10);
-  expect(spread.every((t) => t.count === 2 && t.part === 0)).toBe(true);
+  expect(spread.map((t) => [t.chunk, t.count])).toEqual([
+    [0, 7],
+    [3, 7],
+    [6, 7],
+  ]);
 });
 
 it("runs every task, collects cards and usage, and tells later parts what exists", async () => {
@@ -96,7 +100,7 @@ it("runs different chunks concurrently", async () => {
     active--;
     return cards(`t${Math.random()}`);
   });
-  await advanceGeneration(stateFor(["a", "b", "c", "d"]), "", options, signal(), budget());
+  await advanceGeneration(stateFor(["a", "b", "c", "d"], 32), "", options, signal(), budget());
   expect(provider).toHaveBeenCalledTimes(4);
   expect(peak).toBe(2);
 });
@@ -146,7 +150,7 @@ it("drops a chunk that keeps failing but keeps the rest of the set", async () =>
     if (JSON.parse(input).document.text === "bad") throw new ApiError(502, "AI_INVALID_OUTPUT");
     return cards("a", "b");
   });
-  const state = stateFor(["bad", "good"]);
+  const state = stateFor(["bad", "good"], 16);
   await expect(advanceGeneration(state, "", options, signal(), budget())).resolves.toEqual({
     done: true,
   });
@@ -170,10 +174,9 @@ it("starts nothing once the step's launch budget is spent", async () => {
   expect(result).toEqual({ done: false, completed: 0, total: 1 });
   expect(provider).not.toHaveBeenCalled();
 });
-it("samples evenly spaced chunks when the document has more chunks than cards", () => {
-  const tasks = planTasks(12, 5);
-  expect(tasks.map((t) => t.chunk)).toEqual([0, 2, 4, 7, 9]);
-  expect(tasks.every((t) => t.count === 1)).toBe(true);
+it("reads only as many chunks as the requested cards need", () => {
+  expect(planTasks(12, 5).map((t) => [t.chunk, t.count])).toEqual([[0, 5]]);
+  expect(planTasks(12, 40).map((t) => t.chunk)).toEqual([0, 2, 4, 7, 9]);
 });
 it("splits the text first when the request itself is too large", async () => {
   provider

@@ -57,11 +57,13 @@
 - Vai trò `admin` và trang `/admin/reports`: xem, ẩn bộ thẻ, cảnh cáo hoặc khóa tài khoản. Mọi hành động đều ghi audit log.
 - Khi bộ thẻ chuyển sang `public`: kiểm tra tự động bằng `claude-haiku-4-5-20251001`. Nếu nghi vi phạm thì đưa vào hàng chờ duyệt, chưa hiển thị ngay.
 
-### 8. Credit cho bộ thẻ AI công khai (yêu cầu người dùng 2026-10-05)
-- Bộ thẻ tạo bằng AI mặc định `private` (tài liệu tải lên có thể là riêng tư/có bản quyền).
-- Khi người dùng chuyển một bộ AI sang `public` **và bộ đó qua kiểm duyệt** (§7), cộng credit cho tác giả. Tích đủ credit thì đổi được lượt tạo AI ngoài hạn mức 5 lượt/ngày.
-- Cần quyết định: số credit mỗi bộ, số credit đổi một lượt, chống lạm dụng (bộ trùng lặp/rác, công khai rồi ẩn lại để lấy credit — credit chỉ cộng một lần mỗi bộ và bị thu hồi nếu bộ bị gỡ do vi phạm).
-- Lợi ích phụ: người khác sao chép bộ có sẵn thay vì tạo lại → đỡ tốn hạn mức của key Groq free dùng chung.
+### 8. Credit AI (đã chốt với người dùng 2026-10-05)
+- **Đã làm** (nhánh `feat/ai-credits`): 1 credit = 1.000 token Groq thực dùng. **20 credit miễn phí/ngày**, reset 0h giờ VN, **không cộng dồn**. **Credit thưởng không hết hạn**, lưu ở bảng `credit_ledger`. Dùng credit miễn phí trước, credit thưởng sau. Báo giá sau khi đọc tài liệu; ≤ 5 credit và đủ credit miễn phí thì chạy luôn, còn lại người dùng xác nhận (có thể giảm số thẻ). Tối đa 40 credit/lần tạo, 10 trang OCR/lần, 2 lần tạo chưa xong/người, hạn mức chung toàn app. **Chỉ hoàn credit khi lỗi do hệ thống** (`SYSTEM_ERROR_CODES`); lỗi do người dùng/tự hủy thì trừ đúng token đã dùng; thông báo lỗi nói rõ nguyên nhân và đã hoàn hay đã trừ. Cùng file + yêu cầu + tùy chọn → dùng lại kết quả (0 credit, giữ 30 ngày).
+- **Quy tắc thưởng đã code sẵn** trong [credits.ts](../src/server/ai/credits.ts), chờ nối khi làm §1/§7:
+  - `awardPublishCredit`: +5 khi bộ chuyển `public` **và qua kiểm duyệt**; một lần mỗi bộ; bộ ≥ 10 thẻ; bản sao của người khác không được thưởng. → gọi khi kiểm duyệt duyệt bộ.
+  - `awardCopyCredit`: +1 cho tác giả mỗi người khác sao chép bộ (một lần mỗi người/bộ, không tính tự sao chép), tối đa 30/ngày. → gọi trong "Tạo bản sao vào thư viện".
+  - `clawbackSetCredits`: thu hồi toàn bộ thưởng của bộ khi bị gỡ do vi phạm. → gọi khi admin ẩn bộ.
+- Chưa làm: chống bộ trùng nội dung (cần hash nội dung bộ thẻ khi công khai).
 
 **Ngoài phạm vi:** chat hoặc bình luận, chế độ thi realtime nhiều người, tích hợp LMS.
 

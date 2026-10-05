@@ -12,11 +12,11 @@
   },
   "errors": {
     "AI_UNAVAILABLE": "AI 暂不可用。请联系管理员检查配置。",
-    "AI_PROVIDER_ERROR": "AI 服务无法处理请求。请稍后重试。",
-    "AI_INVALID_OUTPUT": "AI 返回的内容无效。请重试。",
-    "AI_REFUSED": "AI 无法处理此内容。",
+    "AI_PROVIDER_ERROR": "AI 服务出现故障，暂时无法处理请求。请几分钟后重试。",
+    "AI_INVALID_OUTPUT": "AI 多次返回格式错误的结果，请重试。",
+    "AI_REFUSED": "内容可能违反安全政策，AI 拒绝处理。",
     "AI_CANCELLED": "已取消文档处理。",
-    "AI_TIMEOUT": "文档处理超时。请尝试较短的文档。",
+    "AI_TIMEOUT": "AI 响应过慢，请求已停止。请几分钟后重试。",
     "INVALID_FILE": "文件无效或内容与格式不匹配。",
     "PDF_PAGE_LIMIT": "PDF 总页数最多为 30 页。",
     "DOCUMENT_TOO_LONG": "文档过长。请拆分为较小的文件。",
@@ -34,7 +34,12 @@
     "CONFLICT": "数据已更改。请刷新后重试。",
     "RATE_LIMITED": "请求过多。请稍候再试。",
     "NETWORK": "无法连接。请检查网络后重试。",
-    "EMAIL_NOT_VERIFIED": "请先验证邮箱再登录。"
+    "EMAIL_NOT_VERIFIED": "请先验证邮箱再登录。",
+    "AI_CREDITS_EXCEEDED": "积分不足。请减少卡片数量、使用更短的文档，或等到零点领取 20 个免费积分。",
+    "AI_GLOBAL_LIMIT": "今天的系统 AI 总额度已用完，请零点后再试。",
+    "AI_JOB_TOO_LARGE": "此请求单次需要超过 40 个积分。请减少卡片数量或拆分文档。",
+    "AI_BUSY": "你已有 2 个未完成的生成任务。请等待完成或取消后再试。",
+    "OCR_PAGE_LIMIT": "每次最多识别 10 页图片或扫描页，请拆分文档。"
   },
   "validation": {
     "required": "此项为必填项。",
@@ -536,7 +541,6 @@
     "defaultTitle": "AI 学习集：{source}",
     "fallbackNotice": "演示版暂时无法读取 {names}，因此生成了示例卡片。正式版将使用 Claude 读取 PDF、Word 和图片。",
     "partialNotice": "AI 未能处理文档的 {skipped}/{total} 个部分，因此可能缺少部分卡片。请几分钟后重试。",
-    "quota": "今日剩余 {remaining}/{limit} 次。重置时间：{time}。",
     "history": "最近24小时的生成记录",
     "historyEmpty": "暂无生成记录。",
     "reopen": "重新打开",
@@ -547,7 +551,8 @@
       "validating": "校验中",
       "done": "完成",
       "error": "失败",
-      "cancelled": "已取消"
+      "cancelled": "已取消",
+      "awaiting": "等待确认"
     },
     "fillPhonetics": "用AI填写音标",
     "createExamples": "生成例句",
@@ -557,7 +562,22 @@
     "semanticHint": "可选。AI不可用时保留文本匹配结果。每天最多50次辅助任务。",
     "chunkProgress": "已生成 {completed}/{total} 部分",
     "quotaWaiting": "免费 AI 额度繁忙，稍后将自动继续…",
-    "queuePosition": "正在排队：前面还有 {count} 个任务，请保持页面打开。"
+    "queuePosition": "正在排队：前面还有 {count} 个任务，请保持页面打开。",
+    "credits": "今日剩余免费积分 {remaining}/{limit} · 奖励积分 {earned} · {time} 重置",
+    "creditsRefunded": "由于系统错误，积分已退还。",
+    "creditsCharged": "已为已完成的部分扣除 {credits} 积分。",
+    "creditsUsed": "本次生成使用了 {credits} 积分。",
+    "creditsFree": "本次生成未消耗积分。",
+    "historyCredits": "{credits} 积分",
+    "estimateTitle": "确认费用",
+    "estimateIntro": "AI 已读完文档。生成 {count} 张卡片约需 {credits} 积分。",
+    "estimateUsed": "识别图片或扫描页已使用 {credits} 积分。",
+    "estimateBalance": "你今天有 {daily} 个免费积分和 {earned} 个奖励积分。",
+    "estimateCardCount": "卡片数量",
+    "estimateTooLarge": "超过单次 {max} 积分上限，请减少卡片数量。",
+    "estimateNotEnough": "积分不足，请减少卡片数量。",
+    "estimateConfirm": "生成卡片（{credits} 积分）",
+    "estimateHint": "优先使用免费积分，再使用奖励积分。系统出错时积分会退还。"
   },
   "settings": {
     "title": "设置",
