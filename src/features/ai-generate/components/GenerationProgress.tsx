@@ -4,7 +4,11 @@ import { Check, LoaderCircle, WandSparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
-import { GENERATION_STAGES, type GenerationStage } from "../lib/generator";
+import {
+  GENERATION_STAGES,
+  type GenerationProgress as Progress,
+  type GenerationStage,
+} from "../lib/generator";
 
 export function GenerationProgress({
   stage,
@@ -12,7 +16,7 @@ export function GenerationProgress({
   onCancel,
 }: {
   stage: GenerationStage | null;
-  progress?: { completed?: number; total?: number };
+  progress?: Progress;
   onCancel: () => void;
 }) {
   const t = useTranslations("ai");
@@ -60,6 +64,16 @@ export function GenerationProgress({
       {progress?.total ? (
         <p aria-live="polite">
           {t("chunkProgress", { completed: progress.completed ?? 0, total: progress.total })}
+        </p>
+      ) : null}
+      {progress?.queuePosition ? (
+        <p role="status" className="text-sm text-muted">
+          {t("queuePosition", { count: progress.queuePosition })}
+        </p>
+      ) : null}
+      {progress?.waiting ? (
+        <p role="status" className="text-sm text-muted">
+          {t("quotaWaiting")}
         </p>
       ) : null}
       <Button variant="secondary" onClick={onCancel}>

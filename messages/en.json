@@ -518,6 +518,7 @@
       "generating": "Creating cards",
       "done": "Done",
       "uploading": "Uploading",
+      "queued": "Waiting in line",
       "validating": "Validating"
     },
     "cancelled": "Generation cancelled.",
@@ -553,7 +554,9 @@
     "phoneticsSaved": "Phonetics saved.",
     "semanticGrading": "Grade written answers by meaning with AI",
     "semanticHint": "Optional. When AI is unavailable, text matching remains. Up to 50 auxiliary tasks per day.",
-    "chunkProgress": "Generated {completed}/{total} parts"
+    "chunkProgress": "Generated {completed}/{total} parts",
+    "quotaWaiting": "The free AI quota is busy — continuing automatically in a moment…",
+    "queuePosition": "In the queue: {count} ahead of you. Keep this page open."
   },
   "settings": {
     "title": "Settings",

@@ -9,14 +9,14 @@ import { useCreateSet } from "@/features/sets/hooks";
 import { useRepositories } from "@/lib/data-provider";
 import { useErrorMessage } from "@/lib/use-messages";
 import type { ReviewCard } from "./components/ReviewGeneratedCards";
-import type { GenerateRequest, GenerationStage } from "./lib/generator";
+import type { GenerateRequest, GenerationProgress, GenerationStage } from "./lib/generator";
 
 export type AiPhase =
   | { name: "compose" }
   | {
       name: "generating";
       stage: GenerationStage | null;
-      progress?: { completed?: number; total?: number };
+      progress?: GenerationProgress;
     }
   | { name: "review"; cards: ReviewCard[]; title: string; notice: string | null };
 

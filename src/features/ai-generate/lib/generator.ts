@@ -2,6 +2,7 @@ import type { LangCode } from "@/lib/types";
 
 export const GENERATION_STAGES = [
   "uploading",
+  "queued",
   "reading",
   "analyzing",
   "generating",
@@ -42,9 +43,18 @@ export interface GenerateResult {
   unreadFiles: string[];
 }
 
+export interface GenerationProgress {
+  completed?: number;
+  total?: number;
+  /** The free AI quota is exhausted for the moment; work resumes automatically. */
+  waiting?: boolean;
+  /** Jobs from other people that run before this one. */
+  queuePosition?: number;
+}
+
 export interface GenerateHandlers {
   signal?: AbortSignal;
-  onStage?: (stage: GenerationStage, progress?: { completed?: number; total?: number }) => void;
+  onStage?: (stage: GenerationStage, progress?: GenerationProgress) => void;
 }
 
 /** Phase 1 ships a mock. Phase 3 implements this with the Groq API behind /api/v1/ai. */

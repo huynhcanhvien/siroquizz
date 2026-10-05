@@ -4,6 +4,86 @@ import { RepositoryError } from "@/lib/repository-error";
 import { getFileMime } from "./file-validation";
 import { jobStepSchema } from "../schemas";
 import type { CardGenerator } from "./generator";
+
+type JobStep = z.infer<typeof jobStepSchema>;
+const MAX_STEP_RETRIES = 3;
+const STEP_RETRY_DELAY_MS = 2_000;
+// Gateway and platform errors from a step that was cut short; the job itself is still intact.
+const TRANSIENT_STEP_STATUSES = [502, 503, 504];
+const stepEnvelope = z.object({ success: z.literal(true), data: jobStepSchema });
+
+/** A step that failed for reasons unrelated to the job; sending it again is safe. */
+class TransientStepError extends Error {
+  constructor(public readonly code: "NETWORK" | "UNKNOWN") {
+    super(code);
+  }
+}
+function delay(ms: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", aborted);
+      resolve();
+    }, ms);
+    const aborted = () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    };
+    signal.addEventListener("abort", aborted, { once: true });
+  });
+}
+/**
+ * Runs one job step. The shared JSON client is not used because a step may legitimately run for
+ * tens of seconds and must honour the caller's abort signal rather than the client's short timeout.
+ */
+async function postStep(
+  fetcher: typeof fetch,
+  jobId: string,
+  signal: AbortSignal,
+): Promise<JobStep> {
+  let response: Response;
+  try {
+    response = await fetcher(`/api/v1/ai/jobs/${jobId}/step`, {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: "{}",
+      credentials: "same-origin",
+      cache: "no-store",
+      redirect: "error",
+      signal,
+    });
+  } catch (error) {
+    if (signal.aborted) throw error;
+    throw new TransientStepError("NETWORK");
+  }
+  if (TRANSIENT_STEP_STATUSES.includes(response.status)) throw new TransientStepError("UNKNOWN");
+  if (!response.ok) {
+    let code: string | undefined;
+    try {
+      code = z.object({ error: z.object({ code: z.string() }) }).safeParse(await response.json())
+        .data?.error.code;
+    } catch {
+      code = undefined;
+    }
+    throw new RepositoryError(
+      response.status === 401
+        ? "UNAUTHENTICATED"
+        : response.status === 429
+          ? "RATE_LIMITED"
+          : code
+            ? mapApiErrorCode(code)
+            : "UNKNOWN",
+    );
+  }
+  let raw: unknown;
+  try {
+    raw = await response.json();
+  } catch {
+    throw new RepositoryError("UNKNOWN");
+  }
+  const parsed = stepEnvelope.safeParse(raw);
+  if (!parsed.success) throw new RepositoryError("UNKNOWN");
+  return parsed.data.data;
+}
 export function createApiGenerator(
   client: HttpClient = createHttpClient(),
   fetcher: typeof fetch = globalThis.fetch,
@@ -70,62 +150,39 @@ export function createApiGenerator(
           signal.throwIfAborted();
         }
         // Drive the job across several short requests so no single call hits the serverless
-        // time limit; repeat until the job reaches a terminal state. The shared JSON client is
-        // unused here because a step may legitimately run for tens of seconds and must honour the
-        // caller's abort signal rather than the client's short internal timeout.
-        const envelope = z.object({ success: z.literal(true), data: jobStepSchema });
+        // time limit; repeat until the job reaches a terminal state. Every step resumes from
+        // saved server state, so a step that dies mid-way (gateway timeout, dropped connection)
+        // is simply sent again.
+        let failures = 0;
         for (;;) {
           signal.throwIfAborted();
-          let response: Response;
+          let step: JobStep;
           try {
-            response = await fetcher(`/api/v1/ai/jobs/${jobId}/step`, {
-              method: "POST",
-              headers: { Accept: "application/json", "Content-Type": "application/json" },
-              body: "{}",
-              credentials: "same-origin",
-              cache: "no-store",
-              redirect: "error",
-              signal,
-            });
+            step = await postStep(fetcher, jobId, signal);
+            failures = 0;
           } catch (error) {
-            if (signal.aborted) throw error;
-            throw new RepositoryError("NETWORK");
+            if (!(error instanceof TransientStepError)) throw error;
+            if (++failures > MAX_STEP_RETRIES) throw new RepositoryError(error.code);
+            await delay(STEP_RETRY_DELAY_MS * failures, signal);
+            continue;
           }
-          if (!response.ok) {
-            let code: string | undefined;
-            try {
-              code = z
-                .object({ error: z.object({ code: z.string() }) })
-                .safeParse(await response.json()).data?.error.code;
-            } catch {
-              code = undefined;
-            }
-            throw new RepositoryError(
-              response.status === 401
-                ? "UNAUTHENTICATED"
-                : response.status === 429
-                  ? "RATE_LIMITED"
-                  : code
-                    ? mapApiErrorCode(code)
-                    : "UNKNOWN",
-            );
-          }
-          let raw: unknown;
-          try {
-            raw = await response.json();
-          } catch {
-            throw new RepositoryError("UNKNOWN");
-          }
-          const parsed = envelope.safeParse(raw);
-          if (!parsed.success) throw new RepositoryError("UNKNOWN");
-          const step = parsed.data.data;
-          handlers.onStage?.(step.stage, { completed: step.completed, total: step.total });
+          handlers.onStage?.(step.stage, {
+            completed: step.completed,
+            total: step.total,
+            ...(step.queuePosition
+              ? { queuePosition: step.queuePosition }
+              : step.retryAfterMs
+                ? { waiting: true }
+                : {}),
+          });
           if (step.status === "done") {
             if (step.result) return step.result;
             throw new RepositoryError("UNKNOWN");
           }
           if (step.status === "error" || step.status === "cancelled")
             throw new RepositoryError(mapApiErrorCode(step.errorCode ?? "AI_CANCELLED"));
+          // Queued behind other jobs or throttled by the free AI tier; the server says when to retry.
+          if (step.retryAfterMs) await delay(step.retryAfterMs, signal);
         }
       } finally {
         signal.removeEventListener("abort", cancel);

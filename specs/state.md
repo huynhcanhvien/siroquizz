@@ -3,7 +3,7 @@
 > File này ghi lại **đã làm gì, đang làm dở gì, làm tiếp thế nào** để bất kỳ ai (người hoặc agent) cũng có thể tiếp tục.
 > Thời gian theo giờ Việt Nam (UTC+7). Mục mới nhất ở trên cùng của phần Nhật ký.
 
-**Cập nhật lần cuối:** 2026-10-04 22:30 +07
+**Cập nhật lần cuối:** 2026-10-05 14:40 +07
 **Phase hiện tại:** Phase 2–3 hoàn tất local (Groq live pass). Đã thêm hạ tầng **deploy Vercel free + chia nhỏ job AI (resumable step)**, đang chờ nghiệm thu production. Phase 4 (SRS) vẫn đang dở. Google OAuth/R2/Resend production còn chờ credentials.
 **Tình trạng:** Người dùng yêu cầu hoàn thành toàn bộ Phase 2–6 và cập nhật state khi từng phase xong. Không coi credentials, deployment hay beta bên ngoài đã hoàn tất nếu chưa thực hiện.
 
@@ -45,6 +45,22 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 **Bước tiếp theo:** Phase 4: learn-engine7cards/round, FSRS, due queue/new limits/preferences, stars, study sessions/stats/goals/streak/reminders/images. `ts-fsrs@5.4.2` đã cài, @types/node lên22 cho Vitest. Dataviz skill không có trong catalog/filesystem; dùng chart accessible theo design tokens và bảng thay thế. Sau P4 tiếp tục P5–6.
 
 ## Nhật ký
+
+### 2026-10-05 14:40 +07: 🤖 AI tạo thẻ nhanh & ổn định hơn trên Groq free + hàng đợi dùng chung (nhánh `feat/ai-pipeline-speed`, chưa merge)
+
+- **Đo thật trên key free:** 8.000 token/phút **cho mỗi model** (120b, 20b, qwen vision tính riêng); `max_completion_tokens` không bị tính trước. Chunk 25.000 ký tự cũ → **413 "Request too large" 100%** ⇒ mọi tài liệu > ~15k ký tự đều lỗi. `gpt-oss` không tắt được suy luận: `reasoning_effort` chỉ nhận low/medium/high; `low` giảm token suy luận 187 → 39. Groq đôi khi trả 400 `json_validate_failed` (trước đây coi là lỗi hẳn).
+- **[groq.ts](../src/server/ai/groq.ts):** `reasoning_effort: "low"` cho gpt-oss; `maxTokens`/`deadline` theo từng lời gọi (không còn timeout 90s > giới hạn 60s của Vercel); 429 có `retry-after` > 3s → ném `RateLimitError(retryAfterMs)` thay vì ngủ trong function; 413 → `AI_INPUT_TOO_LARGE`; `length` → `AI_OUTPUT_TRUNCATED`; tự lấy mẫu lại khi JSON sai schema.
+- **Chia chunk theo token ước tính** ([output.ts](../src/features/ai-generate/lib/output.ts) `estimateTokens`/`splitDocument`, 2.500 token, cắt theo dòng; CJK ≈ 1 token/ký tự).
+- **[generate.ts](../src/server/ai/generate.ts) mới:** lập tác vụ ≤ 40 thẻ/lời gọi, chạy song song 2 chunk khác nhau, 120b bị giới hạn → chuyển `GROQ_FALLBACK_MODEL` (mặc định gpt-oss-20b, quota riêng); bị cắt → chia đôi; chunk lỗi mãi → bỏ chunk đó, giữ phần còn lại.
+- **OCR:** trang PDF scan OCR song song 3 trang, ảnh tối đa 1400px (tốn ít token vision hơn), bị giới hạn giữa chừng thì giữ các trang đã đọc.
+- **stepJob** tách theo phase; ngân sách mỗi bước 35s (bắt đầu gọi mới) / 48s (cắt lời gọi đang chạy); trả `retryAfterMs` cho client. Lỗi không rõ → log (không nội dung tài liệu) + mã `INTERNAL` thay vì đổ hết vào `AI_INVALID_OUTPUT`. Log thời gian mỗi bước (`AI job step`).
+- **Hàng đợi FIFO dùng chung một key:** chỉ `AI_MAX_ACTIVE_JOBS` (mặc định 2) job được gọi Groq cùng lúc, theo thứ tự tạo (id UUIDv7); job khác trả `status/stage: "queued"` + `queuePosition`, client hiện "còn N lượt trước bạn". Cột mới `ai_generation_jobs.heartbeat_at` (**migration `drizzle/0006_slippery_stranger.sql`**, thêm cột nullable + index) — job không gọi bước > 2 phút không giữ chỗ; job bỏ dở hết hạn sau 10 phút **không hoạt động** (trước: 10 phút kể từ lúc tạo).
+- **Client** ([api-generator.ts](../src/features/ai-generate/lib/api-generator.ts)): chờ `retryAfterMs`; tự gửi lại bước khi 502/503/504/mất mạng (tối đa 3 lần liên tiếp) — bước nào cũng resume từ state đã lưu; UI hiện trạng thái xếp hàng / chờ hạn mức.
+- **Đo live:** tài liệu 60.000 ký tự (12 chunk) xong trong 96s, 0 chunk lỗi; 85s là chờ hạn mức free (Groq xử lý ~11s). Eval 21 case: schema/count/language/accuracy/pinyin = 1, 0 injection; chi phí ước tính $0.0126 → $0.0091. 1 lần chạy `chinese-10-pages` lệch ngôn ngữ, chạy lại 3/3 đạt → dao động của model, cần theo dõi.
+- **Review (agent code-reviewer) — đã sửa 4 HIGH + vài MEDIUM:** đọc body Groq lỗi/timeout giờ là lỗi thử lại được (trước làm hỏng cả job); trình duyệt mất kết nối **không** còn đánh dấu job `cancelled` (job giữ state để resume; hủy thật vẫn qua `/cancel`); `retryAfterMs` kẹp ≤ 60s + quá 10 phút bị giới hạn liên tục không tiến triển → `RATE_LIMITED` (áp dụng cả trích xuất lẫn sinh thẻ); lời gọi mới chỉ bắt đầu khi còn ≥ 18s (launch 30s / hard 48s), timeout → chia nhỏ thay vì trừ lượt; 413 chia văn bản trước; nhiều chunk hơn số thẻ → lấy mẫu chunk cách đều; finalize trùng/cancel → trả kết quả thật của job. **Chưa làm (MEDIUM):** khóa chống 2 bước chạy song song cùng một job (lease/version) — hiện chỉ xảy ra khi client gửi lại lúc invocation cũ vẫn chạy, hậu quả là tốn token chứ không sai dữ liệu; báo cho người dùng khi một phần chunk bị bỏ (`failedTasks`).
+- **Kiểm tra:** typecheck/lint 0 lỗi; **402 unit**, **81 integration** (thêm `ai-generate.test.ts`, test hàng đợi, ngắt kết nối, giới hạn tốc độ), **E2E 31 pass** gồm live Groq.
+- **Cần làm khi deploy:** chạy migration 0006 trên Neon trước khi deploy (truyền `DATABASE_URL` tường minh); tùy chọn đặt `GROQ_FALLBACK_MODEL`, `AI_MAX_ACTIVE_JOBS` trên Vercel (có mặc định).
+- **Tiếp theo (Giai đoạn 2/3 đã đề xuất):** trích xuất PDF/DOCX/TXT ngay trên trình duyệt (bỏ upload + mở lại PDF mỗi bước); streaming thẻ ra dần. Người dùng muốn: bộ thẻ AI mặc định riêng tư; công khai thì được cộng credit, đủ credit mở thêm lượt AI; có kiểm duyệt — đã ghi vào `phase-5-community.md` §8, chưa làm (nhánh riêng).
 
 ### 2026-10-04 22:30 +07: 📊 Thiết kế lại trang Thống kê + đo thời gian học thực (nhánh `perf/optimize-load`)
 

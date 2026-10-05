@@ -32,7 +32,9 @@ beforeEach(() => {
   fetcher
     .mockReset()
     .mockResolvedValueOnce(step({ status: "extracting", stage: "reading" }))
-    .mockResolvedValueOnce(step({ status: "generating", stage: "generating", completed: 1, total: 1 }))
+    .mockResolvedValueOnce(
+      step({ status: "generating", stage: "generating", completed: 1, total: 1 }),
+    )
     .mockResolvedValueOnce(step({ status: "done", stage: "done", result }));
 });
 describe("HTTP AI generator", () => {
@@ -155,6 +157,86 @@ describe("HTTP AI generator", () => {
       code,
     });
   });
+  it("waits the provider delay before the next step and reports the wait", async () => {
+    vi.useFakeTimers();
+    try {
+      fetcher
+        .mockReset()
+        .mockResolvedValueOnce(
+          step({
+            status: "generating",
+            stage: "generating",
+            completed: 1,
+            total: 3,
+            retryAfterMs: 5000,
+          }),
+        )
+        .mockResolvedValueOnce(step({ status: "done", stage: "done", result }));
+      const progress: unknown[] = [];
+      const promise = generator().generate(
+        { files: [], prompt: "x", options },
+        { onStage: (_, p) => progress.push(p) },
+      );
+      await vi.advanceTimersByTimeAsync(4999);
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      expect(progress).toContainEqual({ completed: 1, total: 3, waiting: true });
+      await vi.advanceTimersByTimeAsync(1);
+      await expect(promise).resolves.toEqual(result);
+      expect(fetcher).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("reports the queue position while waiting for a provider slot", async () => {
+    vi.useFakeTimers();
+    try {
+      fetcher
+        .mockReset()
+        .mockResolvedValueOnce(
+          step({ status: "queued", stage: "queued", queuePosition: 2, retryAfterMs: 3000 }),
+        )
+        .mockResolvedValueOnce(step({ status: "done", stage: "done", result }));
+      const seen: unknown[] = [];
+      const promise = generator().generate(
+        { files: [], prompt: "x", options },
+        { onStage: (stage, p) => seen.push([stage, p]) },
+      );
+      await vi.runAllTimersAsync();
+      await expect(promise).resolves.toEqual(result);
+      expect(seen).toContainEqual(["queued", { queuePosition: 2 }]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("resumes the job after a gateway timeout or dropped connection", async () => {
+    vi.useFakeTimers();
+    try {
+      fetcher
+        .mockReset()
+        .mockResolvedValueOnce(new Response(null, { status: 504 }))
+        .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+        .mockResolvedValueOnce(step({ status: "done", stage: "done", result }));
+      const promise = generator().generate({ files: [], prompt: "x", options });
+      await vi.runAllTimersAsync();
+      await expect(promise).resolves.toEqual(result);
+      expect(fetcher).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("gives up after repeated transient step failures", async () => {
+    vi.useFakeTimers();
+    try {
+      fetcher.mockReset().mockResolvedValue(new Response(null, { status: 503 }));
+      const promise = generator().generate({ files: [], prompt: "x", options });
+      const expectation = expect(promise).rejects.toMatchObject({ code: "UNKNOWN" });
+      await vi.runAllTimersAsync();
+      await expectation;
+      expect(fetcher).toHaveBeenCalledTimes(4);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it("rejects a done step that is missing its result", async () => {
     fetcher.mockReset().mockResolvedValueOnce(step({ status: "done", stage: "done" }));
     await expect(generator().generate({ files: [], prompt: "x", options })).rejects.toMatchObject({
@@ -165,8 +247,12 @@ describe("HTTP AI generator", () => {
     fetcher
       .mockReset()
       .mockResolvedValueOnce(step({ status: "extracting", stage: "reading" }))
-      .mockResolvedValueOnce(step({ status: "generating", stage: "generating", completed: 0, total: 2 }))
-      .mockResolvedValueOnce(step({ status: "generating", stage: "generating", completed: 1, total: 2 }))
+      .mockResolvedValueOnce(
+        step({ status: "generating", stage: "generating", completed: 0, total: 2 }),
+      )
+      .mockResolvedValueOnce(
+        step({ status: "generating", stage: "generating", completed: 1, total: 2 }),
+      )
       .mockResolvedValueOnce(step({ status: "validating", stage: "validating" }))
       .mockResolvedValueOnce(step({ status: "done", stage: "done", result }));
     expect(await generator().generate({ files: [], prompt: "x", options })).toEqual(result);

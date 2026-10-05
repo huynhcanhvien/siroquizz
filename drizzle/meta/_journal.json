@@ -43,6 +43,13 @@
       "when": 1791125108633,
       "tag": "0005_awesome_calypso",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791185443296,
+      "tag": "0006_slippery_stranger",
+      "breakpoints": true
     }
   ]
 }

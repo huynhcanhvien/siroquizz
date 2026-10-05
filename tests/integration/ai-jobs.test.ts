@@ -17,6 +17,7 @@ import {
   type StepResult,
 } from "@/server/ai/jobs";
 import { auxiliaryTask } from "@/server/ai/auxiliary";
+import { RateLimitError } from "@/server/ai/groq";
 
 const terminal = new Set(["done", "error", "cancelled"]);
 /** Drives a job the way the client does: repeated short steps until it reaches a terminal state. */
@@ -35,8 +36,13 @@ async function runToEnd(
 }
 import { ApiError } from "@/server/api-error";
 const provider = vi.hoisted(() => vi.fn());
-vi.mock("@/server/ai/groq", () => ({ groqJson: provider }));
-vi.mock("@/server/ai/extract", () => ({
+const queue = vi.hoisted(() => ({ slots: 20 }));
+vi.mock("@/server/ai/groq", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/ai/groq")>()),
+  groqJson: provider,
+}));
+vi.mock("@/server/ai/extract", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/ai/extract")>()),
   countPdfPages: vi.fn(async () => 1),
   validateMagic: vi.fn(() => "txt"),
   extractDocument: vi.fn(async () => ({
@@ -47,7 +53,12 @@ vi.mock("@/server/ai/extract", () => ({
 }));
 vi.mock("@/server/ai/storage", () => ({ getUpload: vi.fn(async () => Buffer.from("test")) }));
 vi.mock("@/server/env", () => ({
-  getServerEnv: () => ({ AI_ENABLED: "true", GROQ_TEXT_MODEL: "openai/gpt-oss-120b" }),
+  getServerEnv: () => ({
+    AI_ENABLED: "true",
+    GROQ_TEXT_MODEL: "openai/gpt-oss-120b",
+    GROQ_FALLBACK_MODEL: "openai/gpt-oss-20b",
+    AI_MAX_ACTIVE_JOBS: queue.slots,
+  }),
 }));
 const url =
   process.env.TEST_DATABASE_URL ??
@@ -79,6 +90,7 @@ beforeEach(async () => {
     { id: b, name: "B", email: "ai-b@example.com", emailVerified: true },
   ]);
   provider.mockReset().mockResolvedValue(output);
+  queue.slots = 20;
 });
 afterAll(() => connection.end());
 it("Vietnam quota resets at midnight with the correct UTC boundary", () => {
@@ -119,8 +131,16 @@ it("serializes concurrent quota reservations and releases cancelled jobs", async
   expect((await getQuota(db, a)).remaining).toBe(5);
   await expect(createJob(db, a, input)).resolves.toHaveProperty("jobId");
 });
-it("provider failure and malformed output do not consume quota", async () => {
+it("recovers from a single provider failure", async () => {
   provider.mockRejectedValueOnce(new ApiError(502, "AI_PROVIDER_ERROR"));
+  const job = await createJob(db, a, input);
+  expect((await runToEnd(db, a, job.jobId)).status).toBe("done");
+});
+it("provider failure and malformed output do not consume quota", async () => {
+  provider
+    .mockRejectedValueOnce(new ApiError(502, "AI_PROVIDER_ERROR"))
+    .mockRejectedValueOnce(new ApiError(502, "AI_PROVIDER_ERROR"))
+    .mockRejectedValueOnce(new ApiError(502, "AI_PROVIDER_ERROR"));
   let job = await createJob(db, a, input);
   await runToEnd(db, a, job.jobId);
   expect((await requireJob(db, a, job.jobId)).errorCode).toBe("AI_PROVIDER_ERROR");
@@ -130,20 +150,31 @@ it("provider failure and malformed output do not consume quota", async () => {
   expect((await requireJob(db, a, job.jobId)).status).toBe("error");
   expect((await getQuota(db, a)).remaining).toBe(5);
 });
-it("cancels provider work and never completes or charges a disconnected job", async () => {
+it("stops provider work on disconnect without completing, charging or killing the job", async () => {
   const abort = new AbortController();
-  provider.mockImplementation(
+  provider.mockImplementationOnce(
     async (_schema, _input, signal: AbortSignal) =>
       new Promise((_resolve, reject) =>
         signal.addEventListener("abort", () => reject(signal.reason), { once: true }),
       ),
   );
   const job = await createJob(db, a, input);
-  const running = runToEnd(db, a, job.jobId, abort.signal);
+  // The first step only plans the work; the provider is called from the second.
+  await stepJob(db, a, job.jobId, new AbortController().signal);
+  const running = stepJob(db, a, job.jobId, abort.signal);
   await vi.waitFor(() => expect(provider).toHaveBeenCalled());
   abort.abort();
   await running;
-  expect((await requireJob(db, a, job.jobId)).status).toBe("cancelled");
+  expect((await requireJob(db, a, job.jobId)).status).toBe("generating");
+  expect((await getQuota(db, a)).remaining).toBe(5);
+  // The browser reconnects and the job resumes from its saved state.
+  expect((await runToEnd(db, a, job.jobId)).status).toBe("done");
+});
+it("an explicit cancel is final and never charges", async () => {
+  const job = await createJob(db, a, input);
+  await stepJob(db, a, job.jobId, new AbortController().signal);
+  await cancelJob(db, a, job.jobId);
+  await expect(runToEnd(db, a, job.jobId)).resolves.toMatchObject({ status: "cancelled" });
   expect((await getQuota(db, a)).remaining).toBe(5);
 });
 it("imports clear pairs without a provider call and validates upload ownership", async () => {
@@ -204,4 +235,48 @@ it("validates auxiliary card IDs and cleans plain-text output", async () => {
       new AbortController().signal,
     ),
   ).rejects.toMatchObject({ status: 502 });
+});
+it("queues jobs beyond the shared provider slots in creation order", async () => {
+  queue.slots = 1;
+  const first = await createJob(db, a, input);
+  const second = await createJob(db, b, input);
+  await stepJob(db, a, first.jobId, new AbortController().signal);
+  await expect(stepJob(db, b, second.jobId, new AbortController().signal)).resolves.toMatchObject({
+    status: "queued",
+    stage: "queued",
+    queuePosition: 1,
+    retryAfterMs: expect.any(Number),
+  });
+  expect((await requireJob(db, b, second.jobId)).status).toBe("queued");
+  expect((await runToEnd(db, a, first.jobId)).status).toBe("done");
+  expect((await runToEnd(db, b, second.jobId)).status).toBe("done");
+});
+it("does not let an abandoned job hold the queue", async () => {
+  queue.slots = 1;
+  const abandoned = await createJob(db, a, input);
+  const old = new Date(Date.now() - 300_000);
+  await db
+    .update(schema.aiJobs)
+    .set({ createdAt: old, heartbeatAt: old })
+    .where(eq(schema.aiJobs.id, abandoned.jobId));
+  const waiting = await createJob(db, b, input);
+  expect((await runToEnd(db, b, waiting.jobId)).status).toBe("done");
+});
+it("keeps a job that is still waiting in the queue alive past ten minutes", async () => {
+  const job = await createJob(db, a, input);
+  await db
+    .update(schema.aiJobs)
+    .set({ createdAt: new Date(Date.now() - 900_000), heartbeatAt: new Date() })
+    .where(eq(schema.aiJobs.id, job.jobId));
+  await createJob(db, a, input);
+  expect((await requireJob(db, a, job.jobId)).status).toBe("queued");
+});
+it("fails with RATE_LIMITED after ten minutes of throttling without progress", async () => {
+  provider.mockRejectedValue(new RateLimitError(60_000));
+  const job = await createJob(db, a, input);
+  await expect(runToEnd(db, a, job.jobId)).resolves.toMatchObject({
+    status: "error",
+    errorCode: "RATE_LIMITED",
+  });
+  expect((await getQuota(db, a)).remaining).toBe(5);
 });

@@ -267,8 +267,14 @@ export const aiJobs = pgTable(
     errorCode: varchar("error_code", { length: 64 }),
     createdAt: time("created_at").notNull().defaultNow(),
     finishedAt: time("finished_at"),
+    // Last time the browser drove this job; an active job without one recently is abandoned and
+    // no longer holds a place in the shared provider queue.
+    heartbeatAt: time("heartbeat_at"),
   },
-  (t) => [index("jobs_user_created_idx").on(t.userId, t.createdAt)],
+  (t) => [
+    index("jobs_user_created_idx").on(t.userId, t.createdAt),
+    index("jobs_status_id_idx").on(t.status, t.id),
+  ],
 );
 export const aiAuxUsage = pgTable(
   "ai_aux_usage",

@@ -2,10 +2,21 @@ import nextEnv from "@next/env";
 import { readFile, writeFile } from "node:fs/promises";
 import { z } from "zod";
 import { extractDocument } from "../src/server/ai/extract";
-import { groqJson } from "../src/server/ai/groq";
+import { groqJson, RateLimitError } from "../src/server/ai/groq";
 import { normalizeCards } from "../src/features/ai-generate/lib/output";
 import { v7 } from "uuid";
 nextEnv.loadEnvConfig(process.cwd());
+/** The free tier allows 8,000 tokens per minute; wait out throttling like the job runner does. */
+async function throttled<T>(run: () => Promise<T>): Promise<T> {
+  for (;;) {
+    try {
+      return await run();
+    } catch (error) {
+      if (!(error instanceof RateLimitError)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, error.retryAfterMs));
+    }
+  }
+}
 const root = "evals/ai-generation";
 const fixtures = JSON.parse(await readFile(`${root}/manifest.json`, "utf8")) as {
   id: string;
@@ -51,25 +62,25 @@ if (process.env.EVAL_RESUME === "1") {
 for (const fixture of fixtures) {
   if (report.some((r) => r.id === fixture.id)) continue;
   try {
-    const extracted = await extractDocument(
-      await readFile(`${root}/${fixture.file}`),
-      fixture.file,
-      fixture.mime,
-      AbortSignal.timeout(180_000),
+    const bytes = await readFile(`${root}/${fixture.file}`);
+    const extracted = await throttled(() =>
+      extractDocument(bytes, fixture.file, fixture.mime, AbortSignal.timeout(180_000)),
     );
-    const result = await groqJson(
-      output,
-      JSON.stringify({
-        userRequest: fixture.prompt,
-        settings: {
-          cardCount: fixture.count,
-          termLang: fixture.termLang,
-          definitionLang: "vi",
-          includePhonetic: fixture.termLang === "zh",
-        },
-        document: { untrusted: true, text: extracted.text },
-      }),
-      AbortSignal.timeout(180_000),
+    const result = await throttled(() =>
+      groqJson(
+        output,
+        JSON.stringify({
+          userRequest: fixture.prompt,
+          settings: {
+            cardCount: fixture.count,
+            termLang: fixture.termLang,
+            definitionLang: "vi",
+            includePhonetic: fixture.termLang === "zh",
+          },
+          document: { untrusted: true, text: extracted.text },
+        }),
+        AbortSignal.timeout(180_000),
+      ),
     );
     const cards = normalizeCards(result.data.cards, fixture.count, v7);
     const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase().trim();

@@ -518,6 +518,7 @@
       "generating": "Tạo thẻ",
       "done": "Hoàn tất",
       "uploading": "Đang tải lên",
+      "queued": "Chờ đến lượt",
       "validating": "Đang kiểm tra"
     },
     "cancelled": "Đã hủy tạo thẻ.",
@@ -553,7 +554,9 @@
     "phoneticsSaved": "Đã lưu phiên âm.",
     "semanticGrading": "Chấm tự luận theo ngữ nghĩa bằng AI",
     "semanticHint": "Tùy chọn. Nếu AI không khả dụng, giữ kết quả so sánh văn bản. Tối đa 50 tác vụ phụ/ngày.",
-    "chunkProgress": "Đã tạo {completed}/{total} phần"
+    "chunkProgress": "Đã tạo {completed}/{total} phần",
+    "quotaWaiting": "Hạn mức AI miễn phí đang bận — sẽ tự tiếp tục sau giây lát…",
+    "queuePosition": "Đang xếp hàng: còn {count} lượt trước bạn. Bạn có thể giữ trang này mở."
   },
   "settings": {
     "title": "Cài đặt",

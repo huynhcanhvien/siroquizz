@@ -8,6 +8,8 @@ async function driveToEnd(page: Page, jobId: string, headers: Record<string, str
     expect(res.ok()).toBeTruthy();
     const step = (await res.json()).data;
     if (["done", "error", "cancelled"].includes(step.status)) return step;
+    // Queued behind other jobs or throttled: wait as the real client does.
+    if (step.retryAfterMs) await page.waitForTimeout(step.retryAfterMs);
   }
   throw new Error("job did not finish");
 }

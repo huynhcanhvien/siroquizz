@@ -518,6 +518,7 @@
       "generating": "生成卡片",
       "done": "完成",
       "uploading": "上传中",
+      "queued": "排队等候",
       "validating": "校验中"
     },
     "cancelled": "已取消生成。",
@@ -553,7 +554,9 @@
     "phoneticsSaved": "音标已保存。",
     "semanticGrading": "用AI按语义评分书面答案",
     "semanticHint": "可选。AI不可用时保留文本匹配结果。每天最多50次辅助任务。",
-    "chunkProgress": "已生成 {completed}/{total} 部分"
+    "chunkProgress": "已生成 {completed}/{total} 部分",
+    "quotaWaiting": "免费 AI 额度繁忙，稍后将自动继续…",
+    "queuePosition": "正在排队：前面还有 {count} 个任务，请保持页面打开。"
   },
   "settings": {
     "title": "设置",

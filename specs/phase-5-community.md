@@ -57,6 +57,12 @@
 - Vai trò `admin` và trang `/admin/reports`: xem, ẩn bộ thẻ, cảnh cáo hoặc khóa tài khoản. Mọi hành động đều ghi audit log.
 - Khi bộ thẻ chuyển sang `public`: kiểm tra tự động bằng `claude-haiku-4-5-20251001`. Nếu nghi vi phạm thì đưa vào hàng chờ duyệt, chưa hiển thị ngay.
 
+### 8. Credit cho bộ thẻ AI công khai (yêu cầu người dùng 2026-10-05)
+- Bộ thẻ tạo bằng AI mặc định `private` (tài liệu tải lên có thể là riêng tư/có bản quyền).
+- Khi người dùng chuyển một bộ AI sang `public` **và bộ đó qua kiểm duyệt** (§7), cộng credit cho tác giả. Tích đủ credit thì đổi được lượt tạo AI ngoài hạn mức 5 lượt/ngày.
+- Cần quyết định: số credit mỗi bộ, số credit đổi một lượt, chống lạm dụng (bộ trùng lặp/rác, công khai rồi ẩn lại để lấy credit — credit chỉ cộng một lần mỗi bộ và bị thu hồi nếu bộ bị gỡ do vi phạm).
+- Lợi ích phụ: người khác sao chép bộ có sẵn thay vì tạo lại → đỡ tốn hạn mức của key Groq free dùng chung.
+
 **Ngoài phạm vi:** chat hoặc bình luận, chế độ thi realtime nhiều người, tích hợp LMS.
 
 ## Schema mới
