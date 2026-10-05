@@ -148,7 +148,7 @@ describe("sharing", () => {
     expect(guest).toMatchObject({ title: "Kitchen words", isOwner: false, listed: false });
     expect(guest.cards).toHaveLength(10);
     expect(guest).not.toHaveProperty("ownerId");
-    expect(guest.author).toEqual({ name: "Owner", avatarColor: "indigo" });
+    expect(guest.author).toEqual({ name: "Owner", avatarColor: "indigo", username: null });
     // Back to private: the same link now 404s, and keeps working again when re-shared.
     await share(created.id, "private");
     await expect(getPublicSet(db, null, shared.slug!)).rejects.toMatchObject({ status: 404 });

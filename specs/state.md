@@ -3,7 +3,7 @@
 > File này ghi lại **đã làm gì, đang làm dở gì, làm tiếp thế nào** để bất kỳ ai (người hoặc agent) cũng có thể tiếp tục.
 > Thời gian theo giờ Việt Nam (UTC+7). Mục mới nhất ở trên cùng của phần Nhật ký.
 
-**Cập nhật lần cuối:** 2026-10-05 17:10 +07
+**Cập nhật lần cuối:** 2026-10-05 18:20 +07
 **Phase hiện tại:** Phase 2–3 hoàn tất local (Groq live pass). Đã thêm hạ tầng **deploy Vercel free + chia nhỏ job AI (resumable step)**, đang chờ nghiệm thu production. Phase 4 (SRS) vẫn đang dở. Google OAuth/R2/Resend production còn chờ credentials.
 **Tình trạng:** Người dùng yêu cầu hoàn thành toàn bộ Phase 2–6 và cập nhật state khi từng phase xong. Không coi credentials, deployment hay beta bên ngoài đã hoàn tất nếu chưa thực hiện.
 
@@ -45,6 +45,16 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 **Bước tiếp theo:** Phase 4: learn-engine7cards/round, FSRS, due queue/new limits/preferences, stars, study sessions/stats/goals/streak/reminders/images. `ts-fsrs@5.4.2` đã cài, @types/node lên22 cho Vitest. Dataviz skill không có trong catalog/filesystem; dùng chart accessible theo design tokens và bảng thay thế. Sau P4 tiếp tục P5–6.
 
 ## Nhật ký
+
+### 2026-10-05 18:20 +07: 🧭 Phase 5 đợt 2 — Khám phá và hồ sơ công khai (nhánh `feat/phase5-community`)
+
+- **Tìm kiếm:** cột `study_sets.search_text` = tiêu đề + mô tả + tag + thẻ đã **bỏ dấu tiếng Việt, đ→d, chữ thường** trong code ([search.ts](../src/features/community/lib/search.ts)), index GIN `pg_trgm` (**migration `drizzle/0010_slippery_black_queen.sql`**, có `CREATE EXTENSION pg_trgm`). Không dùng `unaccent` vì không IMMUTABLE nên không index được. "tu vung du lich" → "Từ vựng du lịch", "你好" → bộ có thuật ngữ đó.
+- **`/explore`** (trang công khai, server render, trạng thái trên URL qua form GET): lọc ngôn ngữ thuật ngữ/định nghĩa, số thẻ, tag; sắp xếp liên quan/mới/phổ biến; "Phổ biến tuần này" = lượt sao chép trong 7 ngày; chip chủ đề = tag dùng nhiều nhất; phân trang 24/trang (tối đa 20 trang). Chỉ hiện bộ public + approved + không bị ẩn + chủ không bị khóa/xóa.
+- **Tag:** tối đa 5, sửa trong hộp thoại Chia sẻ khi công khai (`PATCH /sets/:id/tags`); đổi tag → kiểm duyệt lại.
+- **Hồ sơ `/u/[username]`:** username `[a-z0-9_]{3,20}`, chặn từ dành riêng, lần đầu chọn tự do, sau đó 30 ngày/lần (`USERNAME_TAKEN`, `USERNAME_COOLDOWN`); ẩn hồ sơ → 404 với người khác; tổng số bộ/thẻ/lượt sao chép; tên tác giả ở Khám phá và trang bộ thẻ link tới hồ sơ. Cài đặt: mục "Hồ sơ công khai".
+- **UI:** header công khai dùng chung (`PublicHeader`), "Khám phá" trong thanh điều hướng (chỉ chế độ http). **Quality spec bắt được 2 lỗi thật:** header tràn 143px ở 320px (đã thu gọn như landing) và tương phản chữ nhỏ `accent-strong` trên `accent-soft` (thêm token `--accent-text`).
+- **Kiểm tra:** typecheck/lint 0 lỗi; **419 unit**, **126 integration** (thêm `explore.test.ts`), **E2E 36 pass** (thêm luồng Khám phá → hồ sơ → bộ thẻ; axe + tràn layout cho `/explore`, `/s/…`, `/u/…`). Cổng 3100 đang bị dự án khác của user chiếm → chạy E2E với `E2E_PORT=3200`.
+- **Deploy:** thêm migration 0010 (cần quyền `CREATE EXTENSION`, Neon cho phép `pg_trgm`).
 
 ### 2026-10-05 17:10 +07: 🌐 Phase 5 đợt 1 — chia sẻ, kiểm duyệt, báo cáo, admin, credit thưởng (nhánh `feat/phase5-community`, tách từ `feat/ai-pipeline-speed`)
 

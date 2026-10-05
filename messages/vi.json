@@ -39,7 +39,9 @@
     "AI_GLOBAL_LIMIT": "Hệ thống đã dùng hết hạn mức AI chung của hôm nay. Vui lòng quay lại sau 0h.",
     "AI_JOB_TOO_LARGE": "Yêu cầu này cần hơn 40 credit cho một lần tạo. Hãy giảm số thẻ hoặc chia nhỏ tài liệu.",
     "AI_BUSY": "Bạn đang có 2 lần tạo chưa xong. Hãy chờ chúng hoàn tất hoặc hủy bớt rồi thử lại.",
-    "OCR_PAGE_LIMIT": "Mỗi lần tạo chỉ đọc được tối đa 10 trang ảnh hoặc trang scan. Hãy tách tài liệu thành nhiều phần."
+    "OCR_PAGE_LIMIT": "Mỗi lần tạo chỉ đọc được tối đa 10 trang ảnh hoặc trang scan. Hãy tách tài liệu thành nhiều phần.",
+    "USERNAME_TAKEN": "Tên người dùng này đã có người dùng.",
+    "USERNAME_COOLDOWN": "Bạn chỉ được đổi tên người dùng 30 ngày một lần."
   },
   "validation": {
     "required": "Trường này là bắt buộc.",
@@ -74,7 +76,8 @@
     "register": "Đăng ký",
     "goToApp": "Vào học",
     "review": "Ôn tập",
-    "stats": "Thống kê"
+    "stats": "Thống kê",
+    "explore": "Khám phá"
   },
   "theme": {
     "label": "Giao diện",
@@ -815,6 +818,67 @@
         "pending": "Đang chờ kiểm tra tự động",
         "flagged": "Bị gắn cờ"
       }
+    },
+    "tags": "Chủ đề (tag)",
+    "tagsPlaceholder": "ví dụ: du lịch, hsk 2, ielts",
+    "tagsSave": "Lưu tag",
+    "tagsSaved": "Đã lưu tag.",
+    "tagsHint": "Tối đa 5 tag, cách nhau bằng dấu phẩy. Giúp người khác tìm thấy bộ thẻ ở trang Khám phá.",
+    "explore": {
+      "title": "Khám phá",
+      "subtitle": "Tìm bộ thẻ do cộng đồng chia sẻ, học thử ngay và sao chép về thư viện.",
+      "searchLabel": "Tìm bộ thẻ",
+      "searchPlaceholder": "Ví dụ: tu vung du lich, 你好, IELTS",
+      "search": "Tìm",
+      "termLang": "Thuật ngữ",
+      "definitionLang": "Định nghĩa",
+      "anyLanguage": "Mọi ngôn ngữ",
+      "size": "Số thẻ",
+      "sizes": {
+        "any": "Bất kỳ",
+        "small": "Tối đa 20",
+        "medium": "21–50",
+        "large": "Trên 50"
+      },
+      "sort": "Sắp xếp",
+      "sorts": {
+        "relevance": "Liên quan nhất",
+        "new": "Mới nhất",
+        "popular": "Phổ biến"
+      },
+      "filters": "Bộ lọc",
+      "apply": "Áp dụng",
+      "popularTitle": "Phổ biến tuần này",
+      "topicsTitle": "Chủ đề",
+      "resultsFor": "Kết quả cho “{q}”",
+      "allSets": "Tất cả bộ thẻ",
+      "topic": "Chủ đề: {tag}",
+      "clearTopic": "Bỏ lọc chủ đề",
+      "empty": "Chưa có bộ thẻ nào khớp. Thử từ khóa khác hoặc bỏ bớt bộ lọc.",
+      "copies": "{count} lượt sao chép tuần này",
+      "previous": "Trang trước",
+      "next": "Trang sau",
+      "page": "Trang {page}"
+    },
+    "profile": {
+      "setsTitle": "Bộ thẻ công khai",
+      "sets": "{count} bộ thẻ",
+      "cards": "{count} thẻ",
+      "copies": "{count} lượt sao chép",
+      "memberSince": "Tham gia từ {date}",
+      "empty": "Chưa có bộ thẻ công khai nào.",
+      "privateNotice": "Hồ sơ của bạn đang ẩn. Chỉ bạn xem được trang này."
+    },
+    "profileSettings": {
+      "title": "Hồ sơ công khai",
+      "username": "Tên người dùng",
+      "usernameHint": "3–20 ký tự gồm chữ thường không dấu, số và dấu gạch dưới. Đổi được 30 ngày một lần.",
+      "nextChange": "Bạn có thể đổi lại sau {date}.",
+      "public": "Hiện hồ sơ công khai",
+      "publicHint": "Người khác xem được trang hồ sơ với các bộ thẻ công khai của bạn.",
+      "save": "Lưu hồ sơ",
+      "saved": "Đã lưu hồ sơ.",
+      "view": "Xem hồ sơ"
     }
   }
 }

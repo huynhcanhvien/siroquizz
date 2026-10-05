@@ -1,17 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { cache } from "react";
-import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
-import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import { Button } from "@/components/ui/Button";
-import { Avatar, Logo } from "@/components/ui/misc";
+import { Avatar } from "@/components/ui/misc";
+import { PublicHeader } from "@/features/community/components/PublicHeader";
 import { PublicFlashcards } from "@/features/community/components/PublicFlashcards";
 import { PublicSetActions } from "@/features/community/components/PublicSetActions";
 import { isLangCode } from "@/lib/languages";
-import { getSessionContext } from "@/server/api";
+import { currentViewerId } from "@/server/viewer";
 import { ApiError } from "@/server/api-error";
 import { getDatabase } from "@/server/db/client";
 import { getServerEnv } from "@/server/env";
@@ -22,10 +19,7 @@ type Props = { params: Promise<{ slug: string }> };
 /** The shared set for this request's viewer (a guest when signed out); 404 when not allowed. */
 const loadSet = cache(async (slug: string) => {
   if (getServerEnv().NEXT_PUBLIC_DATA_SOURCE !== "http") notFound();
-  const viewerId = await getSessionContext(await headers()).then(
-    (session) => session.user.id,
-    () => null,
-  );
+  const viewerId = await currentViewerId();
   try {
     return { set: await getPublicSet(getDatabase(), viewerId, slug), viewerId };
   } catch (error) {
@@ -55,24 +49,7 @@ export default async function PublicSetPage({ params }: Props) {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-40 border-b border-border/70 bg-bg/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-3 px-4">
-          <Link href="/" aria-label="SiroQuizz">
-            <Logo />
-          </Link>
-          <div className="flex items-center gap-2">
-            <LanguageSwitcher />
-            <ThemeToggle />
-            <Button asChild size="sm" variant={viewerId ? "secondary" : "primary"}>
-              <Link
-                href={viewerId ? "/library" : `/login?next=${encodeURIComponent(`/s/${slug}`)}`}
-              >
-                {viewerId ? t("openLibrary") : t("signIn")}
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <PublicHeader signedIn={viewerId !== null} returnTo={`/s/${slug}`} />
       <main id="main" className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-4 py-10">
         <section aria-labelledby="set-title" className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -91,7 +68,16 @@ export default async function PublicSetPage({ params }: Props) {
           ) : null}
           <p className="flex items-center gap-2 text-sm font-medium text-muted">
             <Avatar name={set.author.name} color={set.author.avatarColor} size="sm" />
-            {t("publicBy", { name: set.author.name })}
+            {set.author.username ? (
+              <Link
+                href={`/u/${set.author.username}`}
+                className="underline-offset-2 hover:underline"
+              >
+                {t("publicBy", { name: set.author.name })}
+              </Link>
+            ) : (
+              t("publicBy", { name: set.author.name })
+            )}
           </p>
           {set.isOwner ? (
             <p className="text-sm font-semibold text-primary-text">{t("ownerNotice")}</p>

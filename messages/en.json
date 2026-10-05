@@ -39,7 +39,9 @@
     "AI_GLOBAL_LIMIT": "The app has used today's shared AI allowance. Please come back after midnight.",
     "AI_JOB_TOO_LARGE": "This request needs more than 40 credits for one generation. Ask for fewer cards or split the document.",
     "AI_BUSY": "You already have 2 generations in progress. Wait for them to finish or cancel one, then try again.",
-    "OCR_PAGE_LIMIT": "One generation can read at most 10 image or scanned pages. Split the document into parts."
+    "OCR_PAGE_LIMIT": "One generation can read at most 10 image or scanned pages. Split the document into parts.",
+    "USERNAME_TAKEN": "That username is taken.",
+    "USERNAME_COOLDOWN": "You can change your username once every 30 days."
   },
   "validation": {
     "required": "This field is required.",
@@ -74,7 +76,8 @@
     "register": "Sign up",
     "goToApp": "Start studying",
     "review": "Review",
-    "stats": "Statistics"
+    "stats": "Statistics",
+    "explore": "Explore"
   },
   "theme": {
     "label": "Theme",
@@ -815,6 +818,67 @@
         "pending": "Waiting for the automatic check",
         "flagged": "Flagged"
       }
+    },
+    "tags": "Topics (tags)",
+    "tagsPlaceholder": "e.g. travel, hsk 2, ielts",
+    "tagsSave": "Save tags",
+    "tagsSaved": "Tags saved.",
+    "tagsHint": "Up to 5 tags, separated by commas. They help people find the set on Explore.",
+    "explore": {
+      "title": "Explore",
+      "subtitle": "Find sets shared by the community, try them right away and copy them to your library.",
+      "searchLabel": "Search sets",
+      "searchPlaceholder": "e.g. travel vocabulary, 你好, IELTS",
+      "search": "Search",
+      "termLang": "Terms",
+      "definitionLang": "Definitions",
+      "anyLanguage": "Any language",
+      "size": "Cards",
+      "sizes": {
+        "any": "Any",
+        "small": "Up to 20",
+        "medium": "21–50",
+        "large": "Over 50"
+      },
+      "sort": "Sort",
+      "sorts": {
+        "relevance": "Most relevant",
+        "new": "Newest",
+        "popular": "Popular"
+      },
+      "filters": "Filters",
+      "apply": "Apply",
+      "popularTitle": "Popular this week",
+      "topicsTitle": "Topics",
+      "resultsFor": "Results for “{q}”",
+      "allSets": "All sets",
+      "topic": "Topic: {tag}",
+      "clearTopic": "Clear topic",
+      "empty": "No sets match yet. Try other words or fewer filters.",
+      "copies": "{count} copies this week",
+      "previous": "Previous page",
+      "next": "Next page",
+      "page": "Page {page}"
+    },
+    "profile": {
+      "setsTitle": "Public sets",
+      "sets": "{count} sets",
+      "cards": "{count} cards",
+      "copies": "{count} copies",
+      "memberSince": "Member since {date}",
+      "empty": "No public sets yet.",
+      "privateNotice": "Your profile is hidden. Only you can see this page."
+    },
+    "profileSettings": {
+      "title": "Public profile",
+      "username": "Username",
+      "usernameHint": "3–20 characters: lower-case letters without accents, digits and underscores. Can change once every 30 days.",
+      "nextChange": "You can change it again after {date}.",
+      "public": "Show my public profile",
+      "publicHint": "Others can see a profile page with your public sets.",
+      "save": "Save profile",
+      "saved": "Profile saved.",
+      "view": "View profile"
     }
   }
 }

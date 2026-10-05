@@ -62,6 +62,7 @@ export const cardSchema = z.object({
 
 export const setSharingSchema = z.object({
   visibility: z.enum(["private", "unlisted", "public"]),
+  tags: z.array(z.string()).default([]),
   slug: z.string().nullable(),
   moderationStatus: z.enum(["none", "pending", "approved", "flagged", "rejected"]),
   moderationReason: z.string().nullable(),

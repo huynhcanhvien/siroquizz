@@ -37,6 +37,7 @@ export type ModerationStatus = "none" | "pending" | "approved" | "flagged" | "re
 /** Sharing state of an owned set (server-backed mode only). */
 export interface SetSharing {
   visibility: SetVisibility;
+  tags: string[];
   slug: string | null;
   moderationStatus: ModerationStatus;
   moderationReason: string | null;

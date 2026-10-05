@@ -27,6 +27,8 @@ export const REPOSITORY_ERROR_CODES = [
   "AI_JOB_TOO_LARGE",
   "AI_BUSY",
   "OCR_PAGE_LIMIT",
+  "USERNAME_TAKEN",
+  "USERNAME_COOLDOWN",
   "UNKNOWN",
 ] as const;
 export type RepositoryErrorCode = (typeof REPOSITORY_ERROR_CODES)[number];

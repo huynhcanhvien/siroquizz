@@ -10,6 +10,7 @@ import { awardCopyCredit } from "../ai/credits";
 import { canViewSet, isAdmin, isListed } from "./access";
 import { moderateSet } from "./moderation";
 import { createSetInTransaction, requireOwnedSet, type Db } from "./sets";
+import { buildSearchText, normalizeTags } from "@/features/community/lib/search";
 
 const SLUG_LENGTH = 10;
 const SLUG_ALPHABET = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -78,9 +79,34 @@ export async function markEdited(db: Database, setId: string) {
   if (set) await moderateSet(db, setId);
 }
 
+const tagsSchema = z.object({ tags: z.array(z.string().max(100)).max(20) });
+/** Topic tags shown on Explore. Changing them on a public set sends it through moderation. */
+export async function setTags(db: Database, ownerId: string, setId: string, input: unknown) {
+  const tags = normalizeTags(tagsSchema.parse(input).tags);
+  await db.transaction(async (tx) => {
+    const set = await requireOwnedSet(tx, ownerId, setId, true);
+    const setCards = await tx
+      .select({ term: cards.term, definition: cards.definition })
+      .from(cards)
+      .where(eq(cards.setId, setId))
+      .orderBy(asc(cards.position));
+    await tx
+      .update(studySets)
+      .set({
+        tags,
+        searchText: buildSearchText({ ...set, tags, cards: setCards }),
+        updatedAt: new Date(),
+      })
+      .where(eq(studySets.id, setId));
+  });
+  await markEdited(db, setId);
+  return sharingOf(await requireOwnedSet(db, ownerId, setId));
+}
+
 export function sharingOf(set: typeof studySets.$inferSelect) {
   return {
     visibility: set.visibility as SetVisibility,
+    tags: set.tags,
     slug: set.slug,
     moderationStatus: set.moderationStatus,
     moderationReason: set.moderationReason,
@@ -93,7 +119,13 @@ async function setBySlug(db: Db, slug: string) {
   const [row] = await db
     .select({
       set: studySets,
-      author: { name: user.name, avatarColor: user.avatarColor, bannedAt: user.bannedAt },
+      author: {
+        name: user.name,
+        avatarColor: user.avatarColor,
+        bannedAt: user.bannedAt,
+        username: user.username,
+        profilePublic: user.profilePublic,
+      },
     })
     .from(studySets)
     .innerJoin(user, eq(user.id, studySets.ownerId))
@@ -119,7 +151,7 @@ export interface PublicSet {
     imageUrl?: string;
     imageAlt?: string;
   }[];
-  author: { name: string; avatarColor: string };
+  author: { name: string; avatarColor: string; username: string | null };
   isOwner: boolean;
   listed: boolean;
   updatedAt: string;
@@ -158,7 +190,11 @@ export async function getPublicSet(
       ...(card.phonetic ? { phonetic: card.phonetic } : {}),
       ...(image ? { imageUrl: `/api/v1/images/${image.id}`, imageAlt: image.alt } : {}),
     })),
-    author: { name: author.name, avatarColor: author.avatarColor },
+    author: {
+      name: author.name,
+      avatarColor: author.avatarColor,
+      username: author.profilePublic ? author.username : null,
+    },
     isOwner: viewerId === set.ownerId,
     listed: isListed(set, context),
     updatedAt: set.updatedAt.toISOString(),

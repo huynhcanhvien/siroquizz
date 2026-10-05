@@ -1,6 +1,6 @@
 # Phase 5 — Chia sẻ, cộng đồng & lớp học
 
-**Trạng thái:** đang làm (nhánh `feat/phase5-community`): đợt 1 xong — chia sẻ, `access.ts`, kiểm duyệt, báo cáo, admin, credit thưởng
+**Trạng thái:** đang làm (nhánh `feat/phase5-community`): đợt 1 (chia sẻ, `access.ts`, kiểm duyệt, báo cáo, admin, credit thưởng) và đợt 2 (Khám phá, hồ sơ) xong
 **Phụ thuộc:** Phase 2 (nên có Phase 4 để lớp học có dữ liệu tiến độ)
 **Kết quả:** bộ thẻ có thể chia sẻ, có trang khám phá bộ thẻ công khai, thư mục, lớp học cho giáo viên, bảng xếp hạng trò chơi, và công cụ kiểm duyệt nội dung.
 
@@ -99,8 +99,8 @@ Logic phân quyền tập trung trong `server/services/access.ts` (`canViewSet`,
 
 - [x] 1. `visibility`, `slug`, trang `/s/[slug]` render ở server, hộp thoại Chia sẻ (link + QR), tạo bản sao (ghi nguồn).
 - [x] 2. `access.ts` kèm bộ test phân quyền (owner/người khác/khách/admin; luật lớp học thêm ở mục 6).
-- [ ] 3. Khám phá: index `pg_trgm` + `unaccent`, tag, phổ biến.
-- [ ] 4. Hồ sơ công khai, username.
+- [x] 3. Khám phá: index GIN `pg_trgm` trên cột `search_text` đã bỏ dấu sẵn trong code (thay cho `unaccent`, vốn không dùng được trong index), tag (tối đa 5), "Phổ biến tuần này" = số lượt sao chép trong 7 ngày.
+- [x] 4. Hồ sơ công khai `/u/[username]`, username (đổi 30 ngày/lần, từ khóa dành riêng), ẩn hồ sơ.
 - [ ] 5. Thư mục.
 - [ ] 6. Lớp học: tạo, tham gia, giao bài, bảng tiến độ, xuất CSV.
 - [ ] 7. Bảng xếp hạng kèm xác thực phiên chơi.

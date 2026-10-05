@@ -39,7 +39,9 @@
     "AI_GLOBAL_LIMIT": "今天的系统 AI 总额度已用完，请零点后再试。",
     "AI_JOB_TOO_LARGE": "此请求单次需要超过 40 个积分。请减少卡片数量或拆分文档。",
     "AI_BUSY": "你已有 2 个未完成的生成任务。请等待完成或取消后再试。",
-    "OCR_PAGE_LIMIT": "每次最多识别 10 页图片或扫描页，请拆分文档。"
+    "OCR_PAGE_LIMIT": "每次最多识别 10 页图片或扫描页，请拆分文档。",
+    "USERNAME_TAKEN": "该用户名已被占用。",
+    "USERNAME_COOLDOWN": "用户名每 30 天只能修改一次。"
   },
   "validation": {
     "required": "此项为必填项。",
@@ -74,7 +76,8 @@
     "register": "注册",
     "goToApp": "开始学习",
     "review": "复习",
-    "stats": "统计"
+    "stats": "统计",
+    "explore": "发现"
   },
   "theme": {
     "label": "外观",
@@ -815,6 +818,67 @@
         "pending": "等待自动检查",
         "flagged": "已标记"
       }
+    },
+    "tags": "主题标签",
+    "tagsPlaceholder": "例如：旅行, hsk 2, ielts",
+    "tagsSave": "保存标签",
+    "tagsSaved": "标签已保存。",
+    "tagsHint": "最多 5 个标签，用逗号分隔，方便他人在「发现」页找到卡组。",
+    "explore": {
+      "title": "发现",
+      "subtitle": "查找社区分享的卡组，立即试学并复制到你的卡库。",
+      "searchLabel": "搜索卡组",
+      "searchPlaceholder": "例如：旅行词汇、你好、IELTS",
+      "search": "搜索",
+      "termLang": "词条",
+      "definitionLang": "释义",
+      "anyLanguage": "任意语言",
+      "size": "卡片数",
+      "sizes": {
+        "any": "不限",
+        "small": "20 张以内",
+        "medium": "21–50",
+        "large": "50 张以上"
+      },
+      "sort": "排序",
+      "sorts": {
+        "relevance": "最相关",
+        "new": "最新",
+        "popular": "热门"
+      },
+      "filters": "筛选",
+      "apply": "应用",
+      "popularTitle": "本周热门",
+      "topicsTitle": "主题",
+      "resultsFor": "“{q}”的结果",
+      "allSets": "全部卡组",
+      "topic": "主题：{tag}",
+      "clearTopic": "清除主题",
+      "empty": "暂无匹配的卡组，换个关键词或减少筛选条件试试。",
+      "copies": "本周被复制 {count} 次",
+      "previous": "上一页",
+      "next": "下一页",
+      "page": "第 {page} 页"
+    },
+    "profile": {
+      "setsTitle": "公开卡组",
+      "sets": "{count} 个卡组",
+      "cards": "{count} 张卡",
+      "copies": "被复制 {count} 次",
+      "memberSince": "加入于 {date}",
+      "empty": "还没有公开卡组。",
+      "privateNotice": "你的主页已隐藏，只有你能看到此页。"
+    },
+    "profileSettings": {
+      "title": "公开主页",
+      "username": "用户名",
+      "usernameHint": "3–20 个字符：不带音调的小写字母、数字和下划线。每 30 天可修改一次。",
+      "nextChange": "你可以在 {date} 之后再次修改。",
+      "public": "显示我的公开主页",
+      "publicHint": "其他人可以看到包含你公开卡组的主页。",
+      "save": "保存主页",
+      "saved": "主页已保存。",
+      "view": "查看主页"
     }
   }
 }

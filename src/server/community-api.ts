@@ -7,7 +7,14 @@ import { enforceLimit } from "./rate-limit";
 import { requireAdmin } from "./services/access";
 import { applySetAction, moderationQueue } from "./services/moderation";
 import { createReport, listOpenReports, resolveReport, setBanned } from "./services/reports";
-import { copyPublicSet, getPublicSet, retryModeration, setVisibility } from "./services/sharing";
+import {
+  copyPublicSet,
+  getPublicSet,
+  retryModeration,
+  setTags,
+  setVisibility,
+} from "./services/sharing";
+import { getProfileSettings, updateProfileSettings } from "./services/profiles";
 
 const SET_ACTIONS = ["approve", "reject", "hide", "restore"] as const;
 
@@ -18,6 +25,8 @@ export async function communityApi(db: Database, userId: string, request: Reques
   if (domain === "sets" && id && path.length === 3 && method !== "GET") {
     if (sub === "visibility" && method === "PATCH")
       return { data: await setVisibility(db, userId, id, await readJson(request)) };
+    if (sub === "tags" && method === "PATCH")
+      return { data: await setTags(db, userId, id, await readJson(request)) };
     if (sub === "moderation" && method === "POST") {
       await enforceLimit(`moderation:${userId}`, 10, 3600);
       return { data: await retryModeration(db, userId, id) };
@@ -27,6 +36,11 @@ export async function communityApi(db: Database, userId: string, request: Reques
     if (path.length === 2 && method === "GET") return { data: await getPublicSet(db, userId, id) };
     if (sub === "copy" && path.length === 3 && method === "POST")
       return { data: await copyPublicSet(db, userId, id) };
+  }
+  if (domain === "me" && id === "profile" && path.length === 2) {
+    if (method === "GET") return { data: await getProfileSettings(db, userId) };
+    if (method === "PATCH")
+      return { data: await updateProfileSettings(db, userId, await readJson(request)) };
   }
   if (domain === "reports" && path.length === 1 && method === "POST") {
     await createReport(db, userId, await readJson(request));

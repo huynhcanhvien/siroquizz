@@ -7,6 +7,7 @@ import type { StudySet } from "@/lib/types";
 import { ApiError } from "../api-error";
 import type { Database } from "../db/client";
 import { attributionOf, markEdited, sharingOf } from "./sharing";
+import { buildSearchText } from "@/features/community/lib/search";
 import {
   cards,
   studySets,
@@ -71,9 +72,13 @@ export async function createSetInTransaction(db: Transaction, ownerId: string, i
     .where(and(eq(studySets.ownerId, ownerId), isNull(studySets.deletedAt)));
   if (count >= 1000) throw new ApiError(409, "CONFLICT");
   const id = v7();
-  await db
-    .insert(studySets)
-    .values({ id, ownerId, ...metadata(data), cardCount: data.cards.length });
+  await db.insert(studySets).values({
+    id,
+    ownerId,
+    ...metadata(data),
+    cardCount: data.cards.length,
+    searchText: buildSearchText({ ...data, tags: [] }),
+  });
   await db
     .insert(cards)
     .values(data.cards.map((card, position) => ({ ...card, id: v7(), setId: id, position })));
@@ -90,7 +95,7 @@ const metadata = ({ title, description, termLang, definitionLang, source }: Vali
 export async function updateSet(db: Database, ownerId: string, id: string, input: unknown) {
   const data = setInputSchema.parse(input);
   const updated = await db.transaction(async (tx) => {
-    await requireOwnedSet(tx, ownerId, id, true);
+    const current = await requireOwnedSet(tx, ownerId, id, true);
     const existing = await tx.select().from(cards).where(eq(cards.setId, id)).limit(500);
     const existingIds = new Set(existing.map((c) => c.id));
     const used = new Set<string>();
@@ -120,7 +125,12 @@ export async function updateSet(db: Database, ownerId: string, id: string, input
       });
     await tx
       .update(studySets)
-      .set({ ...metadata(data), cardCount: rows.length, updatedAt: new Date() })
+      .set({
+        ...metadata(data),
+        cardCount: rows.length,
+        searchText: buildSearchText({ ...data, tags: current.tags }),
+        updatedAt: new Date(),
+      })
       .where(owned(ownerId, id));
     return getSet(tx, ownerId, id);
   });

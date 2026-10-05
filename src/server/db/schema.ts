@@ -33,6 +33,10 @@ export const user = pgTable("user", {
   deletedAt: time("deleted_at"),
   samplesSeeded: boolean("samples_seeded").notNull().default(false),
   role: varchar("role", { length: 16 }).notNull().default("user"),
+  // Public handle for /u/[username], lower-case; changeable once every 30 days.
+  username: varchar("username", { length: 20 }).unique(),
+  usernameChangedAt: time("username_changed_at"),
+  profilePublic: boolean("profile_public").notNull().default(true),
   // Locked by a moderator: sessions are revoked and sign-in is refused.
   bannedAt: time("banned_at"),
   ...timestamps,
@@ -124,11 +128,18 @@ export const studySets = pgTable(
     moderationReason: varchar("moderation_reason", { length: 200 }),
     // Taken down by a moderator: invisible to everyone but its owner.
     hiddenAt: time("hidden_at"),
+    // Accent-folded title, description, tags and cards for Explore (see community/lib/search).
+    searchText: text("search_text").notNull().default(""),
+    tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
     ...timestamps,
   },
   (t) => [
     index("sets_owner_updated_idx").on(t.ownerId, t.updatedAt, t.id),
     index("sets_moderation_idx").on(t.moderationStatus, t.updatedAt),
+    // Substring search in any script; needs the pg_trgm extension (created in the migration).
+    index("sets_search_trgm_idx").using("gin", sql`${t.searchText} gin_trgm_ops`),
+    // "Popular this week" counts recent copies of each original.
+    index("sets_copied_from_idx").on(t.copiedFromId, t.createdAt),
     check("sets_card_count", sql`${t.cardCount} between 2 and 500`),
   ],
 );

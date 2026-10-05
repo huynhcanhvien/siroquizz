@@ -71,6 +71,13 @@
       "when": 1791188895984,
       "tag": "0009_magenta_valkyrie",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791190193183,
+      "tag": "0010_slippery_black_queen",
+      "breakpoints": true
     }
   ]
 }

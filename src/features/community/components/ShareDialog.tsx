@@ -65,7 +65,7 @@ function ModerationNotice({
       className={cn(
         "flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm font-semibold",
         status === "approved" && "bg-success-soft text-success",
-        status === "pending" && "bg-accent-soft text-accent-strong",
+        status === "pending" && "bg-accent-soft text-accent-text",
         (status === "flagged" || status === "rejected") && "bg-danger-soft text-danger",
       )}
     >
@@ -80,6 +80,56 @@ function ModerationNotice({
   );
 }
 
+/** Up to five topic tags that help people find a public set on Explore. */
+function TagsEditor({
+  setId,
+  tags,
+  onSaved,
+}: {
+  setId: string;
+  tags: string[];
+  onSaved: (sharing: SetSharing) => void;
+}) {
+  const t = useTranslations("community");
+  const { toast } = useToast();
+  const errorMessage = useErrorMessage();
+  const id = useId();
+  const [value, setValue] = useState(tags.join(", "));
+  const save = useMutation({
+    mutationFn: async () =>
+      (
+        await client.request(`/api/v1/sets/${setId}/tags`, setSharingSchema, {
+          method: "PATCH",
+          body: { tags: value.split(",") },
+        })
+      ).data,
+    onSuccess: (next) => {
+      onSaved(next);
+      setValue(next.tags.join(", "));
+      toast(t("tagsSaved"));
+    },
+    onError: (error) => toast(errorMessage(error), "error"),
+  });
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={id}>{t("tags")}</Label>
+      <div className="flex gap-2">
+        <Input
+          id={id}
+          value={value}
+          maxLength={150}
+          placeholder={t("tagsPlaceholder")}
+          onChange={(event) => setValue(event.target.value)}
+        />
+        <Button variant="secondary" onClick={() => save.mutate()} disabled={save.isPending}>
+          {t("tagsSave")}
+        </Button>
+      </div>
+      <p className="text-xs text-muted">{t("tagsHint")}</p>
+    </div>
+  );
+}
+
 /** Chooses who can see a set and hands out its link. */
 export function ShareDialog({ set }: { set: StudySet }) {
   const t = useTranslations("community");
@@ -90,6 +140,7 @@ export function ShareDialog({ set }: { set: StudySet }) {
   const [open, setOpen] = useState(false);
   const sharing: SetSharing = set.sharing ?? {
     visibility: "private",
+    tags: [],
     slug: null,
     moderationStatus: "none",
     moderationReason: null,
@@ -163,6 +214,14 @@ export function ShareDialog({ set }: { set: StudySet }) {
             onRetry={() => retry.mutate()}
             retrying={retry.isPending}
           />
+          {sharing.visibility === "public" ? (
+            <TagsEditor
+              key={sharing.tags.join()}
+              setId={set.id}
+              tags={sharing.tags}
+              onSaved={store}
+            />
+          ) : null}
           {url ? (
             <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-end">
               <QrCode url={url} />

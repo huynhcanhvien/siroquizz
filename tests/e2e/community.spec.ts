@@ -38,6 +38,15 @@ async function share(page: Page, headers: Record<string, string>, id: string, vi
   expect(response.ok()).toBeTruthy();
   return (await response.json()).data as { slug: string; moderationStatus: string };
 }
+/** Marks a public set approved directly, so the test does not depend on the live model. */
+async function approve(id: string) {
+  const sql = postgres(process.env.DATABASE_URL!, { max: 1 });
+  try {
+    await sql`update study_sets set moderation_status = 'approved' where id = ${id}`;
+  } finally {
+    await sql.end();
+  }
+}
 async function makeAdmin(email: string) {
   const sql = postgres(process.env.DATABASE_URL!, { max: 1 });
   try {
@@ -137,4 +146,47 @@ test("publishing a clean set earns credits, and so does being copied", async ({ 
   });
   expect(copied.ok()).toBeTruthy();
   expect((await quota()).earned).toBe(6);
+});
+
+test("Explore finds public sets without accents and links to the author's profile", async ({
+  browser,
+}) => {
+  const owner = await person(browser, "Cô Lan");
+  const unique = Date.now().toString(36);
+  const username = `colan_${unique}`;
+  const profile = await owner.page.request.patch("/api/v1/me/profile", {
+    headers: owner.headers,
+    data: { username },
+  });
+  expect(profile.ok()).toBeTruthy();
+  const id = await createSet(owner.page, owner.headers, `Từ vựng du lịch ${unique}`);
+  const shared = await owner.page.request.patch(`/api/v1/sets/${id}/visibility`, {
+    headers: owner.headers,
+    data: { visibility: "public" },
+  });
+  expect(shared.ok()).toBeTruthy();
+  await approve(id);
+  await owner.page.request.patch(`/api/v1/sets/${id}/tags`, {
+    headers: owner.headers,
+    data: { tags: [`du lich ${unique}`] },
+  });
+  await approve(id);
+
+  const guest = await (await browser.newContext()).newPage();
+  await guest.goto("/explore");
+  await guest.getByRole("searchbox", { name: "Tìm bộ thẻ" }).fill(`tu vung du lich ${unique}`);
+  await guest.getByRole("button", { name: "Tìm", exact: true }).click();
+  await expect(guest).toHaveURL(/q=tu\+vung\+du\+lich/);
+  const card = guest.getByRole("article").filter({ hasText: `Từ vựng du lịch ${unique}` });
+  await expect(card).toBeVisible();
+  await card.getByRole("link", { name: "Cô Lan" }).click();
+  await expect(guest).toHaveURL(new RegExp(`/u/${username}$`));
+  await expect(guest.getByRole("heading", { level: 1, name: "Cô Lan" })).toBeVisible();
+  await expect(guest.getByText("1 bộ thẻ")).toBeVisible();
+  await guest.getByRole("link", { name: `Từ vựng du lịch ${unique}` }).click();
+  await expect(guest).toHaveURL(/\/s\/[A-Za-z0-9]{10}$/);
+  // A topic chip filters Explore to that tag.
+  await guest.goto(`/explore?tag=${encodeURIComponent(`du lich ${unique}`)}`);
+  await expect(guest.getByRole("heading", { name: `Chủ đề: du lich ${unique}` })).toBeVisible();
+  await expect(guest.getByRole("article")).toHaveCount(1);
 });
