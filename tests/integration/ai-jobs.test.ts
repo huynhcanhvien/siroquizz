@@ -280,3 +280,57 @@ it("fails with RATE_LIMITED after ten minutes of throttling without progress", a
   });
   expect((await getQuota(db, a)).remaining).toBe(5);
 });
+it("lets only one step run a job at a time", async () => {
+  const job = await createJob(db, a, input);
+  await stepJob(db, a, job.jobId, new AbortController().signal);
+  let release!: () => void;
+  provider.mockImplementationOnce(
+    () => new Promise((resolve) => (release = () => resolve(output))),
+  );
+  const first = stepJob(db, a, job.jobId, new AbortController().signal);
+  await vi.waitFor(() => expect(provider).toHaveBeenCalledTimes(1));
+  await expect(stepJob(db, a, job.jobId, new AbortController().signal)).resolves.toMatchObject({
+    status: "generating",
+    retryAfterMs: expect.any(Number),
+  });
+  expect(provider).toHaveBeenCalledTimes(1);
+  release();
+  await first;
+  expect((await runToEnd(db, a, job.jobId)).status).toBe("done");
+  expect(provider).toHaveBeenCalledTimes(1);
+});
+it("recovers the lease of a step that died and ignores its late writes", async () => {
+  const job = await createJob(db, a, input);
+  await stepJob(db, a, job.jobId, new AbortController().signal);
+  let release!: () => void;
+  provider.mockImplementationOnce(
+    () => new Promise((resolve) => (release = () => resolve(output))),
+  );
+  const stale = stepJob(db, a, job.jobId, new AbortController().signal);
+  await vi.waitFor(() => expect(provider).toHaveBeenCalledTimes(1));
+  // The platform killed that invocation; its lease runs out.
+  await db
+    .update(schema.aiJobs)
+    .set({ stepLeaseUntil: new Date(Date.now() - 1000) })
+    .where(eq(schema.aiJobs.id, job.jobId));
+  const final = await runToEnd(db, a, job.jobId);
+  expect(final.status).toBe("done");
+  release();
+  await expect(stale).resolves.toMatchObject({ status: "done" });
+  const saved = await requireJob(db, a, job.jobId);
+  expect(saved.status).toBe("done");
+  expect(saved.stepLease).toBeNull();
+  expect(final.result?.cards).toHaveLength(2);
+});
+it("returns the cards it could make and reports the parts it had to skip", async () => {
+  provider
+    .mockRejectedValueOnce(new ApiError(502, "AI_INVALID_OUTPUT"))
+    .mockRejectedValueOnce(new ApiError(502, "AI_INVALID_OUTPUT"))
+    .mockRejectedValueOnce(new ApiError(502, "AI_INVALID_OUTPUT"));
+  // 80 cards need two requests, so one can fail while the other succeeds.
+  const job = await createJob(db, a, { ...input, options: { ...input.options, cardCount: 80 } });
+  const final = await runToEnd(db, a, job.jobId);
+  expect(final.status).toBe("done");
+  expect(final.result).toMatchObject({ skippedParts: 1, totalParts: 2 });
+  expect(final.result?.cards).toHaveLength(2);
+});

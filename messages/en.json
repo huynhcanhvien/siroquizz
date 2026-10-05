@@ -535,6 +535,7 @@
     "needTwo": "Select at least 2 cards to save.",
     "defaultTitle": "AI set: {source}",
     "fallbackNotice": "The demo can't read {names} yet, so it created sample cards. The real version will use Claude to read PDFs, Word files and images.",
+    "partialNotice": "The AI couldn't process {skipped} of {total} parts of the document, so some cards may be missing. You can try again in a few minutes.",
     "quota": "{remaining}/{limit} generations left today. Resets: {time}.",
     "history": "Generations in the last 24 hours",
     "historyEmpty": "No generations yet.",

@@ -535,6 +535,7 @@
     "needTwo": "请至少选择 2 张卡片。",
     "defaultTitle": "AI 学习集：{source}",
     "fallbackNotice": "演示版暂时无法读取 {names}，因此生成了示例卡片。正式版将使用 Claude 读取 PDF、Word 和图片。",
+    "partialNotice": "AI 未能处理文档的 {skipped}/{total} 个部分，因此可能缺少部分卡片。请几分钟后重试。",
     "quota": "今日剩余 {remaining}/{limit} 次。重置时间：{time}。",
     "history": "最近24小时的生成记录",
     "historyEmpty": "暂无生成记录。",

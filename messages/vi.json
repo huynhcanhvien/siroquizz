@@ -535,6 +535,7 @@
     "needTwo": "Chọn ít nhất 2 thẻ để lưu.",
     "defaultTitle": "Bộ thẻ AI: {source}",
     "fallbackNotice": "Bản demo chưa đọc được nội dung tệp {names} nên đã tạo thẻ mẫu. Bản chính thức sẽ dùng Claude để đọc PDF, Word và ảnh.",
+    "partialNotice": "AI chưa xử lý được {skipped}/{total} phần của tài liệu nên có thể thiếu một số thẻ. Bạn có thể tạo lại sau ít phút.",
     "quota": "Còn {remaining}/{limit} lượt hôm nay. Đặt lại: {time}.",
     "history": "Các lần tạo trong 24 giờ",
     "historyEmpty": "Chưa có lần tạo nào.",

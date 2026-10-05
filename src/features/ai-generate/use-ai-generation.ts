@@ -9,7 +9,12 @@ import { useCreateSet } from "@/features/sets/hooks";
 import { useRepositories } from "@/lib/data-provider";
 import { useErrorMessage } from "@/lib/use-messages";
 import type { ReviewCard } from "./components/ReviewGeneratedCards";
-import type { GenerateRequest, GenerationProgress, GenerationStage } from "./lib/generator";
+import type {
+  GenerateRequest,
+  GenerateResult,
+  GenerationProgress,
+  GenerationStage,
+} from "./lib/generator";
 
 export type AiPhase =
   | { name: "compose" }
@@ -46,6 +51,18 @@ export function useAiGeneration() {
     };
   }, []);
 
+  const generationNotice = (result: GenerateResult) =>
+    [
+      result.unreadFiles.length > 0
+        ? t("fallbackNotice", { names: result.unreadFiles.join(", ") })
+        : null,
+      result.skippedParts
+        ? t("partialNotice", { skipped: result.skippedParts, total: result.totalParts ?? 0 })
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" ") || null;
+
   const generate = async (request: GenerateRequest) => {
     const controller = new AbortController();
     abortRef.current = controller;
@@ -62,10 +79,7 @@ export function useAiGeneration() {
         name: "review",
         cards: result.cards.map((card) => ({ ...card, included: true })),
         title: t("defaultTitle", { source: source.slice(0, TITLE_SOURCE_MAX) }),
-        notice:
-          result.unreadFiles.length > 0
-            ? t("fallbackNotice", { names: result.unreadFiles.join(", ") })
-            : null,
+        notice: generationNotice(result),
       });
     } catch (error) {
       if (unmountedRef.current) return;
@@ -106,6 +120,7 @@ export function useAiGeneration() {
     phase,
     setPhase,
     generate,
+    generationNotice,
     cancel: () => abortRef.current?.abort(),
     save,
     // Stay busy until navigation so a double click cannot save the set twice.

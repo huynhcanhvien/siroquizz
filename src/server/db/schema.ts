@@ -270,6 +270,10 @@ export const aiJobs = pgTable(
     // Last time the browser drove this job; an active job without one recently is abandoned and
     // no longer holds a place in the shared provider queue.
     heartbeatAt: time("heartbeat_at"),
+    // Only the step holding an unexpired lease may run and save this job, so a retried request
+    // cannot race an invocation that is still running.
+    stepLease: text("step_lease"),
+    stepLeaseUntil: time("step_lease_until"),
   },
   (t) => [
     index("jobs_user_created_idx").on(t.userId, t.createdAt),

@@ -47,6 +47,9 @@ const HEARTBEAT_STALE_MS = 120_000;
 // An unfinished job untouched for this long releases its quota reservation.
 const ABANDONED_JOB_MS = 600_000;
 const QUEUE_POLL_MS = 3_000;
+// Outlives the 60s function limit, so a lease left by a killed invocation frees itself.
+const STEP_LEASE_MS = 65_000;
+const BUSY_POLL_MS = 2_000;
 const activeStatuses = ["queued", "extracting", "generating", "validating"];
 const lastSeen = sql`coalesce(${aiJobs.heartbeatAt}, ${aiJobs.createdAt})`;
 /** Database time `ms` milliseconds ago, comparable with timestamp expressions such as lastSeen. */
@@ -197,7 +200,10 @@ interface StepContext {
   launchUntil: number;
   /** In-flight provider calls are abandoned at this point so the state can still be saved. */
   deadline: number;
-  persist: (status: string) => Promise<unknown>;
+  /** Saves state under the step lease; throws LeaseLostError when the lease is gone. */
+  persist: (status: string) => Promise<void>;
+  /** Condition that the row is still active and leased by this step. */
+  owned: ReturnType<typeof and>;
 }
 
 const initialState = (): AiJobState => ({
@@ -368,11 +374,25 @@ async function generateStep(ctx: StepContext): Promise<StepResult> {
   };
 }
 
-async function finalizeStep({ db, userId, job, state, signal }: StepContext): Promise<StepResult> {
+async function finalizeStep({
+  db,
+  userId,
+  job,
+  state,
+  signal,
+  owned,
+}: StepContext): Promise<StepResult> {
   signal.throwIfAborted();
   const options = generationOptionsSchema.parse(job.options);
   const cards = normalizeCards(state.rawCards, options.cardCount, v7);
-  const result = generationResultSchema.parse({ cards, usedSamples: false, unreadFiles: [] });
+  const result = generationResultSchema.parse({
+    cards,
+    usedSamples: false,
+    unreadFiles: [],
+    ...(state.failedTasks
+      ? { skippedParts: state.failedTasks, totalParts: state.totalTasks ?? state.failedTasks }
+      : {}),
+  });
   // Conditional completion ensures a concurrent cancellation never consumes quota.
   const completed = await db.transaction(async (tx) => {
     await tx.select({ id: user.id }).from(user).where(eq(user.id, userId)).for("update");
@@ -403,32 +423,70 @@ async function finalizeStep({ db, userId, job, state, signal }: StepContext): Pr
         cacheReadTokens: state.usage.cached,
         costUsd: state.usage.cost.toFixed(8),
       })
-      .where(and(eq(aiJobs.id, job.id), inArray(aiJobs.status, activeStatuses)))
+      .where(owned)
       .returning({ id: aiJobs.id });
     return updated.length > 0;
   });
-  // Cancelled meanwhile, or a duplicate step finished first: report what actually happened.
-  if (!completed) return terminalResult(await requireJob(db, userId, job.id));
+  // Cancelled meanwhile, or the lease was lost: report what actually happened.
+  if (!completed) return currentResult(await requireJob(db, userId, job.id));
   return { status: "done", stage: "done", result };
 }
 
 /** Claims a queued job or loads the saved state of one in progress. */
-async function loadState(
-  db: Database,
-  userId: string,
-  job: Job,
-): Promise<{ state: AiJobState } | { terminal: Job }> {
-  if (job.status !== "queued") return { state: aiJobStateSchema.parse(job.state) };
+/** Claims a queued job (seeding its state) or loads the saved state of one in progress. */
+async function loadState(db: Database, job: Job, owned: ReturnType<typeof and>) {
+  if (job.status !== "queued") return aiJobStateSchema.parse(job.state);
+  const state = initialState();
   const claimed = await db
     .update(aiJobs)
-    .set({ status: "extracting", state: initialState() })
-    .where(and(eq(aiJobs.id, job.id), eq(aiJobs.status, "queued")))
+    .set({ status: "extracting", state })
+    .where(owned)
     .returning({ id: aiJobs.id });
-  if (claimed.length) return { state: initialState() };
-  const fresh = await requireJob(db, userId, job.id);
-  if (!activeStatuses.includes(fresh.status)) return { terminal: fresh };
-  return { state: aiJobStateSchema.parse(fresh.state) };
+  if (!claimed.length) throw new LeaseLostError();
+  return state;
 }
+class LeaseLostError extends Error {}
+/**
+ * Takes the job's step lease and records the browser's heartbeat. Returns null when another step
+ * for the same job is still running.
+ */
+async function acquireLease(db: Database, id: string) {
+  const token = v7();
+  const [leased] = await db
+    .update(aiJobs)
+    .set({
+      heartbeatAt: new Date(),
+      stepLease: token,
+      stepLeaseUntil: sql`now() + make_interval(secs => ${STEP_LEASE_MS / 1000})`,
+    })
+    .where(
+      and(
+        eq(aiJobs.id, id),
+        inArray(aiJobs.status, activeStatuses),
+        sql`(${aiJobs.stepLeaseUntil} is null or ${aiJobs.stepLeaseUntil} < now())`,
+      ),
+    )
+    .returning();
+  if (leased) return { token, job: leased };
+  await db.update(aiJobs).set({ heartbeatAt: new Date() }).where(eq(aiJobs.id, id));
+  return null;
+}
+const releaseLease = (db: Database, id: string, token: string) =>
+  db
+    .update(aiJobs)
+    .set({ stepLease: null, stepLeaseUntil: null })
+    .where(and(eq(aiJobs.id, id), eq(aiJobs.stepLease, token)));
+const STAGE_OF_STATUS: Record<string, GenerationStage> = {
+  queued: "queued",
+  extracting: "reading",
+  generating: "generating",
+  validating: "validating",
+};
+/** What a step reports when it could not do work itself: the terminal result, or "try again". */
+const currentResult = (job: Job): StepResult =>
+  activeStatuses.includes(job.status)
+    ? { status: job.status, stage: STAGE_OF_STATUS[job.status], retryAfterMs: BUSY_POLL_MS }
+    : terminalResult(job);
 /**
  * Number of live jobs (any user) created before this one that are still unfinished. Jobs run in
  * creation order; only the first AI_MAX_ACTIVE_JOBS may call the shared provider key.
@@ -451,6 +509,89 @@ const terminalResult = (job: Job): StepResult =>
     ? { status: "done", stage: "done", result: generationResultSchema.parse(job.result) }
     : { status: job.status, stage: "done", errorCode: job.errorCode ?? "AI_CANCELLED" };
 
+/** Runs the job's current phase under a held lease. */
+async function runStep(
+  db: Database,
+  userId: string,
+  job: Job,
+  signal: AbortSignal,
+  startedAt: number,
+  owned: ReturnType<typeof and>,
+  onLoaded: (state: AiJobState) => void,
+): Promise<StepResult> {
+  // Once claimed a job keeps its slot; only unclaimed jobs wait for one.
+  if (job.status === "queued") {
+    const ahead = await jobsAhead(db, job);
+    const slots = getServerEnv().AI_MAX_ACTIVE_JOBS;
+    if (ahead >= slots)
+      return {
+        status: "queued",
+        stage: "queued",
+        queuePosition: ahead - slots + 1,
+        retryAfterMs: QUEUE_POLL_MS,
+      };
+  }
+  const state = await loadState(db, job, owned);
+  onLoaded(state);
+  const ctx: StepContext = {
+    db,
+    userId,
+    job,
+    state,
+    signal,
+    owned,
+    launchUntil: startedAt + STEP_LAUNCH_BUDGET_MS,
+    deadline: startedAt + STEP_HARD_BUDGET_MS,
+    persist: async (status) => {
+      const saved = await db
+        .update(aiJobs)
+        .set({ state, status })
+        .where(owned)
+        .returning({ id: aiJobs.id });
+      if (!saved.length) throw new LeaseLostError();
+    },
+  };
+  return state.phase === "extract"
+    ? extractStep(ctx)
+    : state.phase === "generate"
+      ? generateStep(ctx)
+      : finalizeStep(ctx);
+}
+/** Records a failed job; tokens already spent are kept for cost reporting. */
+async function failJob(
+  db: Database,
+  id: string,
+  owned: ReturnType<typeof and>,
+  state: AiJobState | null,
+  error: unknown,
+): Promise<StepResult> {
+  const code =
+    error instanceof ApiError
+      ? error.code
+      : error instanceof z.ZodError
+        ? "AI_INVALID_OUTPUT"
+        : "INTERNAL";
+  if (code === "INTERNAL")
+    console.error("AI job step failed", { jobId: id, phase: state?.phase, error });
+  const usage = state?.usage;
+  await db
+    .update(aiJobs)
+    .set({
+      status: "error",
+      errorCode: code,
+      finishedAt: new Date(),
+      ...(usage
+        ? {
+            inputTokens: usage.input,
+            outputTokens: usage.output,
+            costUsd: usage.cost.toFixed(8),
+          }
+        : {}),
+    })
+    .where(owned);
+  return { status: "error", stage: "done", errorCode: code };
+}
+
 /**
  * Advances a generation job by one bounded slice of work and persists its state. The caller
  * repeats this until `status` is terminal (`done` / `error` / `cancelled`), waiting
@@ -464,75 +605,36 @@ export async function stepJob(
   signal: AbortSignal,
 ): Promise<StepResult> {
   const startedAt = Date.now();
-  const job = await requireJob(db, userId, id);
-  if (!activeStatuses.includes(job.status)) return terminalResult(job);
-  await db.update(aiJobs).set({ heartbeatAt: new Date() }).where(eq(aiJobs.id, id));
-  // Once claimed a job keeps its slot; only unclaimed jobs wait for one.
-  if (job.status === "queued") {
-    const ahead = await jobsAhead(db, job);
-    const slots = getServerEnv().AI_MAX_ACTIVE_JOBS;
-    if (ahead >= slots)
-      return {
-        status: "queued",
-        stage: "queued",
-        queuePosition: ahead - slots + 1,
-        retryAfterMs: QUEUE_POLL_MS,
-      };
-  }
-  const loaded = await loadState(db, userId, job);
-  if ("terminal" in loaded) return terminalResult(loaded.terminal);
-  const { state } = loaded;
-  const phase = state.phase;
-  const ctx: StepContext = {
-    db,
-    userId,
-    job,
-    state,
-    signal,
-    launchUntil: startedAt + STEP_LAUNCH_BUDGET_MS,
-    deadline: startedAt + STEP_HARD_BUDGET_MS,
-    persist: (status) =>
-      db
-        .update(aiJobs)
-        .set({ state, status })
-        .where(and(eq(aiJobs.id, id), inArray(aiJobs.status, activeStatuses))),
-  };
+  const existing = await requireJob(db, userId, id);
+  if (!activeStatuses.includes(existing.status)) return terminalResult(existing);
+  const lease = await acquireLease(db, id);
+  if (!lease) return currentResult(await requireJob(db, userId, id));
+  const { token, job } = lease;
+  const owned = and(
+    eq(aiJobs.id, id),
+    eq(aiJobs.stepLease, token),
+    inArray(aiJobs.status, activeStatuses),
+  );
   let outcome: StepResult;
+  let state: AiJobState | null = null;
   try {
-    outcome =
-      state.phase === "extract"
-        ? await extractStep(ctx)
-        : state.phase === "generate"
-          ? await generateStep(ctx)
-          : await finalizeStep(ctx);
+    outcome = await runStep(db, userId, job, signal, startedAt, owned, (loaded) => {
+      state = loaded;
+    });
   } catch (error) {
+    if (error instanceof LeaseLostError) outcome = currentResult(await requireJob(db, userId, id));
     // The browser went away (closed tab, dropped connection). Leave the job resumable from its
     // last saved state; an explicit cancel is recorded by cancelJob.
-    if (signal.aborted) return { status: job.status, stage: "done", errorCode: "AI_CANCELLED" };
-    const code =
-      error instanceof ApiError
-        ? error.code
-        : error instanceof z.ZodError
-          ? "AI_INVALID_OUTPUT"
-          : "INTERNAL";
-    if (code === "INTERNAL") console.error("AI job step failed", { jobId: id, phase, error });
-    await db
-      .update(aiJobs)
-      .set({
-        status: "error",
-        errorCode: code,
-        finishedAt: new Date(),
-        inputTokens: state.usage.input,
-        outputTokens: state.usage.output,
-        costUsd: state.usage.cost.toFixed(8),
-      })
-      .where(and(eq(aiJobs.id, id), inArray(aiJobs.status, activeStatuses)));
-    outcome = { status: "error", stage: "done", errorCode: code };
+    else if (signal.aborted)
+      outcome = { status: job.status, stage: "done", errorCode: "AI_CANCELLED" };
+    else outcome = await failJob(db, id, owned, state, error);
+  } finally {
+    await releaseLease(db, id, token);
   }
   // Durations only; never log document text or provider bodies.
   console.info("AI job step", {
     jobId: id,
-    phase,
+    phase: (state as AiJobState | null)?.phase ?? job.status,
     status: outcome.status,
     ms: Date.now() - startedAt,
     retryAfterMs: outcome.retryAfterMs,

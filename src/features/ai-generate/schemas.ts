@@ -21,6 +21,9 @@ export const generationResultSchema = z.object({
   cards: generatedCardsSchema.element.extend({ id: z.string() }).array().min(2).max(200),
   usedSamples: z.literal(false),
   unreadFiles: z.array(z.string()),
+  /** Document parts the AI could not process, out of `totalParts`; absent on older results. */
+  skippedParts: z.number().int().min(0).optional(),
+  totalParts: z.number().int().min(0).optional(),
 });
 const usageSchema = z.object({
   input: z.number(),

@@ -41,6 +41,9 @@ export interface GenerateResult {
   usedSamples: boolean;
   /** Names of files the generator could not read (the mock only reads plain-text formats). */
   unreadFiles: string[];
+  /** Parts of the document the AI failed on; their cards are missing from the result. */
+  skippedParts?: number;
+  totalParts?: number;
 }
 
 export interface GenerationProgress {

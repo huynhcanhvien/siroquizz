@@ -47,7 +47,7 @@ export function AiGenerator() {
   const [files, setFiles] = useState<File[]>([]);
   const [prompt, setPrompt] = useState("");
   const [options, setOptions] = useState<GenerationOptions>(DEFAULT_OPTIONS);
-  const { phase, setPhase, generate, cancel, save, saving } = useAiGeneration();
+  const { phase, setPhase, generate, generationNotice, cancel, save, saving } = useAiGeneration();
   const hasInput = files.length > 0 || prompt.trim().length > 0;
 
   if (phase.name === "generating")
@@ -79,7 +79,7 @@ export function AiGenerator() {
               name: "review",
               cards: result.cards.map((card) => ({ ...card, included: true })),
               title: t("defaultTitle", { source: previousPrompt.slice(0, 40) || t("history") }),
-              notice: null,
+              notice: generationNotice(result),
             });
           }}
         />
