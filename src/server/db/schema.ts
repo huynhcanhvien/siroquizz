@@ -32,6 +32,9 @@ export const user = pgTable("user", {
   uiLocale: varchar("ui_locale", { length: 8 }).notNull().default("vi"),
   deletedAt: time("deleted_at"),
   samplesSeeded: boolean("samples_seeded").notNull().default(false),
+  role: varchar("role", { length: 16 }).notNull().default("user"),
+  // Locked by a moderator: sessions are revoked and sign-in is refused.
+  bannedAt: time("banned_at"),
   ...timestamps,
 });
 export const session = pgTable(
@@ -85,6 +88,18 @@ export const verification = pgTable(
 );
 
 export const setSource = pgEnum("set_source", ["manual", "ai", "import"]);
+export const setVisibility = pgEnum("set_visibility", ["private", "unlisted", "public"]);
+/**
+ * Review state of a set's public listing: `none` until first made public, `pending` while the
+ * automatic check runs, then `approved`, `flagged` (waiting for a moderator) or `rejected`.
+ */
+export const moderationStatus = pgEnum("moderation_status", [
+  "none",
+  "pending",
+  "approved",
+  "flagged",
+  "rejected",
+]);
 export const cardStatus = pgEnum("card_status", ["new", "learning", "known"]);
 export const gameKind = pgEnum("game_kind", ["match", "gravity", "memory", "scramble"]);
 export const studySets = pgTable(
@@ -101,10 +116,19 @@ export const studySets = pgTable(
     source: setSource("source").notNull().default("manual"),
     cardCount: integer("card_count").notNull(),
     deletedAt: time("deleted_at"),
+    visibility: setVisibility("visibility").notNull().default("private"),
+    // Random public link id, created the first time the set is shared.
+    slug: varchar("slug", { length: 10 }).unique(),
+    copiedFromId: uuid("copied_from_id"),
+    moderationStatus: moderationStatus("moderation_status").notNull().default("none"),
+    moderationReason: varchar("moderation_reason", { length: 200 }),
+    // Taken down by a moderator: invisible to everyone but its owner.
+    hiddenAt: time("hidden_at"),
     ...timestamps,
   },
   (t) => [
     index("sets_owner_updated_idx").on(t.ownerId, t.updatedAt, t.id),
+    index("sets_moderation_idx").on(t.moderationStatus, t.updatedAt),
     check("sets_card_count", sql`${t.cardCount} between 2 and 500`),
   ],
 );
@@ -319,6 +343,44 @@ export const creditLedger = pgTable(
     uniqueIndex("credit_ledger_once_idx").on(t.userId, t.reason, t.ref),
     index("credit_ledger_user_idx").on(t.userId, t.createdAt),
   ],
+);
+export const reports = pgTable(
+  "reports",
+  {
+    id: uuid("id").primaryKey(),
+    reporterId: text("reporter_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    targetType: varchar("target_type", { length: 8 }).notNull(),
+    targetId: text("target_id").notNull(),
+    reason: varchar("reason", { length: 16 }).notNull(),
+    note: varchar("note", { length: 500 }).notNull().default(""),
+    status: varchar("status", { length: 16 }).notNull().default("open"),
+    handledBy: text("handled_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: time("created_at").notNull().defaultNow(),
+    handledAt: time("handled_at"),
+  },
+  (t) => [
+    index("reports_status_idx").on(t.status, t.createdAt),
+    // One open report per person and target.
+    uniqueIndex("reports_open_once_idx")
+      .on(t.reporterId, t.targetType, t.targetId)
+      .where(sql`${t.status} = 'open'`),
+  ],
+);
+/** Every moderator action, kept for accountability. */
+export const auditLogs = pgTable(
+  "audit_logs",
+  {
+    id: uuid("id").primaryKey(),
+    actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+    action: varchar("action", { length: 40 }).notNull(),
+    targetType: varchar("target_type", { length: 8 }).notNull(),
+    targetId: text("target_id").notNull(),
+    meta: jsonb("meta").notNull().default({}),
+    createdAt: time("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("audit_target_idx").on(t.targetType, t.targetId, t.createdAt)],
 );
 /** Finished results keyed by a hash of the exact files, request and options; reused for free. */
 export const aiResultCache = pgTable("ai_result_cache", {

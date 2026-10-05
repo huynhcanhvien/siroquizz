@@ -33,7 +33,7 @@ export async function getSessionContext(headers: Headers, fresh = false): Promis
   });
   const setCookies = authHeaders.getSetCookie();
   const record = response?.user;
-  if (!record || record.deletedAt || !record.emailVerified)
+  if (!record || record.deletedAt || record.bannedAt || !record.emailVerified)
     throw new ApiError(401, "UNAUTHENTICATED", setCookies);
   return {
     user: {
@@ -43,6 +43,7 @@ export async function getSessionContext(headers: Headers, fresh = false): Promis
       avatarColor: record.avatarColor ?? "indigo",
       uiLocale: record.uiLocale ?? "vi",
       createdAt: new Date(record.createdAt).toISOString(),
+      ...(record.role === "admin" ? { role: "admin" as const } : {}),
     },
     samplesSeeded: Boolean(record.samplesSeeded),
     setCookies,

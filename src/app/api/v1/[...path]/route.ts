@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { profileUpdateSchema } from "@/features/auth/schemas";
 import { learningApi } from "@/server/learning-api";
+import { communityApi } from "@/server/community-api";
 import { api, readJson } from "@/server/api";
 import { ApiError } from "@/server/api-error";
 import { getDatabase } from "@/server/db/client";
@@ -39,6 +40,8 @@ async function handle(request: Request, context: Context) {
     const body = () => readJson(request);
     const learning = await learningApi(db, current.id, request, path);
     if (learning) return learning;
+    const community = await communityApi(db, current.id, request, path);
+    if (community) return community;
     if (domain === "me" && path.length === 1) {
       if (method === "GET") {
         if (!session.samplesSeeded) {

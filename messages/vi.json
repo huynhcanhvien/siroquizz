@@ -741,5 +741,80 @@
     "noAccuracy": "Chưa có bài kiểm tra nào. Làm một bài để xem độ chính xác theo từng bộ thẻ.",
     "learnedNow": "{count} thẻ đã thuộc",
     "knownGain": "+{count} thẻ trong 7 ngày qua"
+  },
+  "community": {
+    "share": "Chia sẻ",
+    "shareTitle": "Chia sẻ bộ thẻ",
+    "visibility": "Ai có thể xem",
+    "visibilityOptions": {
+      "private": "Riêng tư",
+      "unlisted": "Có link",
+      "public": "Công khai"
+    },
+    "visibilityHints": {
+      "private": "Chỉ bạn xem được bộ thẻ này.",
+      "unlisted": "Ai có link đều xem và học được, nhưng bộ thẻ không hiện ở trang Khám phá.",
+      "public": "Bộ thẻ được kiểm duyệt rồi hiện ở trang Khám phá. Lần đầu được duyệt: +5 credit AI (bộ từ 10 thẻ). Mỗi người sao chép: +1 credit."
+    },
+    "link": "Link chia sẻ",
+    "copyLink": "Sao chép link",
+    "linkCopied": "Đã sao chép link.",
+    "qrAlt": "Mã QR của link chia sẻ",
+    "moderation": {
+      "pending": "Đang chờ kiểm duyệt. Bộ thẻ sẽ hiện ở Khám phá khi được duyệt.",
+      "approved": "Đã được duyệt và hiển thị công khai.",
+      "flagged": "Bộ thẻ cần người kiểm duyệt xem lại ({reason}). Trong lúc chờ, chỉ bạn xem được.",
+      "rejected": "Bộ thẻ không được công khai ({reason}). Hãy sửa nội dung rồi công khai lại."
+    },
+    "hidden": "Quản trị viên đã ẩn bộ thẻ này do vi phạm. Chỉ bạn xem được.",
+    "retryModeration": "Kiểm tra lại",
+    "saved": "Đã cập nhật quyền xem.",
+    "copiedFrom": "Bản sao từ “{title}” của {author}",
+    "publicBy": "Tạo bởi {name}",
+    "copyToLibrary": "Tạo bản sao vào thư viện",
+    "copied": "Đã thêm bản sao vào thư viện.",
+    "signInToCopy": "Đăng nhập để lưu bộ thẻ",
+    "report": "Báo cáo",
+    "reportTitle": "Báo cáo bộ thẻ",
+    "reportReason": "Lý do",
+    "reasons": {
+      "spam": "Spam hoặc quảng cáo",
+      "inappropriate": "Nội dung không phù hợp",
+      "copyright": "Vi phạm bản quyền",
+      "other": "Lý do khác"
+    },
+    "reportNote": "Mô tả thêm (không bắt buộc)",
+    "reportSend": "Gửi báo cáo",
+    "reported": "Cảm ơn bạn. Quản trị viên sẽ xem xét báo cáo.",
+    "flashcardsTitle": "Học thử bằng thẻ ghi nhớ",
+    "cardOf": "Thẻ {current}/{total}",
+    "previous": "Thẻ trước",
+    "next": "Thẻ sau",
+    "flipHint": "Nhấn vào thẻ hoặc phím Space để lật",
+    "termsTitle": "Các thuật ngữ ({count})",
+    "signIn": "Đăng nhập",
+    "openLibrary": "Thư viện của tôi",
+    "guestStudyHint": "Đăng nhập để học bằng Kiểm tra, Trò chơi và lưu tiến độ.",
+    "ownerNotice": "Đây là bộ thẻ của bạn.",
+    "openSet": "Mở bộ thẻ",
+    "admin": {
+      "title": "Kiểm duyệt",
+      "reports": "Báo cáo đang mở",
+      "queue": "Bộ thẻ chờ duyệt",
+      "empty": "Không có mục nào.",
+      "approve": "Duyệt",
+      "reject": "Từ chối",
+      "hide": "Ẩn bộ thẻ",
+      "dismiss": "Bỏ qua",
+      "ban": "Khóa tài khoản",
+      "view": "Xem",
+      "done": "Đã xử lý.",
+      "reportedSet": "Bộ thẻ “{title}” của {name}",
+      "reportedUser": "Tài khoản {name}",
+      "status": {
+        "pending": "Đang chờ kiểm tra tự động",
+        "flagged": "Bị gắn cờ"
+      }
+    }
   }
 }

@@ -19,6 +19,8 @@ export interface User {
   avatarColor: string;
   uiLocale: string;
   createdAt: string;
+  /** Present for moderators; the server re-checks the database before any admin action. */
+  role?: "admin";
 }
 
 export interface Card {
@@ -28,6 +30,17 @@ export interface Card {
   phonetic?: string;
   imageUrl?: string;
   imageAlt?: string;
+}
+
+export type SetVisibility = "private" | "unlisted" | "public";
+export type ModerationStatus = "none" | "pending" | "approved" | "flagged" | "rejected";
+/** Sharing state of an owned set (server-backed mode only). */
+export interface SetSharing {
+  visibility: SetVisibility;
+  slug: string | null;
+  moderationStatus: ModerationStatus;
+  moderationReason: string | null;
+  hidden: boolean;
 }
 
 export interface StudySet {
@@ -41,6 +54,9 @@ export interface StudySet {
   source: SetSource;
   createdAt: string;
   updatedAt: string;
+  sharing?: SetSharing;
+  /** The public set this one was copied from, credited on the set page. */
+  copiedFrom?: { title: string; slug: string | null; authorName: string } | null;
 }
 
 /** Payload used to create or replace a set. Server-owned fields are excluded. */

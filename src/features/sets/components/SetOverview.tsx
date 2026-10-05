@@ -27,6 +27,7 @@ import type { StudySet } from "@/lib/types";
 import { useErrorMessage } from "@/lib/use-messages";
 import { useDeleteSet, useDuplicateSet } from "../hooks";
 import { AiSetTools } from "@/features/ai-generate/components/AiSetTools";
+import { ShareDialog } from "@/features/community/components/ShareDialog";
 import { CardList } from "./CardList";
 import { ProgressPanel } from "./ProgressPanel";
 import { SetPreview } from "./SetPreview";
@@ -105,6 +106,7 @@ function SetActions({ set }: { set: StudySet }) {
 
   return (
     <div className="flex items-center gap-2">
+      {process.env.NEXT_PUBLIC_DATA_SOURCE === "http" ? <ShareDialog set={set} /> : null}
       <Button asChild variant="secondary" size="sm">
         <Link href={`/sets/${set.id}/edit`}>
           <Pencil className="size-4" aria-hidden />
@@ -147,6 +149,7 @@ export function SetOverview({ set }: { set: StudySet }) {
   const t = useTranslations("set");
   const tCommon = useTranslations("common");
   const tLang = useTranslations("contentLanguages");
+  const tCommunity = useTranslations("community");
   const { data: user } = useSession();
 
   return (
@@ -166,6 +169,26 @@ export function SetOverview({ set }: { set: StudySet }) {
           <SetActions set={set} />
         </div>
         {set.description ? <p className="max-w-2xl text-lg text-muted">{set.description}</p> : null}
+        {set.copiedFrom ? (
+          <p className="text-sm text-muted">
+            {set.copiedFrom.slug ? (
+              <Link
+                href={`/s/${set.copiedFrom.slug}`}
+                className="underline-offset-2 hover:underline"
+              >
+                {tCommunity("copiedFrom", {
+                  title: set.copiedFrom.title,
+                  author: set.copiedFrom.authorName,
+                })}
+              </Link>
+            ) : (
+              tCommunity("copiedFrom", {
+                title: set.copiedFrom.title,
+                author: set.copiedFrom.authorName,
+              })
+            )}
+          </p>
+        ) : null}
         {user ? (
           <p className="flex items-center gap-2 text-sm font-medium text-muted">
             <Avatar name={user.displayName} color={user.avatarColor} size="sm" />

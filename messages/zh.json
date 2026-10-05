@@ -741,5 +741,80 @@
     "noAccuracy": "还没有测验。完成一次即可查看各学习集的正确率。",
     "learnedNow": "已掌握 {count} 张卡",
     "knownGain": "过去 7 天 +{count} 张"
+  },
+  "community": {
+    "share": "分享",
+    "shareTitle": "分享卡组",
+    "visibility": "谁可以查看",
+    "visibilityOptions": {
+      "private": "私密",
+      "unlisted": "凭链接",
+      "public": "公开"
+    },
+    "visibilityHints": {
+      "private": "只有你能看到这个卡组。",
+      "unlisted": "拥有链接的人都可以查看和学习，但不会显示在「发现」页。",
+      "public": "卡组经审核后显示在「发现」页。首次通过：+5 AI 积分（10 张卡以上）。每有一人复制：+1 积分。"
+    },
+    "link": "分享链接",
+    "copyLink": "复制链接",
+    "linkCopied": "链接已复制。",
+    "qrAlt": "分享链接的二维码",
+    "moderation": {
+      "pending": "等待审核。通过后会显示在「发现」页。",
+      "approved": "已通过审核并公开显示。",
+      "flagged": "需要管理员复核（{reason}）。在此期间只有你能查看。",
+      "rejected": "该卡组无法公开（{reason}）。请修改内容后重新公开。"
+    },
+    "hidden": "管理员因违规隐藏了此卡组，只有你能查看。",
+    "retryModeration": "重新检查",
+    "saved": "可见性已更新。",
+    "copiedFrom": "复制自 {author} 的「{title}」",
+    "publicBy": "作者：{name}",
+    "copyToLibrary": "复制到我的卡库",
+    "copied": "副本已添加到你的卡库。",
+    "signInToCopy": "登录以保存卡组",
+    "report": "举报",
+    "reportTitle": "举报卡组",
+    "reportReason": "原因",
+    "reasons": {
+      "spam": "垃圾信息或广告",
+      "inappropriate": "不当内容",
+      "copyright": "侵犯版权",
+      "other": "其他原因"
+    },
+    "reportNote": "补充说明（可选）",
+    "reportSend": "提交举报",
+    "reported": "谢谢，管理员会审核你的举报。",
+    "flashcardsTitle": "用记忆卡试学",
+    "cardOf": "第 {current}/{total} 张",
+    "previous": "上一张",
+    "next": "下一张",
+    "flipHint": "点击卡片或按空格键翻面",
+    "termsTitle": "词条（{count}）",
+    "signIn": "登录",
+    "openLibrary": "我的卡库",
+    "guestStudyHint": "登录后可使用测验、游戏并保存进度。",
+    "ownerNotice": "这是你的卡组。",
+    "openSet": "打开卡组",
+    "admin": {
+      "title": "内容审核",
+      "reports": "待处理举报",
+      "queue": "待审核卡组",
+      "empty": "暂无内容。",
+      "approve": "通过",
+      "reject": "拒绝",
+      "hide": "隐藏卡组",
+      "dismiss": "忽略",
+      "ban": "封禁账号",
+      "view": "查看",
+      "done": "已处理。",
+      "reportedSet": "{name} 的卡组「{title}」",
+      "reportedUser": "账号 {name}",
+      "status": {
+        "pending": "等待自动检查",
+        "flagged": "已标记"
+      }
+    }
   }
 }

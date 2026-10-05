@@ -22,5 +22,6 @@ export const config = {
     "/stats/:path*",
     "/folders/:path*",
     "/classes/:path*",
+    "/admin/:path*",
   ],
 };

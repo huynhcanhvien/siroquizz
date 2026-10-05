@@ -741,5 +741,80 @@
     "noAccuracy": "No tests yet. Take one to see accuracy per set.",
     "learnedNow": "{count} cards learned",
     "knownGain": "+{count} cards in the last 7 days"
+  },
+  "community": {
+    "share": "Share",
+    "shareTitle": "Share set",
+    "visibility": "Who can see it",
+    "visibilityOptions": {
+      "private": "Private",
+      "unlisted": "Anyone with the link",
+      "public": "Public"
+    },
+    "visibilityHints": {
+      "private": "Only you can see this set.",
+      "unlisted": "Anyone with the link can view and study it, but it is not shown on Explore.",
+      "public": "The set is reviewed and then shown on Explore. First approval: +5 AI credits (sets of 10+ cards). Each person who copies it: +1 credit."
+    },
+    "link": "Share link",
+    "copyLink": "Copy link",
+    "linkCopied": "Link copied.",
+    "qrAlt": "QR code for the share link",
+    "moderation": {
+      "pending": "Waiting for review. The set appears on Explore once approved.",
+      "approved": "Approved and publicly listed.",
+      "flagged": "A moderator needs to review this set ({reason}). Until then only you can see it.",
+      "rejected": "This set can't be public ({reason}). Edit it, then make it public again."
+    },
+    "hidden": "A moderator hid this set for breaking the rules. Only you can see it.",
+    "retryModeration": "Check again",
+    "saved": "Visibility updated.",
+    "copiedFrom": "Copied from “{title}” by {author}",
+    "publicBy": "By {name}",
+    "copyToLibrary": "Copy to my library",
+    "copied": "A copy was added to your library.",
+    "signInToCopy": "Sign in to save this set",
+    "report": "Report",
+    "reportTitle": "Report set",
+    "reportReason": "Reason",
+    "reasons": {
+      "spam": "Spam or advertising",
+      "inappropriate": "Inappropriate content",
+      "copyright": "Copyright infringement",
+      "other": "Something else"
+    },
+    "reportNote": "More details (optional)",
+    "reportSend": "Send report",
+    "reported": "Thank you. A moderator will review your report.",
+    "flashcardsTitle": "Try it with flashcards",
+    "cardOf": "Card {current} of {total}",
+    "previous": "Previous card",
+    "next": "Next card",
+    "flipHint": "Click the card or press Space to flip",
+    "termsTitle": "Terms ({count})",
+    "signIn": "Sign in",
+    "openLibrary": "My library",
+    "guestStudyHint": "Sign in to study with Test and Games and save your progress.",
+    "ownerNotice": "This is your set.",
+    "openSet": "Open set",
+    "admin": {
+      "title": "Moderation",
+      "reports": "Open reports",
+      "queue": "Sets awaiting review",
+      "empty": "Nothing here.",
+      "approve": "Approve",
+      "reject": "Reject",
+      "hide": "Hide set",
+      "dismiss": "Dismiss",
+      "ban": "Ban account",
+      "view": "View",
+      "done": "Done.",
+      "reportedSet": "Set “{title}” by {name}",
+      "reportedUser": "Account {name}",
+      "status": {
+        "pending": "Waiting for the automatic check",
+        "flagged": "Flagged"
+      }
+    }
   }
 }

@@ -3,7 +3,7 @@
 > File này ghi lại **đã làm gì, đang làm dở gì, làm tiếp thế nào** để bất kỳ ai (người hoặc agent) cũng có thể tiếp tục.
 > Thời gian theo giờ Việt Nam (UTC+7). Mục mới nhất ở trên cùng của phần Nhật ký.
 
-**Cập nhật lần cuối:** 2026-10-05 15:40 +07
+**Cập nhật lần cuối:** 2026-10-05 17:10 +07
 **Phase hiện tại:** Phase 2–3 hoàn tất local (Groq live pass). Đã thêm hạ tầng **deploy Vercel free + chia nhỏ job AI (resumable step)**, đang chờ nghiệm thu production. Phase 4 (SRS) vẫn đang dở. Google OAuth/R2/Resend production còn chờ credentials.
 **Tình trạng:** Người dùng yêu cầu hoàn thành toàn bộ Phase 2–6 và cập nhật state khi từng phase xong. Không coi credentials, deployment hay beta bên ngoài đã hoàn tất nếu chưa thực hiện.
 
@@ -45,6 +45,18 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 **Bước tiếp theo:** Phase 4: learn-engine7cards/round, FSRS, due queue/new limits/preferences, stars, study sessions/stats/goals/streak/reminders/images. `ts-fsrs@5.4.2` đã cài, @types/node lên22 cho Vitest. Dataviz skill không có trong catalog/filesystem; dùng chart accessible theo design tokens và bảng thay thế. Sau P4 tiếp tục P5–6.
 
 ## Nhật ký
+
+### 2026-10-05 17:10 +07: 🌐 Phase 5 đợt 1 — chia sẻ, kiểm duyệt, báo cáo, admin, credit thưởng (nhánh `feat/phase5-community`, tách từ `feat/ai-pipeline-speed`)
+
+- **Kế hoạch Phase 5 theo đợt:** (1) chia sẻ + `access.ts` + kiểm duyệt/báo cáo/admin + nối credit ✅; (2) Khám phá + hồ sơ/username; (3) thư mục; (4) lớp học; (5) bảng xếp hạng; (6) review bảo mật + E2E nhiều người.
+- **Schema (migration `drizzle/0009_magenta_valkyrie.sql`):** `study_sets` + `visibility` (private/unlisted/public), `slug` (10 ký tự ngẫu nhiên, không ký tự dễ nhầm), `copied_from_id`, `moderation_status` (none/pending/approved/flagged/rejected), `moderation_reason`, `hidden_at`; `user` + `role`, `banned_at`; bảng `reports`, `audit_logs`.
+- **Phân quyền tập trung** [access.ts](../src/server/services/access.ts): `canViewSet` (private chỉ chủ; unlisted ai có link; public khi pending/approved; ẩn/chủ bị khóa/đã xóa → chỉ chủ), `canEditSet`, `isListed`, `isAdmin` **đọc role từ DB** (cookie session trễ 5 phút). Route ảnh thẻ dùng chung luật (khách xem ảnh của bộ được chia sẻ).
+- **Chia sẻ** [sharing.ts](../src/server/services/sharing.ts): `PATCH /sets/:id/visibility`, trang server `/s/[slug]` (khách xem + thẻ lật, noindex nếu chưa listed), `POST /public/:slug/copy` (bản sao riêng tư, ghi "Bản sao từ … của …"). Sửa bộ đang công khai → kiểm duyệt lại.
+- **Kiểm duyệt** [moderation.ts](../src/server/services/moderation.ts): regex link/SĐT/email trên toàn bộ + `gpt-oss-safeguard-20b` trên mẫu ≤1.200 token; vi phạm → `flagged` (hàng chờ admin), sạch → `approved` + **+5 credit** (một lần/bộ, ≥10 thẻ, không phải bản sao). Model bận → `pending`, cron hằng ngày + nút "Kiểm tra lại".
+- **Báo cáo & admin** [reports.ts](../src/server/services/reports.ts), trang `/admin` (menu tài khoản, chỉ admin): báo cáo (≤10/ngày/người, 1 báo cáo mở/người/mục tiêu), bỏ qua / ẩn bộ (thu hồi credit) / khóa tài khoản (xóa mọi phiên, bộ thẻ biến mất); duyệt/từ chối bộ trong hàng chờ; mọi hành động vào `audit_logs`. Sao chép bộ công khai đã duyệt → **+1 credit** cho tác giả.
+- **Bug bắt được nhờ test:** điều kiện chống ghi đè kết quả kiểm duyệt so `updated_at` (Postgres micro giây vs Date mili giây) → không bao giờ ghi; sửa bằng `date_trunc('milliseconds', …)`.
+- **Kiểm tra:** typecheck/lint 0 lỗi; 415 unit; **118 integration** (thêm `community.test.ts` 23 ca); **E2E 34 pass + 1 skip** (thêm `community.spec.ts`: chia sẻ cho khách, sao chép + báo cáo + admin ẩn, công khai được thưởng — ca live tự skip khi model kiểm duyệt bận).
+- **Deploy:** migration 0006–0009 trên Neon; cấp admin bằng `DATABASE_URL=<neon> pnpm admin:grant <email>`.
 
 ### 2026-10-05 15:40 +07: 🪙 Credit AI thay cho "5 lượt/ngày" (nhánh `feat/ai-credits`, merge vào `feat/ai-pipeline-speed`)
 

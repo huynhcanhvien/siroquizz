@@ -50,7 +50,10 @@ test("asks to confirm the credit cost of a large request and can decline it", as
   await page.getByLabel("Số thẻ").fill("200");
   await page.getByRole("button", { name: "Tạo thẻ" }).click();
 
-  await expect(page.getByRole("heading", { name: "Xác nhận chi phí" })).toBeVisible();
+  // Other tests' generations may be ahead of this one in the shared queue.
+  await expect(page.getByRole("heading", { name: "Xác nhận chi phí" })).toBeVisible({
+    timeout: 30_000,
+  });
   await expect(page.getByText(/Tạo 200 thẻ sẽ dùng khoảng \d+ credit/)).toBeVisible();
   const confirm = page.getByRole("button", { name: /Tạo thẻ \(\d+ credit\)/ });
   await expect(confirm).toBeEnabled();

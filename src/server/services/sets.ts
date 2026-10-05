@@ -6,6 +6,7 @@ import { setInputSchema, type ValidSetInput } from "@/features/sets/schemas";
 import type { StudySet } from "@/lib/types";
 import { ApiError } from "../api-error";
 import type { Database } from "../db/client";
+import { attributionOf, markEdited, sharingOf } from "./sharing";
 import {
   cards,
   studySets,
@@ -43,6 +44,10 @@ export async function getSet(db: Db, ownerId: string, id: string): Promise<Study
     .limit(500);
   return {
     ...set,
+    sharing: sharingOf(set),
+    ...(set.copiedFromId
+      ? { copiedFrom: await attributionOf(db, ownerId, set.copiedFromId) }
+      : {}),
     termLang: set.termLang as StudySet["termLang"],
     definitionLang: set.definitionLang as StudySet["definitionLang"],
     cards: rows.map(({ card: c, image }) => ({
@@ -84,7 +89,7 @@ const metadata = ({ title, description, termLang, definitionLang, source }: Vali
 
 export async function updateSet(db: Database, ownerId: string, id: string, input: unknown) {
   const data = setInputSchema.parse(input);
-  return db.transaction(async (tx) => {
+  const updated = await db.transaction(async (tx) => {
     await requireOwnedSet(tx, ownerId, id, true);
     const existing = await tx.select().from(cards).where(eq(cards.setId, id)).limit(500);
     const existingIds = new Set(existing.map((c) => c.id));
@@ -119,6 +124,12 @@ export async function updateSet(db: Database, ownerId: string, id: string, input
       .where(owned(ownerId, id));
     return getSet(tx, ownerId, id);
   });
+  // A public set's new content must pass moderation again before it stays listed.
+  if (updated.sharing?.visibility === "public") {
+    await markEdited(db, id);
+    return getSet(db, ownerId, id);
+  }
+  return updated;
 }
 export async function removeSet(db: Database, ownerId: string, id: string) {
   await db.transaction(async (tx) => {
@@ -242,6 +253,7 @@ export async function listSets(db: Database, ownerId: string, query: URLSearchPa
   return {
     data: page.map((set): StudySet => ({
       ...set,
+      sharing: sharingOf(set),
       termLang: set.termLang as StudySet["termLang"],
       definitionLang: set.definitionLang as StudySet["definitionLang"],
       cards: cardsBySet.get(set.id) ?? [],

@@ -19,6 +19,8 @@ export interface GroqCallOptions {
   maxTokens?: number;
   /** Epoch ms after which the call is abandoned so the serverless step can still persist. */
   deadline?: number;
+  /** Replaces the flashcard system prompt, e.g. with a moderation policy. */
+  system?: string;
 }
 /** The provider asked us to slow down; the caller should resume after `retryAfterMs`. */
 // Daily-quota 429s can ask for hours; the job re-checks at most this often instead.
@@ -99,6 +101,7 @@ function requestBody(
   images: string[],
   jsonSchema: unknown,
   maxTokens: number,
+  system: string,
 ) {
   return JSON.stringify({
     model,
@@ -109,7 +112,7 @@ function requestBody(
       ? { reasoning_effort: "low", include_reasoning: false }
       : {}),
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: system },
       {
         role: "user",
         content: images.length
@@ -133,7 +136,7 @@ export async function groqJson<T>(
   signal: AbortSignal,
   images: string[] = [],
   model = getServerEnv().GROQ_TEXT_MODEL,
-  { maxTokens = DEFAULT_MAX_TOKENS, deadline }: GroqCallOptions = {},
+  { maxTokens = DEFAULT_MAX_TOKENS, deadline, system = SYSTEM_PROMPT }: GroqCallOptions = {},
 ): Promise<GroqOutput<T>> {
   const env = getServerEnv();
   if (env.AI_ENABLED === "false" || !env.GROQ_LLM_API) throw new ApiError(503, "AI_UNAVAILABLE");
@@ -143,6 +146,7 @@ export async function groqJson<T>(
     images,
     z.toJSONSchema(schema, { target: "draft-7" }),
     maxTokens,
+    system,
   );
   let failure = new ApiError(502, "AI_PROVIDER_ERROR");
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {

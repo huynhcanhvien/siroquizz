@@ -1,20 +1,32 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { apiError, requireSession } from "@/server/api";
+import { apiError, getSessionContext } from "@/server/api";
 import { ApiError } from "@/server/api-error";
 import { getDatabase } from "@/server/db/client";
-import { cardImages } from "@/server/db/schema";
-import { requireCard } from "@/server/services/learning";
+import { cardImages, cards, studySets, user } from "@/server/db/schema";
+import { canViewSet } from "@/server/services/access";
 import { getUpload } from "@/server/ai/storage";
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const current = await requireSession(request),
-      { id } = await context.params;
+    const { id } = await context.params;
     z.uuid().parse(id);
+    // Guests may load images of shared sets; everything else needs the owner's session.
+    const viewerId = await getSessionContext(request.headers).then(
+      (session) => session.user.id,
+      () => null,
+    );
     const db = getDatabase();
-    const [image] = await db.select().from(cardImages).where(eq(cardImages.id, id)).limit(1);
-    if (!image?.cardId) throw new ApiError(404, "NOT_FOUND");
-    await requireCard(db, current.id, image.cardId);
+    const [row] = await db
+      .select({ image: cardImages, set: studySets, ownerBannedAt: user.bannedAt })
+      .from(cardImages)
+      .innerJoin(cards, eq(cards.id, cardImages.cardId))
+      .innerJoin(studySets, eq(studySets.id, cards.setId))
+      .innerJoin(user, eq(user.id, studySets.ownerId))
+      .where(eq(cardImages.id, id))
+      .limit(1);
+    if (!row || !canViewSet(viewerId, row.set, { ownerBanned: Boolean(row.ownerBannedAt) }))
+      throw new ApiError(404, "NOT_FOUND");
+    const { image } = row;
     return new Response(new Uint8Array(await getUpload(image.key, image.size, request.signal)), {
       headers: {
         "Content-Type": "image/webp",
