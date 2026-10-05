@@ -7,6 +7,7 @@ import type { StudySet } from "@/lib/types";
 import { ApiError } from "../api-error";
 import type { Database } from "../db/client";
 import { attributionOf, markEdited, sharingOf } from "./sharing";
+import { requireStudySet } from "./access";
 import { buildSearchText } from "@/features/community/lib/search";
 import {
   cards,
@@ -28,14 +29,25 @@ const owned = (ownerId: string, id: string) =>
     isNull(studySets.deletedAt),
   );
 
+/** The set fields clients see; internal columns (search text, moderation, slug) stay server-side. */
+const publicFields = (set: typeof studySets.$inferSelect) => ({
+  id: set.id,
+  ownerId: set.ownerId,
+  title: set.title,
+  description: set.description,
+  source: set.source,
+});
+
 export async function requireOwnedSet(db: Db, ownerId: string, id: string, lock = false) {
   const query = db.select().from(studySets).where(owned(ownerId, id)).limit(1);
   const [set] = await (lock ? query.for("update") : query);
   if (!set) throw new ApiError(404, "NOT_FOUND");
   return set;
 }
-export async function getSet(db: Db, ownerId: string, id: string): Promise<StudySet> {
-  const set = await requireOwnedSet(db, ownerId, id);
+/** A set for studying: the viewer's own, or one assigned to their class (read-only for them). */
+export async function getSet(db: Db, viewerId: string, id: string): Promise<StudySet> {
+  const set = await requireStudySet(db, viewerId, id);
+  const isOwner = set.ownerId === viewerId;
   const rows = await db
     .select({ card: cards, image: cardImages })
     .from(cards)
@@ -44,10 +56,11 @@ export async function getSet(db: Db, ownerId: string, id: string): Promise<Study
     .orderBy(asc(cards.position))
     .limit(500);
   return {
-    ...set,
-    sharing: sharingOf(set),
-    ...(set.copiedFromId
-      ? { copiedFrom: await attributionOf(db, ownerId, set.copiedFromId) }
+    ...publicFields(set),
+    // Sharing settings belong to the owner; a student studying an assigned set does not see them.
+    ...(isOwner ? { sharing: sharingOf(set) } : {}),
+    ...(isOwner && set.copiedFromId
+      ? { copiedFrom: await attributionOf(db, viewerId, set.copiedFromId) }
       : {}),
     termLang: set.termLang as StudySet["termLang"],
     definitionLang: set.definitionLang as StudySet["definitionLang"],
@@ -262,7 +275,7 @@ export async function listSets(db: Database, ownerId: string, query: URLSearchPa
   }
   return {
     data: page.map((set): StudySet => ({
-      ...set,
+      ...publicFields(set),
       sharing: sharingOf(set),
       termLang: set.termLang as StudySet["termLang"],
       definitionLang: set.definitionLang as StudySet["definitionLang"],

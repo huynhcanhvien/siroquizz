@@ -1,5 +1,6 @@
 import "server-only";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, or, sql } from "drizzle-orm";
+import { z } from "zod";
 import { ApiError } from "../api-error";
 import { studySets, user } from "../db/schema";
 import type { Db } from "./sets";
@@ -57,4 +58,29 @@ export async function isAdmin(db: Db, userId: string) {
 }
 export async function requireAdmin(db: Db, userId: string) {
   if (!(await isAdmin(db, userId))) throw new ApiError(403, "FORBIDDEN");
+}
+
+/** The set is assigned to a class the person belongs to (as student or teacher). */
+export const assignedTo = (userId: string) =>
+  sql`exists(select 1 from class_sets cs inner join class_members cm on cm.class_id = cs.class_id where cs.set_id = ${studySets.id} and cm.user_id = ${userId})`;
+/**
+ * A set the person may study and record progress on: their own, or one assigned to a class they
+ * are in (unless a moderator hid it). Leaving the class removes the access at once. Editing,
+ * deleting and sharing stay with the owner (requireOwnedSet).
+ */
+export async function requireStudySet(db: Db, userId: string, setId: string, lock = false) {
+  const query = db
+    .select()
+    .from(studySets)
+    .where(
+      and(
+        eq(studySets.id, z.uuid().parse(setId)),
+        isNull(studySets.deletedAt),
+        or(eq(studySets.ownerId, userId), and(isNull(studySets.hiddenAt), assignedTo(userId))),
+      ),
+    )
+    .limit(1);
+  const [set] = await (lock ? query.for("update") : query);
+  if (!set) throw new ApiError(404, "NOT_FOUND");
+  return set;
 }

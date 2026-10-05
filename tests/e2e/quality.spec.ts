@@ -18,6 +18,7 @@ async function publicPages(page: Page, setId: string) {
     { name: "shared-set", path: `/s/${(await shared.json()).data.slug}` },
     { name: "profile", path: `/u/${username}` },
     { name: "folders", path: "/folders" },
+    { name: "classes", path: "/classes" },
   ];
 }
 

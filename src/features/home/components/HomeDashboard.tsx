@@ -1,5 +1,6 @@
 "use client";
 
+import { AssignedToMe } from "@/features/classes/components/AssignedToMe";
 import { ArrowRight, ClipboardPaste, FolderOpen, Layers, PencilLine, Sparkles, WandSparkles } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -140,6 +141,8 @@ export function HomeDashboard({ user }: { user: User }) {
       </div>
 
       <QuickCreate />
+
+      {process.env.NEXT_PUBLIC_DATA_SOURCE === "http" ? <AssignedToMe /> : null}
 
       {continueSets.length > 0 ? (
         <section aria-labelledby="continue-title">

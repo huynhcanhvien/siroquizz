@@ -1,6 +1,6 @@
 # Phase 5 — Chia sẻ, cộng đồng & lớp học
 
-**Trạng thái:** đang làm (nhánh `feat/phase5-community`): đợt 1 (chia sẻ, `access.ts`, kiểm duyệt, báo cáo, admin, credit thưởng), đợt 2 (Khám phá, hồ sơ), đợt 3 (thư mục) xong
+**Trạng thái:** đang làm (nhánh `feat/phase5-community`): đợt 1 (chia sẻ, `access.ts`, kiểm duyệt, báo cáo, admin, credit thưởng), đợt 2 (Khám phá, hồ sơ), đợt 3 (thư mục), đợt 4 (lớp học) xong
 **Phụ thuộc:** Phase 2 (nên có Phase 4 để lớp học có dữ liệu tiến độ)
 **Kết quả:** bộ thẻ có thể chia sẻ, có trang khám phá bộ thẻ công khai, thư mục, lớp học cho giáo viên, bảng xếp hạng trò chơi, và công cụ kiểm duyệt nội dung.
 
@@ -102,7 +102,7 @@ Logic phân quyền tập trung trong `server/services/access.ts` (`canViewSet`,
 - [x] 3. Khám phá: index GIN `pg_trgm` trên cột `search_text` đã bỏ dấu sẵn trong code (thay cho `unaccent`, vốn không dùng được trong index), tag (tối đa 5), "Phổ biến tuần này" = số lượt sao chép trong 7 ngày.
 - [x] 4. Hồ sơ công khai `/u/[username]`, username (đổi 30 ngày/lần, từ khóa dành riêng), ẩn hồ sơ.
 - [x] 5. Thư mục: CRUD, một bộ ở nhiều thư mục, kéo thả trong Thư viện (+ menu "Thêm vào thư mục" cho bàn phím/cảm ứng), học cả thư mục: Ôn tập lọc theo thư mục (lưu lịch FSRS bình thường); Thẻ ghi nhớ/Kiểm tra gộp thẻ là **phiên luyện tập không lưu tiến độ** (kết quả gộp không thuộc riêng bộ nào).
-- [ ] 6. Lớp học: tạo, tham gia, giao bài, bảng tiến độ, xuất CSV.
+- [x] 6. Lớp học: tạo (mã 6 ký tự, link mời có bước xác nhận), tham gia/rời, khóa đăng ký, đổi mã, đồng giáo viên, giao bộ (của chính giáo viên) có hạn chót, "Bài được giao" trên Home, bảng tiến độ học sinh × bộ (% đã thuộc, kiểm tra gần nhất, lần học cuối), xuất CSV ở trình duyệt (chống CSV injection). Quyền học qua lớp: `requireStudySet` thay cho kiểm tra chủ sở hữu ở mọi API học; rời lớp mất quyền ngay.
 - [ ] 7. Bảng xếp hạng kèm xác thực phiên chơi.
 - [x] 8. Báo cáo, trang admin, audit log, kiểm duyệt tự động. Kiểm duyệt dùng **`openai/gpt-oss-safeguard-20b` trên Groq** (không có key Anthropic): quét cứng link/SĐT/email toàn bộ + AI xem mẫu ~1.200 token (model chỉ 2.000 token/phút); bận thì `pending`, cron/nút "Kiểm tra lại" chạy lại. Cấp quyền admin: `DATABASE_URL=… pnpm admin:grant email`.
 - [ ] 9. Review bảo mật (IDOR, liệt kê dữ liệu), E2E nhiều người dùng.

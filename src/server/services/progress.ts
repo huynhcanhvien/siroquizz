@@ -15,10 +15,11 @@ import {
   studySets,
 } from "../db/schema";
 import { lockLearner, reviewInTransaction } from "./learning";
-import { requireOwnedSet, uuidSchema } from "./sets";
+import { uuidSchema } from "./sets";
+import { requireStudySet } from "./access";
 
 export async function getProgress(db: Database, ownerId: string, setId: string) {
-  await requireOwnedSet(db, ownerId, setId);
+  await requireStudySet(db, ownerId, setId);
   const rows = await db
     .select()
     .from(cardProgress)
@@ -37,7 +38,7 @@ export async function putProgress(db: Database, ownerId: string, setId: string, 
     .parse(input);
   return db.transaction(async (tx) => {
     await lockLearner(tx, ownerId);
-    await requireOwnedSet(tx, ownerId, setId, true);
+    await requireStudySet(tx, ownerId, setId, true);
     const ids = data.cards.map((c) => c.cardId);
     const found = await tx
       .select({ id: cards.id })
@@ -74,7 +75,7 @@ export async function putProgress(db: Database, ownerId: string, setId: string, 
 }
 export async function resetProgress(db: Database, ownerId: string, setId: string) {
   await db.transaction(async (tx) => {
-    await requireOwnedSet(tx, ownerId, setId, true);
+    await requireStudySet(tx, ownerId, setId, true);
     await tx
       .delete(cardProgress)
       .where(and(eq(cardProgress.userId, ownerId), eq(cardProgress.setId, setId)));
@@ -92,7 +93,7 @@ export async function listHistory(
   kind: "test" | "game",
   query: URLSearchParams,
 ) {
-  await requireOwnedSet(db, ownerId, setId);
+  await requireStudySet(db, ownerId, setId);
   const { limit, cursor, game } = historyQuery.parse(Object.fromEntries(query));
   const table = kind === "test" ? testResults : gameScores;
   const filters = [eq(table.userId, ownerId), eq(table.setId, setId)];
@@ -119,7 +120,7 @@ export async function saveTest(db: Database, ownerId: string, setId: string, inp
     .refine((v) => v.score <= v.total && v.setId === setId)
     .parse(input);
   return db.transaction(async (tx) => {
-    await requireOwnedSet(tx, ownerId, setId, true);
+    await requireStudySet(tx, ownerId, setId, true);
     const [row] = await tx
       .insert(testResults)
       .values({ ...data, id: v7(), userId: ownerId })
@@ -137,7 +138,7 @@ export async function correctTest(db: Database, ownerId: string, id: string, inp
       .limit(1)
       .for("update");
     if (!row) throw new ApiError(404, "NOT_FOUND");
-    await requireOwnedSet(tx, ownerId, row.setId);
+    await requireStudySet(tx, ownerId, row.setId);
     if (score > row.total) throw new ApiError(400, "VALIDATION_ERROR");
     await tx.update(testResults).set({ score }).where(eq(testResults.id, id));
     return { ...row, score, takenAt: row.takenAt.toISOString() };
@@ -152,7 +153,7 @@ export async function saveGame(db: Database, ownerId: string, setId: string, inp
     .refine((v) => v.setId === setId)
     .parse(input);
   return db.transaction(async (tx) => {
-    await requireOwnedSet(tx, ownerId, setId, true);
+    await requireStudySet(tx, ownerId, setId, true);
     const [row] = await tx
       .insert(gameScores)
       .values({ ...data, id: v7(), userId: ownerId })
@@ -162,7 +163,7 @@ export async function saveGame(db: Database, ownerId: string, setId: string, inp
 }
 export async function recordActivity(db: Database, ownerId: string, setId: string) {
   await db.transaction(async (tx) => {
-    await requireOwnedSet(tx, ownerId, setId, true);
+    await requireStudySet(tx, ownerId, setId, true);
     await tx
       .insert(studyActivity)
       .values({ userId: ownerId, setId, at: new Date() })

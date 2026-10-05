@@ -164,6 +164,8 @@ export function SetOverview({ set }: { set: StudySet }) {
   const tLang = useTranslations("contentLanguages");
   const tCommunity = useTranslations("community");
   const { data: user } = useSession();
+  // A set assigned in a class can be studied by students but only changed by its owner.
+  const isOwner = !user || user.id === set.ownerId;
 
   return (
     <div className="flex flex-col gap-10">
@@ -179,7 +181,7 @@ export function SetOverview({ set }: { set: StudySet }) {
         </div>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <h1 className="max-w-3xl text-title font-extrabold text-balance">{set.title}</h1>
-          <SetActions set={set} />
+          {isOwner ? <SetActions set={set} /> : null}
         </div>
         {set.description ? <p className="max-w-2xl text-lg text-muted">{set.description}</p> : null}
         {set.copiedFrom ? (
@@ -202,7 +204,7 @@ export function SetOverview({ set }: { set: StudySet }) {
             )}
           </p>
         ) : null}
-        {user ? (
+        {user && isOwner ? (
           <p className="flex items-center gap-2 text-sm font-medium text-muted">
             <Avatar name={user.displayName} color={user.avatarColor} size="sm" />
             {t("by", { name: user.displayName })}
@@ -246,8 +248,8 @@ export function SetOverview({ set }: { set: StudySet }) {
         <ProgressPanel set={set} />
       </div>
 
-      {process.env.NEXT_PUBLIC_DATA_SOURCE === "http" ? <AiSetTools set={set} /> : null}
-      <CardList set={set} />
+      {process.env.NEXT_PUBLIC_DATA_SOURCE === "http" && isOwner ? <AiSetTools set={set} /> : null}
+      <CardList set={set} editable={isOwner} />
     </div>
   );
 }

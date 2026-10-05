@@ -20,7 +20,8 @@ import {
   userPreferences,
   streakFreezes,
 } from "../db/schema";
-import { requireOwnedSet, type Transaction, type Db } from "./sets";
+import { type Transaction, type Db } from "./sets";
+import { assignedTo, requireStudySet } from "./access";
 
 export async function getPreferences(db: Db, userId: string) {
   const read = () => db.select().from(userPreferences).where(eq(userPreferences.userId, userId));
@@ -45,7 +46,7 @@ export async function requireCard(db: Db, userId: string, id: string) {
   z.uuid().parse(id);
   const [card] = await db.select().from(cards).where(eq(cards.id, id)).limit(1);
   if (!card) throw new ApiError(404, "NOT_FOUND");
-  await requireOwnedSet(db, userId, card.setId);
+  await requireStudySet(db, userId, card.setId);
   return card;
 }
 export async function newAllowance(db: Db, userId: string, now = new Date()) {
@@ -102,7 +103,7 @@ export async function reviewInTransaction(
     return event.snapshot;
   }
   const card = await requireCard(tx, userId, data.cardId);
-  await requireOwnedSet(tx, userId, card.setId, true);
+  await requireStudySet(tx, userId, card.setId, true);
   const [previous] = await tx
     .select()
     .from(cardProgress)
@@ -181,7 +182,12 @@ export async function dueCards(
   const inFolder = folderId
     ? sql`exists(select 1 from folder_sets where folder_sets.folder_id=${z.uuid().parse(folderId)} and folder_sets.set_id=${studySets.id})`
     : undefined;
-  const base = and(eq(studySets.ownerId, userId), isNull(studySets.deletedAt), inFolder);
+  // Assigned class sets are due like one's own.
+  const base = and(
+    or(eq(studySets.ownerId, userId), and(isNull(studySets.hiddenAt), assignedTo(userId))),
+    isNull(studySets.deletedAt),
+    inFolder,
+  );
   const [{ remaining }, [count]] = await Promise.all([
     newAllowance(db, userId, now),
     db
@@ -262,7 +268,7 @@ export async function dueCards(
   };
 }
 export async function getStars(db: Database, userId: string, setId: string) {
-  await requireOwnedSet(db, userId, setId);
+  await requireStudySet(db, userId, setId);
   return (
     await db
       .select({ cardId: cardStars.cardId })
@@ -287,7 +293,7 @@ const sessionInput = z.object({
 });
 export async function startSession(db: Database, userId: string, input: unknown) {
   const data = sessionInput.parse(input);
-  if (data.setId) await requireOwnedSet(db, userId, data.setId);
+  if (data.setId) await requireStudySet(db, userId, data.setId);
   const id = v7();
   await db.insert(studySessions).values({ ...data, id, userId });
   return { id };
@@ -325,7 +331,7 @@ export async function finishSession(
     if (!session) throw new ApiError(404, "NOT_FOUND");
     const startedMs = session.startedAt.getTime();
     if (now.getTime() > startedMs + MAX_SESSION_MS) return { id };
-    if (session.setId) await requireOwnedSet(tx, userId, session.setId);
+    if (session.setId) await requireStudySet(tx, userId, session.setId);
     const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - startedMs) / 1000));
     const reported = Math.min(data.activeSeconds ?? 0, elapsedSeconds);
     await tx

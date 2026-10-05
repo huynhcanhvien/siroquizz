@@ -1,5 +1,6 @@
 import {
   Compass,
+  School,
   FolderOpen,
   House,
   Library,
@@ -11,7 +12,8 @@ import {
 
 export interface NavItem {
   href: string;
-  labelKey: "home" | "library" | "settings" | "review" | "stats" | "explore" | "folders";
+  labelKey:
+    "home" | "library" | "settings" | "review" | "stats" | "explore" | "folders" | "classes";
   icon: LucideIcon;
 }
 
@@ -24,6 +26,7 @@ export const PRIMARY_NAV: readonly NavItem[] = [
   ...(process.env.NEXT_PUBLIC_DATA_SOURCE === "http"
     ? [
         { href: "/folders", labelKey: "folders", icon: FolderOpen } as const,
+        { href: "/classes", labelKey: "classes", icon: School } as const,
         { href: "/explore", labelKey: "explore", icon: Compass } as const,
       ]
     : []),

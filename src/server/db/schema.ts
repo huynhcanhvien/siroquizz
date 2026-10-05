@@ -423,6 +423,48 @@ export const folderSets = pgTable(
     index("folder_sets_set_idx").on(t.setId),
   ],
 );
+export const classRole = pgEnum("class_role", ["owner", "teacher", "student"]);
+/** A teacher's class: members join with a short code and study the sets assigned to it. */
+export const classes = pgTable("classes", {
+  id: uuid("id").primaryKey(),
+  ownerId: text("owner_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 80 }).notNull(),
+  description: varchar("description", { length: 500 }).notNull().default(""),
+  joinCode: varchar("join_code", { length: 6 }).notNull().unique(),
+  joinLocked: boolean("join_locked").notNull().default(false),
+  ...timestamps,
+});
+export const classMembers = pgTable(
+  "class_members",
+  {
+    classId: uuid("class_id")
+      .notNull()
+      .references(() => classes.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: classRole("role").notNull(),
+    joinedAt: time("joined_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.classId, t.userId] }), index("class_members_user_idx").on(t.userId)],
+);
+export const classSets = pgTable(
+  "class_sets",
+  {
+    classId: uuid("class_id")
+      .notNull()
+      .references(() => classes.id, { onDelete: "cascade" }),
+    setId: uuid("set_id")
+      .notNull()
+      .references(() => studySets.id, { onDelete: "cascade" }),
+    assignedBy: text("assigned_by").references(() => user.id, { onDelete: "set null" }),
+    dueAt: time("due_at"),
+    assignedAt: time("assigned_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.classId, t.setId] }), index("class_sets_set_idx").on(t.setId)],
+);
 /** Finished results keyed by a hash of the exact files, request and options; reused for free. */
 export const aiResultCache = pgTable("ai_result_cache", {
   key: varchar("key", { length: 64 }).primaryKey(),

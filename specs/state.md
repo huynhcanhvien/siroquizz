@@ -3,7 +3,7 @@
 > File này ghi lại **đã làm gì, đang làm dở gì, làm tiếp thế nào** để bất kỳ ai (người hoặc agent) cũng có thể tiếp tục.
 > Thời gian theo giờ Việt Nam (UTC+7). Mục mới nhất ở trên cùng của phần Nhật ký.
 
-**Cập nhật lần cuối:** 2026-10-05 19:30 +07
+**Cập nhật lần cuối:** 2026-10-05 21:00 +07
 **Phase hiện tại:** Phase 2–3 hoàn tất local (Groq live pass). Đã thêm hạ tầng **deploy Vercel free + chia nhỏ job AI (resumable step)**, đang chờ nghiệm thu production. Phase 4 (SRS) vẫn đang dở. Google OAuth/R2/Resend production còn chờ credentials.
 **Tình trạng:** Người dùng yêu cầu hoàn thành toàn bộ Phase 2–6 và cập nhật state khi từng phase xong. Không coi credentials, deployment hay beta bên ngoài đã hoàn tất nếu chưa thực hiện.
 
@@ -45,6 +45,16 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 **Bước tiếp theo:** Phase 4: learn-engine7cards/round, FSRS, due queue/new limits/preferences, stars, study sessions/stats/goals/streak/reminders/images. `ts-fsrs@5.4.2` đã cài, @types/node lên22 cho Vitest. Dataviz skill không có trong catalog/filesystem; dùng chart accessible theo design tokens và bảng thay thế. Sau P4 tiếp tục P5–6.
 
 ## Nhật ký
+
+### 2026-10-05 21:00 +07: 🏫 Phase 5 đợt 4 — Lớp học (nhánh `feat/phase5-community`)
+
+- **Schema (migration `drizzle/0012_premium_dormammu.sql`):** `classes` (mã tham gia 6 ký tự không nhầm lẫn, `join_locked`), `class_members` (owner/teacher/student), `class_sets` (`due_at`).
+- **Quyền học qua lớp:** `requireStudySet` ([access.ts](../src/server/services/access.ts)) = chủ bộ **hoặc** bộ được giao cho lớp mình (chưa bị ẩn). Thay `requireOwnedSet` ở mọi API học (tiến độ, kiểm tra, game, hoạt động, ôn tập, sao, phiên học, `GET /sets/:id`); sửa/xóa/chia sẻ vẫn chỉ chủ. Hàng đợi Ôn tập của học sinh gồm cả bộ được giao. Rời lớp mất quyền ngay.
+- **Phát hiện khi làm:** `getSet`/`listSets` trả nguyên hàng DB (`...set`) → lộ slug/kiểm duyệt cho học sinh và **gửi kèm `search_text` (tới 20k ký tự) mỗi bộ** (hồi quy từ đợt 2). Đã chỉ trả các trường client cần.
+- **Service** [classes.ts](../src/server/services/classes.ts) + route trong `community-api`: tạo/xem/sửa/xóa lớp, tham gia (≤200 thành viên, `CLASS_NOT_FOUND`/`CLASS_LOCKED`/`CLASS_FULL`), rời, xóa thành viên (giáo viên xóa học sinh; chỉ chủ lớp quản lý đồng giáo viên), giao/bỏ giao bộ của chính mình, `GET /classes/assigned`, bảng tiến độ (chỉ đọc tiến độ của bộ được giao).
+- **UI:** `/classes` (dạy/học, tạo, nhập mã), `/classes/join/[code]` (xác nhận trước khi vào), `/classes/[id]` (giáo viên: mã + link mời, khóa, đổi mã, giao bộ + hạn, bảng tiến độ có `<table>` cho trình đọc màn hình + Xuất CSV, thành viên; học sinh: bộ được giao, rời lớp), "Bài được giao" trên Home, trang bộ thẻ ẩn nút của chủ với học sinh (và sửa lỗi dòng "Tạo bởi" hiện tên người xem).
+- **Kiểm tra:** **422 unit** (thêm `csv.test.ts`), **140 integration** (thêm `classes.test.ts`, `community-api.test.ts` cho router; coverage lines 91%, branches 79.7%), **E2E 38 pass** (thêm `classes.spec.ts` 2 trình duyệt: giao → học → bảng tiến độ → CSV → rời lớp mất quyền; `/classes` vào quét axe/tràn layout).
+- **Deploy:** migration 0012.
 
 ### 2026-10-05 19:30 +07: 📁 Phase 5 đợt 3 — Thư mục (nhánh `feat/phase5-community`)
 
