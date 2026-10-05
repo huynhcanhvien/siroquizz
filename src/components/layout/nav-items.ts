@@ -1,5 +1,6 @@
 import {
   Compass,
+  FolderOpen,
   House,
   Library,
   Settings,
@@ -10,7 +11,7 @@ import {
 
 export interface NavItem {
   href: string;
-  labelKey: "home" | "library" | "settings" | "review" | "stats" | "explore";
+  labelKey: "home" | "library" | "settings" | "review" | "stats" | "explore" | "folders";
   icon: LucideIcon;
 }
 
@@ -21,7 +22,10 @@ export const PRIMARY_NAV: readonly NavItem[] = [
   { href: "/stats", labelKey: "stats", icon: ChartNoAxesCombined },
   // Community pages need the server backend.
   ...(process.env.NEXT_PUBLIC_DATA_SOURCE === "http"
-    ? [{ href: "/explore", labelKey: "explore", icon: Compass } as const]
+    ? [
+        { href: "/folders", labelKey: "folders", icon: FolderOpen } as const,
+        { href: "/explore", labelKey: "explore", icon: Compass } as const,
+      ]
     : []),
 ];
 

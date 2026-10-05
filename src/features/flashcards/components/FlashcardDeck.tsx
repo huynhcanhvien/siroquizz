@@ -160,7 +160,11 @@ function PileCounters({ learning, known }: { learning: number; known: number }) 
   );
 }
 
-export function FlashcardDeck({ set }: { set: StudySet }) {
+/**
+ * `practice` studies without saving card statuses, for sessions that merge several sets (a whole
+ * folder), where a status has no single set to belong to.
+ */
+export function FlashcardDeck({ set, practice = false }: { set: StudySet; practice?: boolean }) {
   const t = useTranslations("flashcards");
   const tCommon = useTranslations("common");
   const { toast } = useToast();
@@ -176,7 +180,8 @@ export function FlashcardDeck({ set }: { set: StudySet }) {
   const mark = (status: Mark) => {
     const id = currentCardId(state);
     if (!id || state.finished) return;
-    saveCardStatus({ cardId: id, status }, { onError: (error) => toast(errorMessage(error), "error") });
+    if (!practice)
+      saveCardStatus({ cardId: id, status }, { onError: (error) => toast(errorMessage(error), "error") });
     dispatch({ type: "mark", status });
   };
 

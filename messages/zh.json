@@ -77,7 +77,8 @@
     "goToApp": "开始学习",
     "review": "复习",
     "stats": "统计",
-    "explore": "发现"
+    "explore": "发现",
+    "folders": "文件夹"
   },
   "theme": {
     "label": "外观",
@@ -880,5 +881,43 @@
       "saved": "主页已保存。",
       "view": "查看主页"
     }
+  },
+  "folders": {
+    "title": "文件夹",
+    "subtitle": "把同一主题的卡组放在一起学习。",
+    "newFolder": "新建文件夹",
+    "namePlaceholder": "文件夹名称",
+    "create": "创建",
+    "created": "文件夹已创建。",
+    "empty": "你还没有文件夹。创建后可在卡组页添加卡组，或在卡库中拖放。",
+    "sets": "{count} 个卡组",
+    "rename": "重命名",
+    "renameTitle": "重命名文件夹",
+    "renamed": "已重命名。",
+    "save": "保存",
+    "delete": "删除文件夹",
+    "deleteTitle": "删除文件夹？",
+    "deleteBody": "将删除文件夹「{name}」，其中的卡组仍保留在卡库中。",
+    "deleteConfirm": "删除",
+    "deleted": "文件夹已删除。",
+    "studyTitle": "学习整个文件夹",
+    "studyFlashcards": "记忆卡",
+    "studyTest": "测验",
+    "studyReview": "复习",
+    "practiceNote": "整个文件夹的记忆卡和测验是练习模式，不保存各卡组的进度。复习仍会照常安排。",
+    "setsTitle": "文件夹中的卡组",
+    "removeSet": "将「{title}」移出文件夹",
+    "removed": "已移出文件夹。",
+    "emptyFolder": "文件夹是空的。可在卡组页（⋯ → 添加到文件夹）添加，或在卡库中拖放。",
+    "addToFolder": "添加到文件夹",
+    "addTitle": "添加到文件夹",
+    "updated": "文件夹已更新。",
+    "dropHere": "拖放到「{name}」",
+    "dragHint": "提示：把卡组拖到文件夹上。",
+    "back": "返回文件夹",
+    "practiceBadge": "练习：不保存进度",
+    "reviewScope": "正在复习文件夹「{name}」。",
+    "reviewAll": "复习全部卡组",
+    "notFound": "未找到文件夹。"
   }
 }

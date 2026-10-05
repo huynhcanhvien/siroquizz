@@ -171,12 +171,17 @@ export async function dueCards(
   limit = 200,
   now = new Date(),
   starred = false,
+  folderId?: string,
 ) {
   z.number().int().min(1).max(200).parse(limit);
   const starFilter = starred
     ? sql`exists(select 1 from card_stars where card_stars.user_id=${userId} and card_stars.card_id=${cards.id})`
     : undefined;
-  const base = and(eq(studySets.ownerId, userId), isNull(studySets.deletedAt));
+  // A folder narrows the queue to its sets; only the person's own sets are ever included.
+  const inFolder = folderId
+    ? sql`exists(select 1 from folder_sets where folder_sets.folder_id=${z.uuid().parse(folderId)} and folder_sets.set_id=${studySets.id})`
+    : undefined;
+  const base = and(eq(studySets.ownerId, userId), isNull(studySets.deletedAt), inFolder);
   const [{ remaining }, [count]] = await Promise.all([
     newAllowance(db, userId, now),
     db

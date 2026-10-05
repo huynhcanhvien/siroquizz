@@ -22,6 +22,7 @@ export default defineConfig({
         "src/server/community-api.ts",
         "src/server/services/explore.ts",
         "src/server/services/profiles.ts",
+        "src/server/services/folders.ts",
         "src/server/ai/auxiliary.ts",
         "src/server/ai/extract.ts",
         "src/server/ai/storage.ts",

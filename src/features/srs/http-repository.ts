@@ -5,10 +5,11 @@ import { statsSchema } from "@/features/stats/schemas";
 export function createLearningRepository() {
   const client = createHttpClient();
   return {
-    due: async (starred = false) =>
+    /** Due cards, optionally only starred ones or only those of one folder's sets. */
+    due: async (starred = false, folderId?: string) =>
       (
         await client.request(
-          `/api/v1/reviews/due?starred=${starred ? "1" : "0"}`,
+          `/api/v1/reviews/due?starred=${starred ? "1" : "0"}${folderId ? `&folder=${folderId}` : ""}`,
           dueResponseSchema,
         )
       ).data,

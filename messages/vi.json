@@ -77,7 +77,8 @@
     "goToApp": "Vào học",
     "review": "Ôn tập",
     "stats": "Thống kê",
-    "explore": "Khám phá"
+    "explore": "Khám phá",
+    "folders": "Thư mục"
   },
   "theme": {
     "label": "Giao diện",
@@ -880,5 +881,43 @@
       "saved": "Đã lưu hồ sơ.",
       "view": "Xem hồ sơ"
     }
+  },
+  "folders": {
+    "title": "Thư mục",
+    "subtitle": "Gom các bộ thẻ cùng chủ đề để học chung một lượt.",
+    "newFolder": "Thư mục mới",
+    "namePlaceholder": "Tên thư mục",
+    "create": "Tạo",
+    "created": "Đã tạo thư mục.",
+    "empty": "Bạn chưa có thư mục nào. Tạo thư mục rồi thêm bộ thẻ từ trang bộ thẻ, hoặc kéo thả bộ thẻ trong Thư viện.",
+    "sets": "{count} bộ thẻ",
+    "rename": "Đổi tên",
+    "renameTitle": "Đổi tên thư mục",
+    "renamed": "Đã đổi tên thư mục.",
+    "save": "Lưu",
+    "delete": "Xóa thư mục",
+    "deleteTitle": "Xóa thư mục?",
+    "deleteBody": "Thư mục “{name}” sẽ bị xóa. Các bộ thẻ bên trong vẫn còn trong thư viện.",
+    "deleteConfirm": "Xóa",
+    "deleted": "Đã xóa thư mục.",
+    "studyTitle": "Học cả thư mục",
+    "studyFlashcards": "Thẻ ghi nhớ",
+    "studyTest": "Kiểm tra",
+    "studyReview": "Ôn tập",
+    "practiceNote": "Thẻ ghi nhớ và Kiểm tra cho cả thư mục là phiên luyện tập, không lưu tiến độ của từng bộ. Ôn tập vẫn lưu lịch ôn như bình thường.",
+    "setsTitle": "Bộ thẻ trong thư mục",
+    "removeSet": "Bỏ “{title}” khỏi thư mục",
+    "removed": "Đã bỏ khỏi thư mục.",
+    "emptyFolder": "Thư mục trống. Thêm bộ thẻ từ trang bộ thẻ (nút ⋯ → Thêm vào thư mục) hoặc kéo thả trong Thư viện.",
+    "addToFolder": "Thêm vào thư mục",
+    "addTitle": "Thêm vào thư mục",
+    "updated": "Đã cập nhật thư mục.",
+    "dropHere": "Thả vào “{name}”",
+    "dragHint": "Mẹo: kéo một bộ thẻ thả vào thư mục.",
+    "back": "Về thư mục",
+    "practiceBadge": "Luyện tập: không lưu tiến độ",
+    "reviewScope": "Đang ôn thư mục “{name}”.",
+    "reviewAll": "Ôn tất cả bộ thẻ",
+    "notFound": "Không tìm thấy thư mục."
   }
 }

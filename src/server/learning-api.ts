@@ -35,6 +35,7 @@ export async function learningApi(db: Database, userId: string, request: Request
           .parse(query.get("limit") ?? undefined),
         new Date(),
         query.get("starred") === "1",
+        query.get("folder") ?? undefined,
       ),
     };
   if (domain === "stats" && id === "overview" && path.length === 2 && method === "GET")

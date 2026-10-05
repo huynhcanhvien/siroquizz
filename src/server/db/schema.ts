@@ -393,6 +393,36 @@ export const auditLogs = pgTable(
   },
   (t) => [index("audit_target_idx").on(t.targetType, t.targetId, t.createdAt)],
 );
+/** Personal folders grouping one's own sets; a set may sit in several folders. */
+export const folders = pgTable(
+  "folders",
+  {
+    id: uuid("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 60 }).notNull(),
+    ...timestamps,
+  },
+  (t) => [index("folders_user_idx").on(t.userId, t.name)],
+);
+export const folderSets = pgTable(
+  "folder_sets",
+  {
+    folderId: uuid("folder_id")
+      .notNull()
+      .references(() => folders.id, { onDelete: "cascade" }),
+    setId: uuid("set_id")
+      .notNull()
+      .references(() => studySets.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    addedAt: time("added_at").notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.folderId, t.setId] }),
+    index("folder_sets_set_idx").on(t.setId),
+  ],
+);
 /** Finished results keyed by a hash of the exact files, request and options; reused for free. */
 export const aiResultCache = pgTable("ai_result_cache", {
   key: varchar("key", { length: 64 }).primaryKey(),

@@ -4,6 +4,7 @@ import {
   Brain,
   Copy,
   Ellipsis,
+  FolderPlus,
   Gamepad2,
   Layers,
   ListChecks,
@@ -28,6 +29,7 @@ import { useErrorMessage } from "@/lib/use-messages";
 import { useDeleteSet, useDuplicateSet } from "../hooks";
 import { AiSetTools } from "@/features/ai-generate/components/AiSetTools";
 import { ShareDialog } from "@/features/community/components/ShareDialog";
+import { AddToFolderDialog } from "@/features/folders/components/AddToFolderDialog";
 import { CardList } from "./CardList";
 import { ProgressPanel } from "./ProgressPanel";
 import { SetPreview } from "./SetPreview";
@@ -82,6 +84,8 @@ function SetActions({ set }: { set: StudySet }) {
   const duplicate = useDuplicateSet();
   const remove = useDeleteSet();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [folderOpen, setFolderOpen] = useState(false);
+  const tFolders = useTranslations("folders");
 
   const handleDuplicate = () =>
     duplicate.mutate(
@@ -124,6 +128,12 @@ function SetActions({ set }: { set: StudySet }) {
             <Copy aria-hidden />
             {t("duplicate")}
           </MenuItem>
+          {process.env.NEXT_PUBLIC_DATA_SOURCE === "http" ? (
+            <MenuItem onSelect={() => setFolderOpen(true)}>
+              <FolderPlus aria-hidden />
+              {tFolders("addToFolder")}
+            </MenuItem>
+          ) : null}
           <MenuSeparator />
           <MenuItem tone="danger" onSelect={() => setConfirmOpen(true)}>
             <Trash aria-hidden />
@@ -131,6 +141,9 @@ function SetActions({ set }: { set: StudySet }) {
           </MenuItem>
         </MenuContent>
       </Menu>
+      {folderOpen ? (
+        <AddToFolderDialog setId={set.id} open={folderOpen} onOpenChange={setFolderOpen} />
+      ) : null}
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}

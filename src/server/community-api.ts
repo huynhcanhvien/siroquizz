@@ -15,13 +15,59 @@ import {
   setVisibility,
 } from "./services/sharing";
 import { getProfileSettings, updateProfileSettings } from "./services/profiles";
+import {
+  addSetToFolder,
+  createFolder,
+  deleteFolder,
+  folderStudySet,
+  foldersOfSet,
+  getFolder,
+  listFolders,
+  removeSetFromFolder,
+  renameFolder,
+} from "./services/folders";
 
 const SET_ACTIONS = ["approve", "reject", "hide", "restore"] as const;
+
+/** Personal folders: CRUD, membership and the merged study set. */
+async function folderRoutes(db: Database, userId: string, request: Request, path: string[]) {
+  const [domain, id, sub, setId] = path,
+    method = request.method;
+  if (domain === "sets" && id && sub === "folders" && path.length === 3 && method === "GET")
+    return { data: await foldersOfSet(db, userId, id) };
+  if (domain !== "folders") return null;
+  if (!id) {
+    if (method === "GET") return { data: await listFolders(db, userId) };
+    if (method === "POST") return { data: await createFolder(db, userId, await readJson(request)) };
+  }
+  if (id && path.length === 2) {
+    if (method === "GET") return { data: await getFolder(db, userId, id) };
+    if (method === "PATCH") {
+      await renameFolder(db, userId, id, await readJson(request));
+      return { data: null };
+    }
+    if (method === "DELETE") {
+      await deleteFolder(db, userId, id);
+      return { data: null };
+    }
+  }
+  if (id && sub === "study" && path.length === 3 && method === "GET")
+    return { data: await folderStudySet(db, userId, id) };
+  if (id && sub === "sets" && setId && path.length === 4) {
+    if (method === "PUT") await addSetToFolder(db, userId, id, setId);
+    else if (method === "DELETE") await removeSetFromFolder(db, userId, id, setId);
+    else throw new ApiError(405, "NOT_FOUND");
+    return { data: null };
+  }
+  throw new ApiError(404, "NOT_FOUND");
+}
 
 /** Sharing, reports and moderation endpoints; returns null when the path is not one of them. */
 export async function communityApi(db: Database, userId: string, request: Request, path: string[]) {
   const [domain, id, sub, action] = path,
     method = request.method;
+  const folders = await folderRoutes(db, userId, request, path);
+  if (folders) return folders;
   if (domain === "sets" && id && path.length === 3 && method !== "GET") {
     if (sub === "visibility" && method === "PATCH")
       return { data: await setVisibility(db, userId, id, await readJson(request)) };

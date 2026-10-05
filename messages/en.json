@@ -77,7 +77,8 @@
     "goToApp": "Start studying",
     "review": "Review",
     "stats": "Statistics",
-    "explore": "Explore"
+    "explore": "Explore",
+    "folders": "Folders"
   },
   "theme": {
     "label": "Theme",
@@ -880,5 +881,43 @@
       "saved": "Profile saved.",
       "view": "View profile"
     }
+  },
+  "folders": {
+    "title": "Folders",
+    "subtitle": "Group sets on the same topic and study them together.",
+    "newFolder": "New folder",
+    "namePlaceholder": "Folder name",
+    "create": "Create",
+    "created": "Folder created.",
+    "empty": "You have no folders yet. Create one, then add sets from a set's page or drag them in your Library.",
+    "sets": "{count} sets",
+    "rename": "Rename",
+    "renameTitle": "Rename folder",
+    "renamed": "Folder renamed.",
+    "save": "Save",
+    "delete": "Delete folder",
+    "deleteTitle": "Delete folder?",
+    "deleteBody": "The folder “{name}” will be deleted. Its sets stay in your library.",
+    "deleteConfirm": "Delete",
+    "deleted": "Folder deleted.",
+    "studyTitle": "Study the whole folder",
+    "studyFlashcards": "Flashcards",
+    "studyTest": "Test",
+    "studyReview": "Review",
+    "practiceNote": "Flashcards and Test across a folder are practice sessions and don't save per-set progress. Review keeps scheduling cards as usual.",
+    "setsTitle": "Sets in this folder",
+    "removeSet": "Remove “{title}” from the folder",
+    "removed": "Removed from the folder.",
+    "emptyFolder": "This folder is empty. Add sets from a set's page (⋯ → Add to folder) or drag them in your Library.",
+    "addToFolder": "Add to folder",
+    "addTitle": "Add to folder",
+    "updated": "Folders updated.",
+    "dropHere": "Drop into “{name}”",
+    "dragHint": "Tip: drag a set onto a folder.",
+    "back": "Back to folder",
+    "practiceBadge": "Practice: progress isn't saved",
+    "reviewScope": "Reviewing the folder “{name}”.",
+    "reviewAll": "Review all sets",
+    "notFound": "Folder not found."
   }
 }

@@ -81,9 +81,9 @@ function TestTaking({ questions, answers, langs, onAnswer, onSubmit, grading }: 
   );
 }
 
-export function TestMode({ set }: { set: StudySet }) {
+export function TestMode({ set, practice = false }: { set: StudySet; practice?: boolean }) {
   const t = useTranslations("test");
-  const session = useTestSession(set);
+  const session = useTestSession(set, practice);
   const { phase } = session;
 
   // Move focus to the new screen's heading so keyboard and screen-reader users aren't stranded.

@@ -3,7 +3,7 @@
 > File này ghi lại **đã làm gì, đang làm dở gì, làm tiếp thế nào** để bất kỳ ai (người hoặc agent) cũng có thể tiếp tục.
 > Thời gian theo giờ Việt Nam (UTC+7). Mục mới nhất ở trên cùng của phần Nhật ký.
 
-**Cập nhật lần cuối:** 2026-10-05 18:20 +07
+**Cập nhật lần cuối:** 2026-10-05 19:30 +07
 **Phase hiện tại:** Phase 2–3 hoàn tất local (Groq live pass). Đã thêm hạ tầng **deploy Vercel free + chia nhỏ job AI (resumable step)**, đang chờ nghiệm thu production. Phase 4 (SRS) vẫn đang dở. Google OAuth/R2/Resend production còn chờ credentials.
 **Tình trạng:** Người dùng yêu cầu hoàn thành toàn bộ Phase 2–6 và cập nhật state khi từng phase xong. Không coi credentials, deployment hay beta bên ngoài đã hoàn tất nếu chưa thực hiện.
 
@@ -45,6 +45,15 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 **Bước tiếp theo:** Phase 4: learn-engine7cards/round, FSRS, due queue/new limits/preferences, stars, study sessions/stats/goals/streak/reminders/images. `ts-fsrs@5.4.2` đã cài, @types/node lên22 cho Vitest. Dataviz skill không có trong catalog/filesystem; dùng chart accessible theo design tokens và bảng thay thế. Sau P4 tiếp tục P5–6.
 
 ## Nhật ký
+
+### 2026-10-05 19:30 +07: 📁 Phase 5 đợt 3 — Thư mục (nhánh `feat/phase5-community`)
+
+- **Schema (migration `drizzle/0011_marvelous_omega_flight.sql`):** `folders` (tối đa 100/người), `folder_sets` (pk folder+set, `position`, tối đa 500 bộ/thư mục). Chỉ chứa bộ của chính mình; xóa thư mục không xóa bộ; bộ đã xóa mềm không hiện.
+- **API:** `GET/POST /folders`, `GET/PATCH/DELETE /folders/:id`, `PUT/DELETE /folders/:id/sets/:setId`, `GET /folders/:id/study` (gộp ≤500 thẻ theo thứ tự thư mục), `GET /sets/:id/folders`, `GET /reviews/due?folder=` ([folders.ts](../src/server/services/folders.ts)).
+- **UI:** trang `/folders`, `/folders/[id]` (đổi tên, xóa, bỏ bộ), menu bộ thẻ "Thêm vào thư mục" (checkbox cập nhật lạc quan), Thư viện có dải chip thư mục để kéo-thả bộ thẻ, mục "Thư mục" trong điều hướng (chỉ chế độ http).
+- **Học cả thư mục:** Ôn tập `/review?folder=` lưu FSRS bình thường; `/study/folder/[id]/flashcards|test` là **luyện tập không lưu tiến độ** (`FlashcardDeck`/`TestMode` thêm prop `practice`), có nhãn trên thanh trên cùng.
+- **Kiểm tra:** 419 unit, **130 integration** (thêm `folders.test.ts`), **E2E 37 pass** (thêm `folders.spec.ts`: tạo, thêm qua menu và kéo-thả, luyện tập không gửi request lưu, ôn theo thư mục, xóa giữ bộ; `/folders` vào quét axe/tràn layout).
+- **Deploy:** migration 0011.
 
 ### 2026-10-05 18:20 +07: 🧭 Phase 5 đợt 2 — Khám phá và hồ sơ công khai (nhánh `feat/phase5-community`)
 
