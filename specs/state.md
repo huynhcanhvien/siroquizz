@@ -3,14 +3,14 @@
 > File này ghi lại **đã làm gì, đang làm dở gì, làm tiếp thế nào** để bất kỳ ai (người hoặc agent) cũng có thể tiếp tục.
 > Thời gian theo giờ Việt Nam (UTC+7). Mục mới nhất ở trên cùng của phần Nhật ký.
 
-**Cập nhật lần cuối:** 2026-10-06 09:11 +07
-**Phase hiện tại:** AI (tốc độ + credit) xong trên nhánh `feat/ai-pipeline-speed` (PR #1 vào `main`, **chưa merge**). Phase 5 cộng đồng **hoàn tất (đợt 1–6)** trên nhánh `feat/phase5-community` (tách từ nhánh AI, chưa push/PR). Phase 4 (SRS) vẫn đang dở.
+**Cập nhật lần cuối:** 2026-10-06 09:54 +07
+**Phase hiện tại:** AI (tốc độ + credit) và Phase 5 cộng đồng **đã merge vào `main` và deploy production** (PR #1, #2). Phase 4 (SRS) vẫn còn phần dở.
 **Tình trạng:** Người dùng yêu cầu hoàn thành toàn bộ Phase 2–6 và cập nhật state khi từng phase xong. Không coi credentials, deployment hay beta bên ngoài đã hoàn tất nếu chưa thực hiện.
 
 ## Tóm tắt nhanh cho người tiếp quản
 
-- **Nhánh:** `main` = production (user deploy từ đây, **không commit thẳng**). `feat/ai-pipeline-speed` (PR #1 → main) ⊂ `feat/phase5-community` (đang làm, chưa push).
-- **Migration mới chưa chạy trên Neon:** 0006–0013 (chỉ thêm cột/bảng/index; 0010 cần `CREATE EXTENSION pg_trgm`). Migrate local phải truyền `DATABASE_URL` local tường minh (drizzle.config đọc `.env.production.local`).
+- **Nhánh:** `main` = production (Vercel tự deploy; **không commit thẳng**, làm qua nhánh + PR). PR #1, #2 đã merge.
+- **Neon production đã chạy đủ migration 0000–0013** (14 bản). Migrate local phải truyền `DATABASE_URL` local tường minh (drizzle.config đọc `.env.production.local`). Migration mới: chạy trên Neon **trước** khi merge PR.
 - **E2E:** cổng 3100 có thể bị dự án `trip-expense-tracker` của user chiếm → `E2E_PORT=3200 RESEND_API_KEY= PW_CHANNEL=chrome pnpm e2e`, tạm cất `.env.production.local` khi chạy.
 - **Admin:** `DATABASE_URL=<url> pnpm admin:grant <email>` (kiểm tra quyền admin luôn đọc DB).
 
@@ -47,9 +47,15 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 | LOW | —    | Đăng xuất dính `?next=`, guard mất query string, xóa bộ thẻ nháy "không tìm thấy", AI không hủy khi rời trang, `wait()` rò listener, bấm đúp Lưu/Tạo, đồng hồ lệch, kỷ lục điểm 0, Scramble `useMemo`, ô số câu hiện 0 | ✅ Đã sửa hết                                                                                                                                                                                                                                                                                                                                                           |
 | LOW | —    | Hàm > 50 dòng                                                                                                                                                                                                          | ✅ Đã tách `SetEditor`, `FlashcardDeck`, `TestMode` (+ `use-test-session.ts`), `GravityBoard`, `AiGenerator` (+ `use-ai-generation.ts`)                                                                                                                                                                                                                                 |
 
-**Bước tiếp theo:** (1) user merge PR #1 sau khi chạy migration 0006–0008 trên Neon; (2) push `feat/phase5-community` + tạo PR (migration 0009–0013); (3) các mục bảo mật còn để lại (xem nhật ký đợt 6); (4) quay lại Phase 4 (SRS) phần còn dở.
+**Bước tiếp theo:** (1) cấp quyền admin cho tài khoản kiểm duyệt: `DATABASE_URL=<neon> pnpm admin:grant <email>`; (2) theo dõi production sau deploy (kiểm duyệt, credit, hàng đợi AI); (3) các mục bảo mật còn để lại (nhật ký đợt 6); (4) quay lại Phase 4 (SRS) phần còn dở.
 
 ## Nhật ký
+
+### 2026-10-06 09:54 +07: 🚀 Merge + deploy production (PR #1, PR #2)
+
+- **Neon:** chạy migration 0006–0008 (trước PR #1) và 0009–0013 (trước PR #2) bằng drizzle migrator với `DATABASE_URL` production; kiểm tra lại có đủ bảng mới và `pg_trgm`.
+- **CI lần đầu xanh:** `main` đã fail CI từ commit đầu vì unit test component chạy với `NEXT_PUBLIC_DATA_SOURCE=http` của CI → `vitest.config.mts` cố định `env: local` cho unit test. E2E trên CI (không có key Groq) lộ thêm lỗi thật: **job AI đang xếp hàng nhưng bị bỏ dở chặn hàng đợi 2 phút** → job chưa được nhận chỉ giữ chỗ khi còn hỏi trong 15s; test hủy tạo thẻ không còn phụ thuộc Groq.
+- **Merge:** PR #1 → `5391091`, PR #2 → `f37f3ab`; Vercel deploy **success**. Smoke test https://www.emvienintern.xyz: `/` 200, `/explore` 200, `/login` 200, API chưa đăng nhập 401, slug/username không tồn tại 404.
 
 ### 2026-10-06 09:11 +07: 🔒 Phase 5 đợt 6 — Review bảo mật (nhánh `feat/phase5-community`)
 
