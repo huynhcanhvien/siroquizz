@@ -8,6 +8,9 @@ const BASE_URL = `http://localhost:${PORT}`;
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
+  // More workers than this starve the shared Next server, Postgres and browsers on an 8-core
+  // machine: the suite gets slower and multi-user tests time out. Override with E2E_WORKERS.
+  workers: Number(process.env.E2E_WORKERS ?? 3),
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? "github" : "list",

@@ -1,6 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { registerUser } from "./fixtures";
 
+// These tests sign up several people each; 30s is tight while the whole suite runs in parallel.
+test.describe.configure({ timeout: 90_000 });
+
 /** Drives a job the way the browser client does: repeated POST /step until it finishes. */
 async function driveToEnd(page: Page, jobId: string, headers: Record<string, string>) {
   for (let i = 0; i < 50; i++) {
@@ -69,11 +72,18 @@ test("validates uploaded bytes, persists generations and enforces successful-job
       headers,
       data: { uploadIds: [], prompt: "animals", options },
     });
-  expect((await open()).ok()).toBeTruthy();
-  expect((await open()).ok()).toBeTruthy();
+  const first = await open();
+  const second = await open();
+  expect(first.ok() && second.ok()).toBeTruthy();
   const third = await open();
   expect(third.status()).toBe(429);
   expect((await third.json()).error.code).toBe("AI_BUSY");
+  // Cancel them so they do not hold places in the shared queue for other tests.
+  for (const response of [first, second])
+    await page.request.post(`/api/v1/ai/jobs/${(await response.json()).data.jobId}/cancel`, {
+      headers,
+      data: {},
+    });
   await page.goto("/sets/new/ai");
   await expect(page.getByText("Các lần tạo trong 24 giờ")).toBeVisible();
   await expect(page.getByRole("button", { name: "Mở lại" })).toHaveCount(5);
