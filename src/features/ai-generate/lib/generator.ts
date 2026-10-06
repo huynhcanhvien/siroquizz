@@ -1,7 +1,9 @@
 import type { LangCode } from "@/lib/types";
+import type { CreditEstimate } from "../schemas";
 
 export const GENERATION_STAGES = [
   "uploading",
+  "queued",
   "reading",
   "analyzing",
   "generating",
@@ -40,11 +42,36 @@ export interface GenerateResult {
   usedSamples: boolean;
   /** Names of files the generator could not read (the mock only reads plain-text formats). */
   unreadFiles: string[];
+  /** Credits this generation used (1 = 1,000 AI tokens); absent for the offline mock. */
+  creditsCharged?: number;
+  /** Parts of the document the AI failed on; their cards are missing from the result. */
+  skippedParts?: number;
+  totalParts?: number;
+}
+
+export interface GenerationProgress {
+  completed?: number;
+  total?: number;
+  /** The free AI quota is exhausted for the moment; work resumes automatically. */
+  waiting?: boolean;
+  /** Jobs from other people that run before this one. */
+  queuePosition?: number;
+}
+
+/** Credits outcome attached (as `cause`) to the error of a failed or cancelled generation. */
+export interface CreditOutcome {
+  creditsCharged?: number;
+  refunded?: boolean;
 }
 
 export interface GenerateHandlers {
   signal?: AbortSignal;
-  onStage?: (stage: GenerationStage, progress?: { completed?: number; total?: number }) => void;
+  /**
+   * Called when the document has been read and generating needs the user's go-ahead. Resolves
+   * to the number of cards to create, or null to cancel.
+   */
+  onConfirm?: (estimate: CreditEstimate) => Promise<number | null>;
+  onStage?: (stage: GenerationStage, progress?: GenerationProgress) => void;
 }
 
 /** Phase 1 ships a mock. Phase 3 implements this with the Groq API behind /api/v1/ai. */

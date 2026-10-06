@@ -76,4 +76,4 @@ TRUSTED_IP_HEADER=x-vercel-forwarded-for
 
 - Mỗi request serverless tối đa **60s**. App đã chia nhỏ job AI thành nhiều bước ngắn, nhưng tab trình duyệt cần **mở trong lúc sinh thẻ** (giống SSE trước đây). File OCR cực lớn có thể cần nhiều bước; nếu muốn chạy nền/không giữ tab → nâng Vercel **Pro** (maxDuration 300s) hoặc thêm hàng đợi (QStash).
 - Neon/Supabase free có thể tạm nghỉ khi không dùng; request đầu sau khi nghỉ hơi chậm.
-- Hạn mức AI: 5 job thành công/ngày/người (reset 00:00 giờ VN) — chỉnh trong `DAILY_LIMIT` ([src/server/ai/jobs.ts](../src/server/ai/jobs.ts)) nếu cần.
+- Hạn mức AI tính bằng **credit** (1 credit = 1.000 token Groq thực dùng): 20 credit miễn phí/ngày/người (reset 00:00 giờ VN, không cộng dồn) + credit thưởng không hết hạn; tối đa 40 credit/lần tạo; toàn app `AI_GLOBAL_DAILY_CREDITS` (mặc định 480 ≈ 80% hạn mức ngày của key free). Hằng số trong [credits.ts](../src/features/ai-generate/lib/credits.ts).

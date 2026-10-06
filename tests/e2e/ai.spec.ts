@@ -14,7 +14,9 @@ test("generates cards from an uploaded text file and saves them as a set", async
   await page.getByRole("button", { name: "Tạo thẻ" }).click();
 
   await expect(page.getByRole("heading", { name: "AI đang làm việc…" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Xem lại và chỉnh sửa" })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("heading", { name: "Xem lại và chỉnh sửa" })).toBeVisible({
+    timeout: 30_000,
+  });
   await expect(page.getByText("Đã chọn 4/4")).toBeVisible();
 
   await page.getByLabel("Giữ thẻ 4").uncheck();
@@ -28,12 +30,41 @@ test("generates cards from an uploaded text file and saves them as a set", async
 test("rejects unsupported files and can cancel a generation", async ({ page }) => {
   await registerUser(page);
   await page.goto("/sets/new/ai");
-  await page.getByLabel("Chọn tệp").setInputFiles({ name: "song.mp3", mimeType: "audio/mpeg", buffer: Buffer.from("ID3") });
+  await page
+    .getByLabel("Chọn tệp")
+    .setInputFiles({ name: "song.mp3", mimeType: "audio/mpeg", buffer: Buffer.from("ID3") });
   await expect(page.getByText("song.mp3: định dạng không được hỗ trợ.")).toBeVisible();
 
   await page.getByRole("textbox", { name: "Yêu cầu cho AI" }).fill("Trích 10 từ vựng HSK 2");
+  // Hold the first step so the generation is still running when we cancel, with or without a
+  // live AI provider (CI has none, so the job would otherwise fail at once).
+  await page.route("**/api/v1/ai/jobs/*/step", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+    await route.continue().catch(() => {});
+  });
   await page.getByRole("button", { name: "Tạo thẻ" }).click();
   await page.getByRole("button", { name: "Hủy" }).click();
   await expect(page.getByText("Đã hủy tạo thẻ.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Tạo thẻ" })).toBeVisible();
+});
+
+test("asks to confirm the credit cost of a large request and can decline it", async ({ page }) => {
+  await registerUser(page);
+  await page.goto("/sets/new/ai");
+  await expect(page.getByText(/Hôm nay còn 20\/20 credit miễn phí/)).toBeVisible();
+  await page.getByRole("textbox", { name: "Yêu cầu cho AI" }).fill("Từ vựng tiếng Anh về nhà bếp");
+  await page.getByLabel("Số thẻ").fill("200");
+  await page.getByRole("button", { name: "Tạo thẻ" }).click();
+
+  // Other tests' generations may be ahead of this one in the shared queue.
+  await expect(page.getByRole("heading", { name: "Xác nhận chi phí" })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByText(/Tạo 200 thẻ sẽ dùng khoảng \d+ credit/)).toBeVisible();
+  const confirm = page.getByRole("button", { name: /Tạo thẻ \(\d+ credit\)/ });
+  await expect(confirm).toBeEnabled();
+  await page.getByRole("button", { name: "Hủy" }).click();
+  await expect(page.getByText("Đã hủy tạo thẻ.")).toBeVisible();
+  // Nothing was generated, so nothing was charged.
+  await expect(page.getByText(/Hôm nay còn 20\/20 credit miễn phí/)).toBeVisible();
 });

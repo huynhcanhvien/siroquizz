@@ -12,11 +12,11 @@
   },
   "errors": {
     "AI_UNAVAILABLE": "Tính năng AI chưa sẵn sàng. Vui lòng liên hệ quản trị viên để kiểm tra cấu hình.",
-    "AI_PROVIDER_ERROR": "Dịch vụ AI không xử lý được yêu cầu. Vui lòng thử lại sau.",
-    "AI_INVALID_OUTPUT": "AI trả về nội dung chưa hợp lệ. Vui lòng thử lại.",
-    "AI_REFUSED": "AI không thể xử lý nội dung này.",
+    "AI_PROVIDER_ERROR": "Dịch vụ AI đang gặp sự cố nên chưa xử lý được yêu cầu. Vui lòng thử lại sau ít phút.",
+    "AI_INVALID_OUTPUT": "AI nhiều lần trả về kết quả sai định dạng. Vui lòng thử lại.",
+    "AI_REFUSED": "AI từ chối xử lý vì nội dung có thể vi phạm chính sách an toàn.",
     "AI_CANCELLED": "Đã hủy xử lý tài liệu.",
-    "AI_TIMEOUT": "Xử lý tài liệu quá thời gian. Vui lòng thử với tài liệu ngắn hơn.",
+    "AI_TIMEOUT": "AI phản hồi quá chậm nên yêu cầu đã dừng. Vui lòng thử lại sau ít phút.",
     "INVALID_FILE": "File không hợp lệ hoặc nội dung không khớp định dạng.",
     "PDF_PAGE_LIMIT": "Tổng số trang PDF tối đa là 30.",
     "DOCUMENT_TOO_LONG": "Tài liệu quá dài. Vui lòng chia thành các file nhỏ hơn.",
@@ -34,7 +34,12 @@
     "CONFLICT": "Dữ liệu đã thay đổi. Hãy tải lại và thử lại.",
     "RATE_LIMITED": "Có quá nhiều yêu cầu. Vui lòng đợi rồi thử lại.",
     "NETWORK": "Không thể kết nối. Hãy kiểm tra mạng và thử lại.",
-    "EMAIL_NOT_VERIFIED": "Vui lòng xác minh email trước khi đăng nhập."
+    "EMAIL_NOT_VERIFIED": "Vui lòng xác minh email trước khi đăng nhập.",
+    "AI_CREDITS_EXCEEDED": "Không đủ credit cho yêu cầu này. Hãy giảm số thẻ, dùng tài liệu ngắn hơn, hoặc chờ đến 0h để nhận lại 20 credit miễn phí.",
+    "AI_GLOBAL_LIMIT": "Hệ thống đã dùng hết hạn mức AI chung của hôm nay. Vui lòng quay lại sau 0h.",
+    "AI_JOB_TOO_LARGE": "Yêu cầu này cần hơn 40 credit cho một lần tạo. Hãy giảm số thẻ hoặc chia nhỏ tài liệu.",
+    "AI_BUSY": "Bạn đang có 2 lần tạo chưa xong. Hãy chờ chúng hoàn tất hoặc hủy bớt rồi thử lại.",
+    "OCR_PAGE_LIMIT": "Mỗi lần tạo chỉ đọc được tối đa 10 trang ảnh hoặc trang scan. Hãy tách tài liệu thành nhiều phần."
   },
   "validation": {
     "required": "Trường này là bắt buộc.",
@@ -518,6 +523,7 @@
       "generating": "Tạo thẻ",
       "done": "Hoàn tất",
       "uploading": "Đang tải lên",
+      "queued": "Chờ đến lượt",
       "validating": "Đang kiểm tra"
     },
     "cancelled": "Đã hủy tạo thẻ.",
@@ -534,7 +540,7 @@
     "needTwo": "Chọn ít nhất 2 thẻ để lưu.",
     "defaultTitle": "Bộ thẻ AI: {source}",
     "fallbackNotice": "Bản demo chưa đọc được nội dung tệp {names} nên đã tạo thẻ mẫu. Bản chính thức sẽ dùng Claude để đọc PDF, Word và ảnh.",
-    "quota": "Còn {remaining}/{limit} lượt hôm nay. Đặt lại: {time}.",
+    "partialNotice": "AI chưa xử lý được {skipped}/{total} phần của tài liệu nên có thể thiếu một số thẻ. Bạn có thể tạo lại sau ít phút.",
     "history": "Các lần tạo trong 24 giờ",
     "historyEmpty": "Chưa có lần tạo nào.",
     "reopen": "Mở lại",
@@ -545,7 +551,8 @@
       "validating": "Đang kiểm tra",
       "done": "Hoàn tất",
       "error": "Lỗi",
-      "cancelled": "Đã hủy"
+      "cancelled": "Đã hủy",
+      "awaiting": "Chờ xác nhận"
     },
     "fillPhonetics": "Điền phiên âm bằng AI",
     "createExamples": "Tạo câu ví dụ",
@@ -553,7 +560,24 @@
     "phoneticsSaved": "Đã lưu phiên âm.",
     "semanticGrading": "Chấm tự luận theo ngữ nghĩa bằng AI",
     "semanticHint": "Tùy chọn. Nếu AI không khả dụng, giữ kết quả so sánh văn bản. Tối đa 50 tác vụ phụ/ngày.",
-    "chunkProgress": "Đã tạo {completed}/{total} phần"
+    "chunkProgress": "Đã tạo {completed}/{total} phần",
+    "quotaWaiting": "Hạn mức AI miễn phí đang bận — sẽ tự tiếp tục sau giây lát…",
+    "queuePosition": "Đang xếp hàng: còn {count} lượt trước bạn. Bạn có thể giữ trang này mở.",
+    "credits": "Hôm nay còn {remaining}/{limit} credit miễn phí · {earned} credit thưởng · đặt lại lúc {time}",
+    "creditsRefunded": "Lỗi do hệ thống nên credit đã được hoàn lại.",
+    "creditsCharged": "Đã trừ {credits} credit cho phần đã xử lý.",
+    "creditsUsed": "Lần tạo này dùng {credits} credit.",
+    "creditsFree": "Lần tạo này không tốn credit.",
+    "historyCredits": "{credits} credit",
+    "estimateTitle": "Xác nhận chi phí",
+    "estimateIntro": "AI đã đọc xong tài liệu. Tạo {count} thẻ sẽ dùng khoảng {credits} credit.",
+    "estimateUsed": "Đã dùng {credits} credit để đọc ảnh/bản scan.",
+    "estimateBalance": "Bạn có {daily} credit miễn phí hôm nay và {earned} credit thưởng.",
+    "estimateCardCount": "Số thẻ",
+    "estimateTooLarge": "Vượt giới hạn {max} credit cho một lần tạo. Hãy giảm số thẻ.",
+    "estimateNotEnough": "Không đủ credit. Hãy giảm số thẻ.",
+    "estimateConfirm": "Tạo thẻ ({credits} credit)",
+    "estimateHint": "Credit miễn phí được dùng trước, sau đó mới đến credit thưởng. Nếu lỗi do hệ thống, credit được hoàn lại."
   },
   "settings": {
     "title": "Cài đặt",

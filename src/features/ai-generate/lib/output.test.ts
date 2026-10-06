@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeCards, splitDocument, mapConcurrent } from "./output";
+import { normalizeCards, splitDocument, mapConcurrent, estimateTokens } from "./output";
 describe("AI output validation", () => {
   it("strips markup, deduplicates normalized terms and bounds results", () => {
     let id = 0;
@@ -34,6 +34,27 @@ describe("AI output validation", () => {
     const text = "中文\n".repeat(100);
     expect(splitDocument(text, 30).join("")).toBe(text);
     expect(splitDocument("")).toEqual([]);
+  });
+  it("counts CJK characters as denser than Latin text", () => {
+    expect(estimateTokens("中".repeat(100))).toBe(100);
+    expect(estimateTokens("a".repeat(100))).toBe(40);
+    expect(estimateTokens("")).toBe(0);
+  });
+  it("keeps every chunk within the token budget and breaks on line boundaries", () => {
+    const text = Array.from({ length: 400 }, (_, i) => `từ vựng ${i} - nghĩa của từ ${i}`).join(
+      "\n",
+    );
+    const chunks = splitDocument(text, 500);
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks.join("")).toBe(text);
+    for (const chunk of chunks) expect(estimateTokens(chunk)).toBeLessThanOrEqual(500);
+    for (const chunk of chunks.slice(0, -1)) expect(chunk.endsWith("\n")).toBe(true);
+  });
+  it("hard-splits a single line longer than the budget", () => {
+    const text = "中".repeat(1000);
+    const chunks = splitDocument(text, 300);
+    expect(chunks.join("")).toBe(text);
+    for (const chunk of chunks) expect(estimateTokens(chunk)).toBeLessThanOrEqual(300);
   });
   it("limits concurrent calls and retains order", async () => {
     let active = 0,

@@ -5,7 +5,7 @@ import { api, readJson } from "@/server/api";
 import { ApiError } from "@/server/api-error";
 import { getDatabase } from "@/server/db/client";
 import { aiUploads } from "@/server/db/schema";
-import { cancelJob, createJob, getQuota, listJobs, stepJob } from "@/server/ai/jobs";
+import { cancelJob, confirmJob, createJob, getQuota, listJobs, stepJob } from "@/server/ai/jobs";
 import {
   MAX_UPLOAD_BYTES,
   presignUpload,
@@ -111,6 +111,16 @@ async function handle(request: Request, context: Context) {
     if (domain === "jobs" && id && sub === "step" && path.length === 3 && request.method === "POST") {
       await enforceLimit(`ai-step:${current.id}`, 300, 60);
       return { data: await stepJob(db, current.id, id, request.signal) };
+    }
+    if (
+      domain === "jobs" &&
+      id &&
+      sub === "confirm" &&
+      path.length === 3 &&
+      request.method === "POST"
+    ) {
+      await confirmJob(db, current.id, id, await readJson(request));
+      return { data: null };
     }
     if (
       domain === "jobs" &&

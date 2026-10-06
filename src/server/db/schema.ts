@@ -267,8 +267,24 @@ export const aiJobs = pgTable(
     errorCode: varchar("error_code", { length: 64 }),
     createdAt: time("created_at").notNull().defaultNow(),
     finishedAt: time("finished_at"),
+    // Last time the browser drove this job; an active job without one recently is abandoned and
+    // no longer holds a place in the shared provider queue.
+    heartbeatAt: time("heartbeat_at"),
+    // Only the step holding an unexpired lease may run and save this job, so a retried request
+    // cannot race an invocation that is still running.
+    stepLease: text("step_lease"),
+    stepLeaseUntil: time("step_lease_until"),
+    // Credits (1 = 1,000 provider tokens). Reserved when the user accepts the estimate and
+    // released when the job ends; charged = daily free credits used + earned credits spent.
+    creditsEstimated: integer("credits_estimated"),
+    creditsReserved: integer("credits_reserved").notNull().default(0),
+    creditsCharged: integer("credits_charged").notNull().default(0),
+    dailyCreditsCharged: integer("daily_credits_charged").notNull().default(0),
   },
-  (t) => [index("jobs_user_created_idx").on(t.userId, t.createdAt)],
+  (t) => [
+    index("jobs_user_created_idx").on(t.userId, t.createdAt),
+    index("jobs_status_id_idx").on(t.status, t.id),
+  ],
 );
 export const aiAuxUsage = pgTable(
   "ai_aux_usage",
@@ -281,6 +297,35 @@ export const aiAuxUsage = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.day] })],
 );
+
+/**
+ * Earned AI credits: rewards for contributing public sets (positive), their clawback and AI spend
+ * beyond the daily free allowance (negative). The balance is the sum; it never expires.
+ */
+export const creditLedger = pgTable(
+  "credit_ledger",
+  {
+    id: uuid("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    delta: integer("delta").notNull(),
+    reason: varchar("reason", { length: 32 }).notNull(),
+    // What the entry is about (set id, set:copier, job id); one entry per user, reason and ref.
+    ref: text("ref").notNull(),
+    createdAt: time("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("credit_ledger_once_idx").on(t.userId, t.reason, t.ref),
+    index("credit_ledger_user_idx").on(t.userId, t.createdAt),
+  ],
+);
+/** Finished results keyed by a hash of the exact files, request and options; reused for free. */
+export const aiResultCache = pgTable("ai_result_cache", {
+  key: varchar("key", { length: 64 }).primaryKey(),
+  result: jsonb("result").notNull(),
+  createdAt: time("created_at").notNull().defaultNow(),
+});
 
 export const userPreferences = pgTable("user_preferences", {
   userId: text("user_id")

@@ -11,11 +11,9 @@ export async function registerUser(page: Page, name = "Bạn Test"): Promise<str
   const email = uniqueEmail();
   if (process.env.NEXT_PUBLIC_DATA_SOURCE === "http") {
     // Each test represents a different remote client, preserving production rate-limit rules.
-    await page
-      .context()
-      .setExtraHTTPHeaders({
-        "x-forwarded-for": `198.51.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}`,
-      });
+    await page.context().setExtraHTTPHeaders({
+      "x-forwarded-for": `198.51.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}`,
+    });
   }
   await page.goto("/register");
   await page.getByLabel("Tên hiển thị").fill(name);
@@ -25,7 +23,8 @@ export async function registerUser(page: Page, name = "Bạn Test"): Promise<str
   await page.getByLabel(/Tôi đồng ý/).check();
   await page.getByRole("button", { name: "Tạo tài khoản" }).click();
   if (process.env.NEXT_PUBLIC_DATA_SOURCE === "http") {
-    await expect(page).toHaveURL(/\/verify-email$/);
+    // Sign-up hashes the password and sends mail; give it time while the server warms up.
+    await expect(page).toHaveURL(/\/verify-email$/, { timeout: 15_000 });
     await page.goto(await emailLink(page, email, "verify-email"));
   }
   await expect(page).toHaveURL(/\/home$/);

@@ -36,10 +36,15 @@ test("has no horizontal overflow at key breakpoints and saves screenshots", asyn
       for (const target of [{ name: "landing", path: "/" }, ...pages]) {
         await page.goto(target.path);
         await page.waitForLoadState("networkidle");
-        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+        const overflow = await page.evaluate(
+          () => document.documentElement.scrollWidth - window.innerWidth,
+        );
         expect.soft(overflow, `${target.name} @ ${width}px (${scheme})`).toBeLessThanOrEqual(0);
         if (width === 320 || width === 1440) {
-          await page.screenshot({ path: `test-results/screens/${target.name}-${width}-${scheme}.png`, fullPage: true });
+          await page.screenshot({
+            path: `test-results/screens/${target.name}-${width}-${scheme}.png`,
+            fullPage: true,
+          });
         }
       }
     }
@@ -51,11 +56,20 @@ test("passes automated accessibility checks (WCAG 2.1 AA)", async ({ page }) => 
   const pages = await pagesToCheck(page);
   for (const target of [{ name: "landing", path: "/" }, ...pages]) {
     for (const scheme of ["light", "dark"] as const) {
-      await page.emulateMedia({ colorScheme: scheme });
+      // Settled UI only: mid-animation frames (fades, pops) can read as false contrast failures.
+      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.goto(target.path);
       await page.waitForLoadState("networkidle");
-      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
-      const summary = results.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).slice(0, 3).join(", ")}`);
+      const results = await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+        .analyze();
+      const summary = results.violations.map(
+        (violation) =>
+          `${violation.id}: ${violation.nodes
+            .map((node) => node.target.join(" "))
+            .slice(0, 3)
+            .join(", ")}`,
+      );
       expect.soft(summary, `${target.name} (${scheme})`).toEqual([]);
     }
   }

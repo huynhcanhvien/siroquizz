@@ -1,6 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { registerUser } from "./fixtures";
 
+// These tests sign up several people each; 30s is tight while the whole suite runs in parallel.
+test.describe.configure({ timeout: 90_000 });
+
 /** Drives a job the way the browser client does: repeated POST /step until it finishes. */
 async function driveToEnd(page: Page, jobId: string, headers: Record<string, string>) {
   for (let i = 0; i < 50; i++) {
@@ -8,6 +11,8 @@ async function driveToEnd(page: Page, jobId: string, headers: Record<string, str
     expect(res.ok()).toBeTruthy();
     const step = (await res.json()).data;
     if (["done", "error", "cancelled"].includes(step.status)) return step;
+    // Queued behind other jobs or throttled: wait as the real client does.
+    if (step.retryAfterMs) await page.waitForTimeout(step.retryAfterMs);
   }
   throw new Error("job did not finish");
 }
@@ -57,17 +62,28 @@ test("validates uploaded bytes, persists generations and enforces successful-job
     expect(final.status).toBe("done");
     expect(final.result?.cards.length).toBeGreaterThanOrEqual(2);
   }
+  // Clear term/definition pairs are imported without the AI, so they cost no credits.
   const quota = (await (await page.request.get("/api/v1/ai/quota")).json()).data;
-  expect(quota.remaining).toBe(0);
+  expect(quota).toMatchObject({ dailyLimit: 20, dailyRemaining: 20, earned: 0 });
   expect(quota.resetsAt).toMatch(/T17:00:00/);
-  expect(
-    (
-      await page.request.post("/api/v1/ai/jobs", {
-        headers,
-        data: { uploadIds: [], prompt: "animals", options },
-      })
-    ).status(),
-  ).toBe(429);
+  // At most two unfinished generations per person.
+  const open = () =>
+    page.request.post("/api/v1/ai/jobs", {
+      headers,
+      data: { uploadIds: [], prompt: "animals", options },
+    });
+  const first = await open();
+  const second = await open();
+  expect(first.ok() && second.ok()).toBeTruthy();
+  const third = await open();
+  expect(third.status()).toBe(429);
+  expect((await third.json()).error.code).toBe("AI_BUSY");
+  // Cancel them so they do not hold places in the shared queue for other tests.
+  for (const response of [first, second])
+    await page.request.post(`/api/v1/ai/jobs/${(await response.json()).data.jobId}/cancel`, {
+      headers,
+      data: {},
+    });
   await page.goto("/sets/new/ai");
   await expect(page.getByText("Các lần tạo trong 24 giờ")).toBeVisible();
   await expect(page.getByRole("button", { name: "Mở lại" })).toHaveCount(5);
@@ -90,13 +106,15 @@ test("a cancelled or foreign job cannot be streamed or charged", async ({ page, 
   ).data;
   expect(cancelledStep.status).toBe("cancelled");
   expect(cancelledStep.errorCode).toBe("AI_CANCELLED");
-  expect((await (await page.request.get("/api/v1/ai/quota")).json()).data.remaining).toBe(5);
+  expect((await (await page.request.get("/api/v1/ai/quota")).json()).data.dailyRemaining).toBe(20);
   const other = await browser.newContext(),
     second = await other.newPage();
   await registerUser(second);
   const headers2 = { Origin: new URL(second.url()).origin };
   expect(
-    (await second.request.post(`/api/v1/ai/jobs/${jobId}/step`, { headers: headers2, data: {} })).status(),
+    (
+      await second.request.post(`/api/v1/ai/jobs/${jobId}/step`, { headers: headers2, data: {} })
+    ).status(),
   ).toBe(404);
   await other.close();
 });

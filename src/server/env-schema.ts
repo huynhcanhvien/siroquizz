@@ -25,7 +25,14 @@ export const serverEnvSchema = z
     GROQ_LLM_API: optionalString,
     GROQ_TEXT_MODEL: z.string().default("openai/gpt-oss-120b"),
     GROQ_VISION_MODEL: z.string().default("qwen/qwen3.8-27b"),
+    // Used when the text model is rate limited; Groq meters each model's quota separately.
+    GROQ_FALLBACK_MODEL: z.string().default("openai/gpt-oss-20b"),
     AI_ENABLED: z.enum(["true", "false"]).default("true"),
+    // Jobs allowed to call the provider at once; the rest wait in FIFO order (one shared key).
+    AI_MAX_ACTIVE_JOBS: z.coerce.number().int().min(1).max(20).default(2),
+    // App-wide credits per day (1 = 1,000 tokens): ~80% of the free key's 200k tokens/day for each
+    // of the two text models plus the vision model.
+    AI_GLOBAL_DAILY_CREDITS: z.coerce.number().int().min(1).default(480),
     S3_ENDPOINT: optionalUrl,
     S3_ACCESS_KEY_ID: optionalString,
     S3_SECRET_ACCESS_KEY: optionalString,

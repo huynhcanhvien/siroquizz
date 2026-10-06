@@ -12,11 +12,11 @@
   },
   "errors": {
     "AI_UNAVAILABLE": "AI is unavailable. Please contact the administrator to check the configuration.",
-    "AI_PROVIDER_ERROR": "The AI service could not process the request. Please try again later.",
-    "AI_INVALID_OUTPUT": "AI returned invalid content. Please try again.",
-    "AI_REFUSED": "AI cannot process this content.",
+    "AI_PROVIDER_ERROR": "The AI service is having trouble and couldn't process the request. Please try again in a few minutes.",
+    "AI_INVALID_OUTPUT": "The AI returned malformed results several times. Please try again.",
+    "AI_REFUSED": "The AI declined because the content may break its safety policy.",
     "AI_CANCELLED": "Document processing was cancelled.",
-    "AI_TIMEOUT": "Document processing timed out. Please try a shorter document.",
+    "AI_TIMEOUT": "The AI responded too slowly, so the request stopped. Please try again in a few minutes.",
     "INVALID_FILE": "The file is invalid or its contents do not match its format.",
     "PDF_PAGE_LIMIT": "PDFs may contain at most 30 pages in total.",
     "DOCUMENT_TOO_LONG": "The document is too long. Please split it into smaller files.",
@@ -34,7 +34,12 @@
     "CONFLICT": "The data changed. Refresh and try again.",
     "RATE_LIMITED": "Too many requests. Please wait and try again.",
     "NETWORK": "Could not connect. Check your connection and try again.",
-    "EMAIL_NOT_VERIFIED": "Verify your email before signing in."
+    "EMAIL_NOT_VERIFIED": "Verify your email before signing in.",
+    "AI_CREDITS_EXCEEDED": "You don't have enough credits for this request. Ask for fewer cards, use a shorter document, or wait until midnight for your 20 free credits.",
+    "AI_GLOBAL_LIMIT": "The app has used today's shared AI allowance. Please come back after midnight.",
+    "AI_JOB_TOO_LARGE": "This request needs more than 40 credits for one generation. Ask for fewer cards or split the document.",
+    "AI_BUSY": "You already have 2 generations in progress. Wait for them to finish or cancel one, then try again.",
+    "OCR_PAGE_LIMIT": "One generation can read at most 10 image or scanned pages. Split the document into parts."
   },
   "validation": {
     "required": "This field is required.",
@@ -518,6 +523,7 @@
       "generating": "Creating cards",
       "done": "Done",
       "uploading": "Uploading",
+      "queued": "Waiting in line",
       "validating": "Validating"
     },
     "cancelled": "Generation cancelled.",
@@ -534,7 +540,7 @@
     "needTwo": "Select at least 2 cards to save.",
     "defaultTitle": "AI set: {source}",
     "fallbackNotice": "The demo can't read {names} yet, so it created sample cards. The real version will use Claude to read PDFs, Word files and images.",
-    "quota": "{remaining}/{limit} generations left today. Resets: {time}.",
+    "partialNotice": "The AI couldn't process {skipped} of {total} parts of the document, so some cards may be missing. You can try again in a few minutes.",
     "history": "Generations in the last 24 hours",
     "historyEmpty": "No generations yet.",
     "reopen": "Reopen",
@@ -545,7 +551,8 @@
       "validating": "Validating",
       "done": "Done",
       "error": "Failed",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "awaiting": "Awaiting confirmation"
     },
     "fillPhonetics": "Fill phonetics with AI",
     "createExamples": "Generate example sentences",
@@ -553,7 +560,24 @@
     "phoneticsSaved": "Phonetics saved.",
     "semanticGrading": "Grade written answers by meaning with AI",
     "semanticHint": "Optional. When AI is unavailable, text matching remains. Up to 50 auxiliary tasks per day.",
-    "chunkProgress": "Generated {completed}/{total} parts"
+    "chunkProgress": "Generated {completed}/{total} parts",
+    "quotaWaiting": "The free AI quota is busy — continuing automatically in a moment…",
+    "queuePosition": "In the queue: {count} ahead of you. Keep this page open.",
+    "credits": "{remaining}/{limit} free credits left today · {earned} earned credits · resets at {time}",
+    "creditsRefunded": "This was a system error, so your credits were refunded.",
+    "creditsCharged": "{credits} credits were charged for the work already done.",
+    "creditsUsed": "This generation used {credits} credits.",
+    "creditsFree": "This generation was free.",
+    "historyCredits": "{credits} credits",
+    "estimateTitle": "Confirm the cost",
+    "estimateIntro": "The AI has read your document. Creating {count} cards will use about {credits} credits.",
+    "estimateUsed": "{credits} credits were already used to read images or scans.",
+    "estimateBalance": "You have {daily} free credits today and {earned} earned credits.",
+    "estimateCardCount": "Number of cards",
+    "estimateTooLarge": "Over the {max}-credit limit for one generation. Ask for fewer cards.",
+    "estimateNotEnough": "Not enough credits. Ask for fewer cards.",
+    "estimateConfirm": "Create cards ({credits} credits)",
+    "estimateHint": "Free credits are used first, then earned credits. Credits are refunded if the system fails."
   },
   "settings": {
     "title": "Settings",

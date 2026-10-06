@@ -57,6 +57,14 @@
 - Vai trò `admin` và trang `/admin/reports`: xem, ẩn bộ thẻ, cảnh cáo hoặc khóa tài khoản. Mọi hành động đều ghi audit log.
 - Khi bộ thẻ chuyển sang `public`: kiểm tra tự động bằng `claude-haiku-4-5-20251001`. Nếu nghi vi phạm thì đưa vào hàng chờ duyệt, chưa hiển thị ngay.
 
+### 8. Credit AI (đã chốt với người dùng 2026-10-05)
+- **Đã làm** (nhánh `feat/ai-credits`): 1 credit = 1.000 token Groq thực dùng. **20 credit miễn phí/ngày**, reset 0h giờ VN, **không cộng dồn**. **Credit thưởng không hết hạn**, lưu ở bảng `credit_ledger`. Dùng credit miễn phí trước, credit thưởng sau. Báo giá sau khi đọc tài liệu; ≤ 5 credit và đủ credit miễn phí thì chạy luôn, còn lại người dùng xác nhận (có thể giảm số thẻ). Tối đa 40 credit/lần tạo, 10 trang OCR/lần, 2 lần tạo chưa xong/người, hạn mức chung toàn app. **Chỉ hoàn credit khi lỗi do hệ thống** (`SYSTEM_ERROR_CODES`); lỗi do người dùng/tự hủy thì trừ đúng token đã dùng; thông báo lỗi nói rõ nguyên nhân và đã hoàn hay đã trừ. Cùng file + yêu cầu + tùy chọn → dùng lại kết quả (0 credit, giữ 30 ngày).
+- **Quy tắc thưởng đã code sẵn** trong [credits.ts](../src/server/ai/credits.ts), chờ nối khi làm §1/§7:
+  - `awardPublishCredit`: +5 khi bộ chuyển `public` **và qua kiểm duyệt**; một lần mỗi bộ; bộ ≥ 10 thẻ; bản sao của người khác không được thưởng. → gọi khi kiểm duyệt duyệt bộ.
+  - `awardCopyCredit`: +1 cho tác giả mỗi người khác sao chép bộ (một lần mỗi người/bộ, không tính tự sao chép), tối đa 30/ngày. → gọi trong "Tạo bản sao vào thư viện".
+  - `clawbackSetCredits`: thu hồi toàn bộ thưởng của bộ khi bị gỡ do vi phạm. → gọi khi admin ẩn bộ.
+- Chưa làm: chống bộ trùng nội dung (cần hash nội dung bộ thẻ khi công khai).
+
 **Ngoài phạm vi:** chat hoặc bình luận, chế độ thi realtime nhiều người, tích hợp LMS.
 
 ## Schema mới

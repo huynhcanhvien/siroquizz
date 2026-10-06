@@ -22,6 +22,11 @@ export const REPOSITORY_ERROR_CODES = [
   "EMPTY_DOCUMENT",
   "UPLOAD_MISSING",
   "STORAGE_UNAVAILABLE",
+  "AI_CREDITS_EXCEEDED",
+  "AI_GLOBAL_LIMIT",
+  "AI_JOB_TOO_LARGE",
+  "AI_BUSY",
+  "OCR_PAGE_LIMIT",
   "UNKNOWN",
 ] as const;
 export type RepositoryErrorCode = (typeof REPOSITORY_ERROR_CODES)[number];
