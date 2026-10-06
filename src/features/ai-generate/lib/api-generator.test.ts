@@ -360,4 +360,31 @@ describe("HTTP AI generator", () => {
       expect.objectContaining({ keepalive: true }),
     );
   });
+  it("resumes an existing job without uploading or creating another", async () => {
+    const stages: string[] = [];
+    const jobs: string[] = [];
+    expect(
+      await generator().resume!(jobId, {
+        onStage: (s) => stages.push(s),
+        onJob: (id) => jobs.push(id),
+      }),
+    ).toEqual(result);
+    expect(request).not.toHaveBeenCalled();
+    expect(jobs).toEqual([jobId]);
+    expect(stages).toEqual(["reading", "generating", "done"]);
+  });
+  it("cancels a resumed job when the caller aborts", async () => {
+    const abort = new AbortController();
+    fetcher.mockReset().mockImplementation(async (url: string) => {
+      if (url.endsWith("/step")) abort.abort();
+      return step({ status: "generating", stage: "generating" });
+    });
+    await expect(generator().resume!(jobId, { signal: abort.signal })).rejects.toMatchObject({
+      name: "AbortError",
+    });
+    expect(fetcher).toHaveBeenCalledWith(
+      `/api/v1/ai/jobs/${jobId}/cancel`,
+      expect.objectContaining({ keepalive: true }),
+    );
+  });
 });

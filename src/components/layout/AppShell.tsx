@@ -5,6 +5,7 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import { SideNav } from "@/components/layout/SideNav";
 import { AuthGuard } from "@/features/auth/components/AuthGuard";
 import { LocalImportBanner } from "@/features/auth/components/LocalImportBanner";
+import { ResumeAiJob } from "@/features/ai-generate/components/ResumeAiJob";
 import type { User } from "@/lib/types";
 
 export function AppShell({
@@ -26,7 +27,10 @@ export function AppShell({
             <main id="main" className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
               <div className="mx-auto w-full max-w-6xl">
                 {process.env.NEXT_PUBLIC_DATA_SOURCE === "http" ? (
-                  <LocalImportBanner user={user} />
+                  <>
+                    <LocalImportBanner user={user} />
+                    <ResumeAiJob />
+                  </>
                 ) : null}
                 {children}
               </div>

@@ -76,6 +76,9 @@ export function GenerationProgress({
           {t("quotaWaiting")}
         </p>
       ) : null}
+      {process.env.NEXT_PUBLIC_DATA_SOURCE === "http" ? (
+        <p className="text-sm text-muted">{t("background.hint")}</p>
+      ) : null}
       <Button variant="secondary" onClick={onCancel}>
         {tCommon("cancel")}
       </Button>

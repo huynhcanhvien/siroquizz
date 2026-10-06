@@ -590,7 +590,7 @@
     "semanticHint": "Tùy chọn. Nếu AI không khả dụng, giữ kết quả so sánh văn bản. Tối đa 50 tác vụ phụ/ngày.",
     "chunkProgress": "Đã tạo {completed}/{total} phần",
     "quotaWaiting": "Hạn mức AI miễn phí đang bận — sẽ tự tiếp tục sau giây lát…",
-    "queuePosition": "Đang xếp hàng: còn {count} lượt trước bạn. Bạn có thể giữ trang này mở.",
+    "queuePosition": "Đang xếp hàng: còn {count} lượt trước bạn.",
     "credits": "Hôm nay còn {remaining}/{limit} credit miễn phí · {earned} credit thưởng · đặt lại lúc {time}",
     "creditsRefunded": "Lỗi do hệ thống nên credit đã được hoàn lại.",
     "creditsCharged": "Đã trừ {credits} credit cho phần đã xử lý.",
@@ -605,7 +605,22 @@
     "estimateTooLarge": "Vượt giới hạn {max} credit cho một lần tạo. Hãy giảm số thẻ.",
     "estimateNotEnough": "Không đủ credit. Hãy giảm số thẻ.",
     "estimateConfirm": "Tạo thẻ ({credits} credit)",
-    "estimateHint": "Credit miễn phí được dùng trước, sau đó mới đến credit thưởng. Nếu lỗi do hệ thống, credit được hoàn lại."
+    "estimateHint": "Credit miễn phí được dùng trước, sau đó mới đến credit thưởng. Nếu lỗi do hệ thống, credit được hoàn lại.",
+    "background": {
+      "hint": "Bạn có thể chuyển sang trang khác — AI vẫn tiếp tục và sẽ báo khi xong.",
+      "title": "AI đang tạo thẻ",
+      "queued": "Đang xếp hàng · còn {count} lượt",
+      "waiting": "Chờ hạn mức AI miễn phí",
+      "parts": "{completed}/{total} phần",
+      "confirmTitle": "Cần bạn xác nhận",
+      "confirm": "Xem chi phí credit để tiếp tục",
+      "readyTitle": "Bộ thẻ AI đã sẵn sàng",
+      "ready": "Xem lại và lưu",
+      "open": "Mở trang Tạo bằng AI",
+      "confirmToast": "AI đã đọc xong tài liệu và cần bạn xác nhận chi phí credit.",
+      "readyToast": "Bộ thẻ AI đã sẵn sàng — mở Tạo bằng AI để xem lại.",
+      "resumed": "Đang tiếp tục lần tạo thẻ bằng AI còn dở."
+    }
   },
   "settings": {
     "title": "Cài đặt",

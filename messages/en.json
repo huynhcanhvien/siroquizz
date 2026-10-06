@@ -590,7 +590,7 @@
     "semanticHint": "Optional. When AI is unavailable, text matching remains. Up to 50 auxiliary tasks per day.",
     "chunkProgress": "Generated {completed}/{total} parts",
     "quotaWaiting": "The free AI quota is busy — continuing automatically in a moment…",
-    "queuePosition": "In the queue: {count} ahead of you. Keep this page open.",
+    "queuePosition": "In the queue: {count} ahead of you.",
     "credits": "{remaining}/{limit} free credits left today · {earned} earned credits · resets at {time}",
     "creditsRefunded": "This was a system error, so your credits were refunded.",
     "creditsCharged": "{credits} credits were charged for the work already done.",
@@ -605,7 +605,22 @@
     "estimateTooLarge": "Over the {max}-credit limit for one generation. Ask for fewer cards.",
     "estimateNotEnough": "Not enough credits. Ask for fewer cards.",
     "estimateConfirm": "Create cards ({credits} credits)",
-    "estimateHint": "Free credits are used first, then earned credits. Credits are refunded if the system fails."
+    "estimateHint": "Free credits are used first, then earned credits. Credits are refunded if the system fails.",
+    "background": {
+      "hint": "You can go to other pages — the AI keeps working and lets you know when it is done.",
+      "title": "AI is making cards",
+      "queued": "In the queue · {count} ahead",
+      "waiting": "Waiting for the free AI quota",
+      "parts": "{completed}/{total} parts",
+      "confirmTitle": "Needs your go-ahead",
+      "confirm": "Check the credit cost to continue",
+      "readyTitle": "Your AI set is ready",
+      "ready": "Review and save",
+      "open": "Open Create with AI",
+      "confirmToast": "The AI has read your document and needs you to confirm the credit cost.",
+      "readyToast": "Your AI set is ready — open Create with AI to review it.",
+      "resumed": "Picking up your unfinished AI generation."
+    }
   },
   "settings": {
     "title": "Settings",

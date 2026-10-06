@@ -590,7 +590,7 @@
     "semanticHint": "可选。AI不可用时保留文本匹配结果。每天最多50次辅助任务。",
     "chunkProgress": "已生成 {completed}/{total} 部分",
     "quotaWaiting": "免费 AI 额度繁忙，稍后将自动继续…",
-    "queuePosition": "正在排队：前面还有 {count} 个任务，请保持页面打开。",
+    "queuePosition": "正在排队：前面还有 {count} 个任务。",
     "credits": "今日剩余免费积分 {remaining}/{limit} · 奖励积分 {earned} · {time} 重置",
     "creditsRefunded": "由于系统错误，积分已退还。",
     "creditsCharged": "已为已完成的部分扣除 {credits} 积分。",
@@ -605,7 +605,22 @@
     "estimateTooLarge": "超过单次 {max} 积分上限，请减少卡片数量。",
     "estimateNotEnough": "积分不足，请减少卡片数量。",
     "estimateConfirm": "生成卡片（{credits} 积分）",
-    "estimateHint": "优先使用免费积分，再使用奖励积分。系统出错时积分会退还。"
+    "estimateHint": "优先使用免费积分，再使用奖励积分。系统出错时积分会退还。",
+    "background": {
+      "hint": "你可以去其他页面——AI 会继续运行，完成后通知你。",
+      "title": "AI 正在生成卡片",
+      "queued": "排队中 · 前面还有 {count} 个",
+      "waiting": "正在等待免费 AI 额度",
+      "parts": "{completed}/{total} 部分",
+      "confirmTitle": "需要你确认",
+      "confirm": "查看积分消耗后继续",
+      "readyTitle": "AI 学习集已就绪",
+      "ready": "查看并保存",
+      "open": "打开“用 AI 创建”",
+      "confirmToast": "AI 已读完文档，需要你确认积分消耗。",
+      "readyToast": "AI 学习集已就绪——打开“用 AI 创建”查看。",
+      "resumed": "正在继续你未完成的 AI 生成。"
+    }
   },
   "settings": {
     "title": "设置",

@@ -72,9 +72,16 @@ export interface GenerateHandlers {
    */
   onConfirm?: (estimate: CreditEstimate) => Promise<number | null>;
   onStage?: (stage: GenerationStage, progress?: GenerationProgress) => void;
+  /** Called once the job exists on the server, with its id. */
+  onJob?: (jobId: string) => void;
 }
 
 /** Phase 1 ships a mock. Phase 3 implements this with the Groq API behind /api/v1/ai. */
 export interface CardGenerator {
   generate(request: GenerateRequest, handlers?: GenerateHandlers): Promise<GenerateResult>;
+  /**
+   * Picks up a job started earlier (another page load) where it stopped. Only generators whose
+   * jobs live on a server support it.
+   */
+  resume?(jobId: string, handlers?: GenerateHandlers): Promise<GenerateResult>;
 }

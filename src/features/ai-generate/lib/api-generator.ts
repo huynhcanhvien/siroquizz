@@ -3,7 +3,7 @@ import { createHttpClient, mapApiErrorCode, type HttpClient } from "@/lib/http-c
 import { RepositoryError } from "@/lib/repository-error";
 import { getFileMime } from "./file-validation";
 import { jobStepSchema } from "../schemas";
-import type { CardGenerator } from "./generator";
+import type { CardGenerator, GenerateHandlers, GenerateResult } from "./generator";
 
 type JobStep = z.infer<typeof jobStepSchema>;
 const MAX_STEP_RETRIES = 3;
@@ -84,26 +84,111 @@ async function postStep(
   if (!parsed.success) throw new RepositoryError("UNKNOWN");
   return parsed.data.data;
 }
+/** Stops a job on the server; sent with keepalive so it still goes out while the page closes. */
+function cancelOnServer(fetcher: typeof fetch, jobId: string) {
+  void fetcher(`/api/v1/ai/jobs/${jobId}/cancel`, {
+    method: "POST",
+    credentials: "same-origin",
+    keepalive: true,
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  }).catch(() => {});
+}
+
+/**
+ * Drives a job across several short requests so no single call hits the serverless time limit,
+ * until it reaches a terminal state. Every step resumes from saved server state, so a step that
+ * dies mid-way (gateway timeout, dropped connection, closed tab) is simply sent again.
+ */
+async function driveJob(
+  client: HttpClient,
+  fetcher: typeof fetch,
+  jobId: string,
+  handlers: GenerateHandlers,
+  signal: AbortSignal,
+): Promise<GenerateResult> {
+  let failures = 0;
+  for (;;) {
+    signal.throwIfAborted();
+    let step: JobStep;
+    try {
+      step = await postStep(fetcher, jobId, signal);
+      failures = 0;
+    } catch (error) {
+      if (!(error instanceof TransientStepError)) throw error;
+      if (++failures > MAX_STEP_RETRIES) throw new RepositoryError(error.code);
+      await delay(STEP_RETRY_DELAY_MS * failures, signal);
+      continue;
+    }
+    handlers.onStage?.(step.stage, {
+      completed: step.completed,
+      total: step.total,
+      ...(step.queuePosition
+        ? { queuePosition: step.queuePosition }
+        : step.retryAfterMs
+          ? { waiting: true }
+          : {}),
+    });
+    if (step.status === "done") {
+      if (step.result)
+        return step.creditsCharged === undefined
+          ? step.result
+          : { ...step.result, creditsCharged: step.creditsCharged };
+      throw new RepositoryError("UNKNOWN");
+    }
+    if (step.status === "error" || step.status === "cancelled")
+      throw new RepositoryError(mapApiErrorCode(step.errorCode ?? "AI_CANCELLED"), undefined, {
+        cause: { creditsCharged: step.creditsCharged, refunded: step.refunded },
+      });
+    if (step.status === "awaiting") {
+      // The document is read; the user decides whether the estimated credits are worth it.
+      if (!step.estimate || !handlers.onConfirm) throw new RepositoryError("UNKNOWN");
+      const cardCount = await handlers.onConfirm(step.estimate);
+      signal.throwIfAborted();
+      if (cardCount === null) {
+        cancelOnServer(fetcher, jobId);
+        throw new DOMException("Cancelled", "AbortError");
+      }
+      await client.request(`/api/v1/ai/jobs/${jobId}/confirm`, z.null(), {
+        method: "POST",
+        body: { cardCount },
+      });
+      continue;
+    }
+    // Queued behind other jobs or throttled by the free AI tier; the server says when to retry.
+    if (step.retryAfterMs) await delay(step.retryAfterMs, signal);
+  }
+}
+
 export function createApiGenerator(
   client: HttpClient = createHttpClient(),
   fetcher: typeof fetch = globalThis.fetch,
 ): CardGenerator {
+  /** Runs `work` for a job; aborting the signal cancels the job on the server. */
+  const withCancel = async <T>(
+    handlers: GenerateHandlers,
+    work: (signal: AbortSignal, setJob: (id: string) => void) => Promise<T>,
+  ) => {
+    const signal = handlers.signal ?? new AbortController().signal;
+    let jobId: string | null = null;
+    const cancel = () => {
+      if (jobId) cancelOnServer(fetcher, jobId);
+    };
+    signal.addEventListener("abort", cancel, { once: true });
+    try {
+      return await work(signal, (id) => {
+        jobId = id;
+        handlers.onJob?.(id);
+        if (signal.aborted) cancel();
+      });
+    } finally {
+      signal.removeEventListener("abort", cancel);
+    }
+  };
+
   return {
-    async generate(request, handlers = {}) {
-      const signal = handlers.signal ?? new AbortController().signal;
-      let jobId: string | null = null;
-      const cancel = () => {
-        if (jobId)
-          void fetcher(`/api/v1/ai/jobs/${jobId}/cancel`, {
-            method: "POST",
-            credentials: "same-origin",
-            keepalive: true,
-            headers: { "Content-Type": "application/json" },
-            body: "{}",
-          }).catch(() => {});
-      };
-      signal.addEventListener("abort", cancel, { once: true });
-      try {
+    generate: (request, handlers = {}) =>
+      withCancel(handlers, async (signal, setJob) => {
         signal.throwIfAborted();
         handlers.onStage?.("uploading");
         const uploadIds: string[] = [];
@@ -144,71 +229,14 @@ export function createApiGenerator(
           method: "POST",
           body: { uploadIds, prompt: request.prompt, options: request.options },
         });
-        jobId = data.jobId;
-        if (signal.aborted) {
-          cancel();
-          signal.throwIfAborted();
-        }
-        // Drive the job across several short requests so no single call hits the serverless
-        // time limit; repeat until the job reaches a terminal state. Every step resumes from
-        // saved server state, so a step that dies mid-way (gateway timeout, dropped connection)
-        // is simply sent again.
-        let failures = 0;
-        for (;;) {
-          signal.throwIfAborted();
-          let step: JobStep;
-          try {
-            step = await postStep(fetcher, jobId, signal);
-            failures = 0;
-          } catch (error) {
-            if (!(error instanceof TransientStepError)) throw error;
-            if (++failures > MAX_STEP_RETRIES) throw new RepositoryError(error.code);
-            await delay(STEP_RETRY_DELAY_MS * failures, signal);
-            continue;
-          }
-          handlers.onStage?.(step.stage, {
-            completed: step.completed,
-            total: step.total,
-            ...(step.queuePosition
-              ? { queuePosition: step.queuePosition }
-              : step.retryAfterMs
-                ? { waiting: true }
-                : {}),
-          });
-          if (step.status === "done") {
-            if (step.result)
-              return step.creditsCharged === undefined
-                ? step.result
-                : { ...step.result, creditsCharged: step.creditsCharged };
-            throw new RepositoryError("UNKNOWN");
-          }
-          if (step.status === "error" || step.status === "cancelled")
-            throw new RepositoryError(
-              mapApiErrorCode(step.errorCode ?? "AI_CANCELLED"),
-              undefined,
-              { cause: { creditsCharged: step.creditsCharged, refunded: step.refunded } },
-            );
-          if (step.status === "awaiting") {
-            // The document is read; the user decides whether the estimated credits are worth it.
-            if (!step.estimate || !handlers.onConfirm) throw new RepositoryError("UNKNOWN");
-            const cardCount = await handlers.onConfirm(step.estimate);
-            signal.throwIfAborted();
-            if (cardCount === null) {
-              cancel();
-              throw new DOMException("Cancelled", "AbortError");
-            }
-            await client.request(`/api/v1/ai/jobs/${jobId}/confirm`, z.null(), {
-              method: "POST",
-              body: { cardCount },
-            });
-            continue;
-          }
-          // Queued behind other jobs or throttled by the free AI tier; the server says when to retry.
-          if (step.retryAfterMs) await delay(step.retryAfterMs, signal);
-        }
-      } finally {
-        signal.removeEventListener("abort", cancel);
-      }
-    },
+        setJob(data.jobId);
+        return driveJob(client, fetcher, data.jobId, handlers, signal);
+      }),
+
+    resume: (jobId, handlers = {}) =>
+      withCancel(handlers, (signal, setJob) => {
+        setJob(jobId);
+        return driveJob(client, fetcher, jobId, handlers, signal);
+      }),
   };
 }
