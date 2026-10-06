@@ -11,11 +11,9 @@ export async function registerUser(page: Page, name = "Bạn Test"): Promise<str
   const email = uniqueEmail();
   if (process.env.NEXT_PUBLIC_DATA_SOURCE === "http") {
     // Each test represents a different remote client, preserving production rate-limit rules.
-    await page
-      .context()
-      .setExtraHTTPHeaders({
-        "x-forwarded-for": `198.51.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}`,
-      });
+    await page.context().setExtraHTTPHeaders({
+      "x-forwarded-for": `198.51.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}`,
+    });
   }
   await page.goto("/register");
   await page.getByLabel("Tên hiển thị").fill(name);

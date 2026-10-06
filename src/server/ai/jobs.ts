@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, lt, or, sql } from "drizzle-orm";
 import { v7 } from "uuid";
 import { z } from "zod";
 import {
@@ -58,6 +58,9 @@ const STEP_LAUNCH_BUDGET_MS = 30_000;
 const STEP_HARD_BUDGET_MS = 48_000;
 // A job whose browser has not called in this long is treated as abandoned by the queue.
 const HEARTBEAT_STALE_MS = 120_000;
+// A job still waiting for a slot is polled every few seconds by its browser; one that stopped
+// polling (tab closed, never started) must not hold up everyone behind it for long.
+const QUEUED_STALE_MS = 15_000;
 // An unfinished job untouched for this long releases its credit reservation.
 const ABANDONED_JOB_MS = 600_000;
 const QUEUE_POLL_MS = 3_000;
@@ -289,9 +292,14 @@ async function jobsAhead(db: Database, job: Job) {
     .from(aiJobs)
     .where(
       and(
-        inArray(aiJobs.status, activeStatuses),
         lt(aiJobs.id, job.id),
-        gt(lastSeen, ago(HEARTBEAT_STALE_MS)),
+        or(
+          and(eq(aiJobs.status, "queued"), gt(lastSeen, ago(QUEUED_STALE_MS))),
+          and(
+            inArray(aiJobs.status, ["extracting", "generating", "validating"]),
+            gt(lastSeen, ago(HEARTBEAT_STALE_MS)),
+          ),
+        ),
       ),
     );
   return row.count;

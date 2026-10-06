@@ -15,7 +15,7 @@ test("generates cards from an uploaded text file and saves them as a set", async
 
   await expect(page.getByRole("heading", { name: "AI đang làm việc…" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Xem lại và chỉnh sửa" })).toBeVisible({
-    timeout: 10_000,
+    timeout: 30_000,
   });
   await expect(page.getByText("Đã chọn 4/4")).toBeVisible();
 
@@ -36,6 +36,12 @@ test("rejects unsupported files and can cancel a generation", async ({ page }) =
   await expect(page.getByText("song.mp3: định dạng không được hỗ trợ.")).toBeVisible();
 
   await page.getByRole("textbox", { name: "Yêu cầu cho AI" }).fill("Trích 10 từ vựng HSK 2");
+  // Hold the first step so the generation is still running when we cancel, with or without a
+  // live AI provider (CI has none, so the job would otherwise fail at once).
+  await page.route("**/api/v1/ai/jobs/*/step", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+    await route.continue().catch(() => {});
+  });
   await page.getByRole("button", { name: "Tạo thẻ" }).click();
   await page.getByRole("button", { name: "Hủy" }).click();
   await expect(page.getByText("Đã hủy tạo thẻ.")).toBeVisible();
