@@ -6,6 +6,9 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
     environment: "jsdom",
+    // Component tests run against the in-browser (localStorage) repositories, whatever the
+    // shell sets: CI exports NEXT_PUBLIC_DATA_SOURCE=http for the integration and E2E steps.
+    env: { NEXT_PUBLIC_DATA_SOURCE: "local" },
     setupFiles: ["./vitest.setup.ts"],
     include: ["src/**/*.test.{ts,tsx}", "messages/**/*.test.ts"],
     coverage: {
