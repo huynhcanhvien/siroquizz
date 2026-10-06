@@ -35,9 +35,9 @@
     "RATE_LIMITED": "Có quá nhiều yêu cầu. Vui lòng đợi rồi thử lại.",
     "NETWORK": "Không thể kết nối. Hãy kiểm tra mạng và thử lại.",
     "EMAIL_NOT_VERIFIED": "Vui lòng xác minh email trước khi đăng nhập.",
-    "AI_CREDITS_EXCEEDED": "Không đủ credit cho yêu cầu này. Hãy giảm số thẻ, dùng tài liệu ngắn hơn, hoặc chờ đến 0h để nhận lại 20 credit miễn phí.",
+    "AI_CREDITS_EXCEEDED": "Không đủ credit cho yêu cầu này. Hãy giảm số thẻ (1 credit = 4 thẻ), hoặc chờ đến 0h để nhận lại 20 credit miễn phí.",
     "AI_GLOBAL_LIMIT": "Hệ thống đã dùng hết hạn mức AI chung của hôm nay. Vui lòng quay lại sau 0h.",
-    "AI_JOB_TOO_LARGE": "Yêu cầu này cần hơn 40 credit cho một lần tạo. Hãy giảm số thẻ hoặc chia nhỏ tài liệu.",
+    "AI_JOB_TOO_LARGE": "Một lần tạo dùng tối đa 50 credit (200 thẻ). Hãy giảm số thẻ.",
     "AI_BUSY": "Bạn đang có 2 lần tạo chưa xong. Hãy chờ chúng hoàn tất hoặc hủy bớt rồi thử lại.",
     "OCR_PAGE_LIMIT": "Mỗi lần tạo chỉ đọc được tối đa 10 trang ảnh hoặc trang scan. Hãy tách tài liệu thành nhiều phần.",
     "USERNAME_TAKEN": "Tên người dùng này đã có người dùng.",
@@ -546,6 +546,7 @@
     "generate": "Tạo thẻ",
     "generatingTitle": "AI đang làm việc…",
     "stage": {
+      "scanning": "Đọc bản scan trên máy bạn",
       "reading": "Đọc tài liệu",
       "analyzing": "Phân tích nội dung",
       "generating": "Tạo thẻ",
@@ -598,14 +599,14 @@
     "creditsFree": "Lần tạo này không tốn credit.",
     "historyCredits": "{credits} credit",
     "estimateTitle": "Xác nhận chi phí",
-    "estimateIntro": "AI đã đọc xong tài liệu. Tạo {count} thẻ sẽ dùng khoảng {credits} credit.",
-    "estimateUsed": "Đã dùng {credits} credit để đọc ảnh/bản scan.",
+    "estimateIntro": "Đã đọc xong tài liệu. Tạo {count} thẻ sẽ dùng {credits} credit (1 credit = 4 thẻ).",
+    "estimateUsed": "Đã dùng {credits} credit để máy chủ đọc ảnh/bản scan.",
     "estimateBalance": "Bạn có {daily} credit miễn phí hôm nay và {earned} credit thưởng.",
     "estimateCardCount": "Số thẻ",
     "estimateTooLarge": "Vượt giới hạn {max} credit cho một lần tạo. Hãy giảm số thẻ.",
     "estimateNotEnough": "Không đủ credit. Hãy giảm số thẻ.",
     "estimateConfirm": "Tạo thẻ ({credits} credit)",
-    "estimateHint": "Credit miễn phí được dùng trước, sau đó mới đến credit thưởng. Nếu lỗi do hệ thống, credit được hoàn lại.",
+    "estimateHint": "Bạn chỉ trả cho số thẻ thật sự được tạo. Credit miễn phí được dùng trước, sau đó mới đến credit thưởng. Nếu lỗi do hệ thống, credit được hoàn lại.",
     "background": {
       "hint": "Bạn có thể chuyển sang trang khác — AI vẫn tiếp tục và sẽ báo khi xong.",
       "title": "AI đang tạo thẻ",
@@ -619,8 +620,10 @@
       "open": "Mở trang Tạo bằng AI",
       "confirmToast": "AI đã đọc xong tài liệu và cần bạn xác nhận chi phí credit.",
       "readyToast": "Bộ thẻ AI đã sẵn sàng — mở Tạo bằng AI để xem lại.",
-      "resumed": "Đang tiếp tục lần tạo thẻ bằng AI còn dở."
-    }
+      "resumed": "Đang tiếp tục lần tạo thẻ bằng AI còn dở.",
+      "pages": "{completed}/{total} trang"
+    },
+    "pageProgress": "Đã đọc {completed}/{total} trang — không tốn credit"
   },
   "settings": {
     "title": "Cài đặt",

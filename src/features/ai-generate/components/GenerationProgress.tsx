@@ -21,7 +21,11 @@ export function GenerationProgress({
 }) {
   const t = useTranslations("ai");
   const tCommon = useTranslations("common");
-  const currentIndex = stage ? GENERATION_STAGES.indexOf(stage) : -1;
+  // The on-device scanning step only shows when this request had scans to read.
+  const stages = GENERATION_STAGES.filter(
+    (item) => item !== "scanning" || stage === "scanning" || progress?.scanned,
+  );
+  const currentIndex = stage ? stages.indexOf(stage) : -1;
 
   return (
     <div className="mx-auto flex w-full max-w-md animate-pop flex-col items-center gap-6 rounded-xl border border-border bg-surface p-8 text-center shadow-lg">
@@ -30,10 +34,9 @@ export function GenerationProgress({
       </span>
       <h1 className="text-2xl font-extrabold">{t("generatingTitle")}</h1>
       <ol className="flex w-full flex-col gap-2 text-left" aria-live="polite">
-        {GENERATION_STAGES.map((item, index) => {
+        {stages.map((item, index) => {
           const done =
-            index < currentIndex ||
-            (item === "done" && currentIndex === GENERATION_STAGES.length - 1);
+            index < currentIndex || (item === "done" && currentIndex === stages.length - 1);
           const active = index === currentIndex && !done;
           return (
             <li
@@ -61,6 +64,9 @@ export function GenerationProgress({
           );
         })}
       </ol>
+      {progress?.pages && stage === "scanning" ? (
+        <p aria-live="polite">{t("pageProgress", progress.pages)}</p>
+      ) : null}
       {progress?.total ? (
         <p aria-live="polite">
           {t("chunkProgress", { completed: progress.completed ?? 0, total: progress.total })}

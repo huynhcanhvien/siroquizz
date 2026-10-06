@@ -35,9 +35,9 @@
     "RATE_LIMITED": "请求过多。请稍候再试。",
     "NETWORK": "无法连接。请检查网络后重试。",
     "EMAIL_NOT_VERIFIED": "请先验证邮箱再登录。",
-    "AI_CREDITS_EXCEEDED": "积分不足。请减少卡片数量、使用更短的文档，或等到零点领取 20 个免费积分。",
+    "AI_CREDITS_EXCEEDED": "积分不足。请减少卡片数量（1 积分 = 4 张卡片），或等到午夜领取 20 个免费积分。",
     "AI_GLOBAL_LIMIT": "今天的系统 AI 总额度已用完，请零点后再试。",
-    "AI_JOB_TOO_LARGE": "此请求单次需要超过 40 个积分。请减少卡片数量或拆分文档。",
+    "AI_JOB_TOO_LARGE": "单次生成最多使用 50 积分（200 张卡片）。请减少卡片数量。",
     "AI_BUSY": "你已有 2 个未完成的生成任务。请等待完成或取消后再试。",
     "OCR_PAGE_LIMIT": "每次最多识别 10 页图片或扫描页，请拆分文档。",
     "USERNAME_TAKEN": "该用户名已被占用。",
@@ -546,6 +546,7 @@
     "generate": "生成卡片",
     "generatingTitle": "AI 正在处理…",
     "stage": {
+      "scanning": "在你的设备上识别扫描件",
       "reading": "读取资料",
       "analyzing": "分析内容",
       "generating": "生成卡片",
@@ -598,14 +599,14 @@
     "creditsFree": "本次生成未消耗积分。",
     "historyCredits": "{credits} 积分",
     "estimateTitle": "确认费用",
-    "estimateIntro": "AI 已读完文档。生成 {count} 张卡片约需 {credits} 积分。",
-    "estimateUsed": "识别图片或扫描页已使用 {credits} 积分。",
+    "estimateIntro": "文档已读取完毕。生成 {count} 张卡片需要 {credits} 积分（1 积分 = 4 张卡片）。",
+    "estimateUsed": "服务器读取图片/扫描件已使用 {credits} 积分。",
     "estimateBalance": "你今天有 {daily} 个免费积分和 {earned} 个奖励积分。",
     "estimateCardCount": "卡片数量",
     "estimateTooLarge": "超过单次 {max} 积分上限，请减少卡片数量。",
     "estimateNotEnough": "积分不足，请减少卡片数量。",
     "estimateConfirm": "生成卡片（{credits} 积分）",
-    "estimateHint": "优先使用免费积分，再使用奖励积分。系统出错时积分会退还。",
+    "estimateHint": "只按实际生成的卡片计费。先使用免费积分，再使用奖励积分。如因系统故障失败，积分将退还。",
     "background": {
       "hint": "你可以去其他页面——AI 会继续运行，完成后通知你。",
       "title": "AI 正在生成卡片",
@@ -619,8 +620,10 @@
       "open": "打开“用 AI 创建”",
       "confirmToast": "AI 已读完文档，需要你确认积分消耗。",
       "readyToast": "AI 学习集已就绪——打开“用 AI 创建”查看。",
-      "resumed": "正在继续你未完成的 AI 生成。"
-    }
+      "resumed": "正在继续你未完成的 AI 生成。",
+      "pages": "{completed}/{total} 页"
+    },
+    "pageProgress": "已识别 {completed}/{total} 页——不消耗积分"
   },
   "settings": {
     "title": "设置",

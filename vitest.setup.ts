@@ -12,6 +12,8 @@ globalThis.ResizeObserver ??= ResizeObserverStub;
 
 afterEach(() => {
   cleanup();
+  // Tests that opt into the node environment have no browser storage.
+  if (typeof window === "undefined") return;
   window.localStorage.clear();
   window.sessionStorage.clear();
 });

@@ -3,7 +3,7 @@
 > File này ghi lại **đã làm gì, đang làm dở gì, làm tiếp thế nào** để bất kỳ ai (người hoặc agent) cũng có thể tiếp tục.
 > Thời gian theo giờ Việt Nam (UTC+7). Mục mới nhất ở trên cùng của phần Nhật ký.
 
-**Cập nhật lần cuối:** 2026-10-06 09:11 +07
+**Cập nhật lần cuối:** 2026-10-06 11:23 +07
 **Phase hiện tại:** AI (tốc độ + credit) xong trên nhánh `feat/ai-pipeline-speed` (PR #1 vào `main`, **chưa merge**). Phase 5 cộng đồng **hoàn tất (đợt 1–6)** trên nhánh `feat/phase5-community` (tách từ nhánh AI, chưa push/PR). Phase 4 (SRS) vẫn đang dở.
 **Tình trạng:** Người dùng yêu cầu hoàn thành toàn bộ Phase 2–6 và cập nhật state khi từng phase xong. Không coi credentials, deployment hay beta bên ngoài đã hoàn tất nếu chưa thực hiện.
 
@@ -50,6 +50,13 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 **Bước tiếp theo:** (1) user merge PR #1 sau khi chạy migration 0006–0008 trên Neon; (2) push `feat/phase5-community` + tạo PR (migration 0009–0013); (3) các mục bảo mật còn để lại (xem nhật ký đợt 6); (4) quay lại Phase 4 (SRS) phần còn dở.
 
 ## Nhật ký
+
+### 2026-10-06 11:23 +07: ⚡ AI chạy nền + OCR trên máy người dùng + credit theo số thẻ
+
+- **Vấn đề người dùng báo:** PDF scan 10 trang tiếng Trung đọc mất ~8 phút và đọc xong là hết 20 credit. **Gốc:** model vision `qwen3.8` gói free bị giới hạn **1.000 token đầu ra/phút** (~1 trang/phút; trang dày bị cắt, sót dòng); OCR 3 trang song song bị chặn rồi đọc lại (tính token 2 lần); credit tính theo token.
+- **OCR trên trình duyệt:** PP-OCRv4 (det + rec ONNX) qua ONNX Runtime Web trong Web Worker; pipeline TS thuần (`src/features/ai-generate/ocr/ppocr.ts`) theo RapidOCR, dùng **khung xoay theo hướng dòng** (scan nghiêng không mất dòng). Đo trên file 10 trang của người dùng: **34 s trong Chrome** (gồm tải model), 4.579 chữ Hán, sát bản gốc; Tesseract.js đã thử nhưng sai nhiều đúng ở từ vựng (斟→骂, 劝→动). Áp dụng khi ngôn ngữ thuật ngữ là zh/en; còn lại server OCR (tuần tự, 1.000 token/request, 1 credit/trang).
+- **Credit:** 1 credit = 4 thẻ thật sự tạo ra; job lỗi một phần trả ít hơn; cache miễn phí; tự hủy trả cho thẻ đã tạo + trang server đã OCR. Trần toàn app chuyển sang token.
+- **Chạy nền:** provider toàn app; rời trang không hủy job; chỉ báo nổi + toast; tải lại trang tự chạy tiếp.
 
 ### 2026-10-06 09:11 +07: 🔒 Phase 5 đợt 6 — Review bảo mật (nhánh `feat/phase5-community`)
 
@@ -130,10 +137,10 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 ### 2026-10-05 15:40 +07: 🪙 Credit AI thay cho "5 lượt/ngày" (nhánh `feat/ai-credits`, merge vào `feat/ai-pipeline-speed`)
 
 - **Lý do:** key Groq free có 200k token/ngày/model (bảng giới hạn của Groq). Một tài liệu 60k ký tự tốn ~40k token ⇒ 5 lượt/ngày không giới hạn kích thước cho phép một người dùng hết hạn mức của cả app.
-- **Quy tắc (người dùng chốt):** 1 credit = 1.000 token thực dùng; 20 credit miễn phí/ngày, reset 0h VN, không cộng dồn; credit thưởng không hết hạn (`credit_ledger`); dùng miễn phí trước; chỉ hoàn khi lỗi hệ thống (`SYSTEM_ERROR_CODES` trong [credits.ts](../src/features/ai-generate/lib/credits.ts)); lỗi người dùng/tự hủy trừ đúng token đã dùng.
+- **Quy tắc (người dùng chốt, sửa 2026-10-06):** 1 credit = **4 thẻ thật sự tạo ra** (+1 credit/trang nếu server phải OCR; đọc trên máy người dùng miễn phí). Trước đó: 1 credit = 1.000 token — 20 credit miễn phí/ngày, reset 0h VN, không cộng dồn; credit thưởng không hết hạn (`credit_ledger`); dùng miễn phí trước; chỉ hoàn khi lỗi hệ thống (`SYSTEM_ERROR_CODES` trong [credits.ts](../src/features/ai-generate/lib/credits.ts)); lỗi người dùng/tự hủy trừ đúng token đã dùng.
 - **Luồng:** đọc tài liệu (TXT/DOCX/PDF có chữ không tốn AI) → kiểm tra trước OCR (≤ 10 trang scan, đủ credit cho ~2 credit/trang) → **báo giá** theo token từng chunk. ≤ 5 credit và đủ credit miễn phí → tự giữ credit rồi chạy; còn lại job ở trạng thái mới `awaiting`, màn hình [ConfirmEstimate](../src/features/ai-generate/components/ConfirmEstimate.tsx) cho chỉnh số thẻ (giá tính lại ngay trên trình duyệt bằng cùng hàm) → `POST /jobs/:id/confirm` giữ credit → chạy. Hoàn tất/lỗi/hủy: trừ theo token thực, nhả phần giữ.
 - **Giảm chi phí:** chỉ đọc ~1 chunk cho mỗi 8 thẻ, chọn chunk cách đều. Đo live trên tài liệu 60k ký tự: 20 thẻ ước tính 12 / thực 11 credit (trước: ~41); 40 thẻ ước tính 20 / thực 18. Cache kết quả theo hash file + yêu cầu + tùy chọn (`ai_result_cache`, 30 ngày) → 0 credit; không cache yêu cầu chỉ có prompt.
-- **Giới hạn:** 40 credit/lần tạo, 2 lần tạo chưa xong/người (`AI_BUSY`), toàn app `AI_GLOBAL_DAILY_CREDITS` (mặc định 480) → `AI_GLOBAL_LIMIT`. Thông báo lỗi cụ thể cho từng mã (vi/en/zh) + câu "đã hoàn credit"/"đã trừ X credit".
+- **Giới hạn:** 50 credit (200 thẻ)/lần tạo, 2 lần tạo chưa xong/người (`AI_BUSY`), toàn app `AI_GLOBAL_DAILY_TOKENS` (token, mặc định 350.000) → `AI_GLOBAL_LIMIT`. Thông báo lỗi cụ thể cho từng mã (vi/en/zh) + câu "đã hoàn credit"/"đã trừ X credit".
 - **Code:** `jobs.ts` tách thành [jobs.ts](../src/server/ai/jobs.ts) (API, hàng đợi, lease) + [job-steps.ts](../src/server/ai/job-steps.ts) (các bước, trừ credit); [server/ai/credits.ts](../src/server/ai/credits.ts) (số dư, giữ, trừ, thưởng/thu hồi). **Migration `drizzle/0008_next_screwball.sql`** (bảng `credit_ledger`, `ai_result_cache`, cột credit trên job). Thưởng khi công khai/sao chép đã có hàm + test, **chưa nối** vì Phase 5 (công khai, sao chép, kiểm duyệt) chưa làm — xem `phase-5-community.md` §8.
 - **Kiểm tra:** typecheck/lint 0 lỗi; **415 unit**, **95 integration** (thêm `ai-credits.test.ts`), **E2E 32 pass** gồm live Groq và màn hình xác nhận chi phí. Coverage integration lines 88%.
 - **Deploy:** chạy migration 0006, 0007, 0008 trên Neon trước khi deploy.

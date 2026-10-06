@@ -2,6 +2,8 @@ import type { LangCode } from "@/lib/types";
 import type { CreditEstimate } from "../schemas";
 
 export const GENERATION_STAGES = [
+  // Scanned PDFs and photos read by OCR on the user's device (only shown when there are any).
+  "scanning",
   "uploading",
   "queued",
   "reading",
@@ -56,6 +58,10 @@ export interface GenerationProgress {
   waiting?: boolean;
   /** Jobs from other people that run before this one. */
   queuePosition?: number;
+  /** Scanned pages read on the user's device so far. */
+  pages?: { completed: number; total: number };
+  /** Set once scans were read on the device, so that step stays listed. */
+  scanned?: boolean;
 }
 
 /** Credits outcome attached (as `cause`) to the error of a failed or cancelled generation. */

@@ -29,7 +29,7 @@ vi.mock("@/server/ai/groq", async (importOriginal) => ({
   })),
 }));
 vi.mock("@/server/rate-limit", () => ({ enforceLimit: vi.fn() }));
-vi.mock("@/server/env", () => ({ getServerEnv: () => ({ AI_GLOBAL_DAILY_CREDITS: 480 }) }));
+vi.mock("@/server/env", () => ({ getServerEnv: () => ({ AI_GLOBAL_DAILY_TOKENS: 350_000 }) }));
 
 const url =
   process.env.TEST_DATABASE_URL ??

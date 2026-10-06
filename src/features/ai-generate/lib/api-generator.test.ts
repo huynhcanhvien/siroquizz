@@ -1,4 +1,4 @@
-import { beforeEach, describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { createApiGenerator } from "./api-generator";
 import type { HttpClient } from "@/lib/http-client";
 const uploadId = "019aa5b0-6ef0-7000-8000-000000000001",
@@ -386,5 +386,54 @@ describe("HTTP AI generator", () => {
       `/api/v1/ai/jobs/${jobId}/cancel`,
       expect.objectContaining({ keepalive: true }),
     );
+  });
+  describe("scanned documents", () => {
+    const scan = new File(["%PDF"], "scan.pdf", { type: "application/pdf" });
+    const readScans = vi.fn();
+    beforeEach(() => {
+      // jsdom has no workers; the on-device reader only needs them to exist.
+      vi.stubGlobal("Worker", class {});
+      readScans.mockReset().mockImplementation(async (files: File[], onProgress) => {
+        onProgress({ completed: 1, total: 1 });
+        return files.map(() => new File(["cat - mèo"], "scan.txt", { type: "text/plain" }));
+      });
+      request
+        .mockResolvedValueOnce({
+          data: { uploadId, url: `/api/v1/ai/uploads/${uploadId}/file`, mime: "text/plain" },
+        })
+        .mockResolvedValueOnce({ data: { jobId } });
+      fetcher
+        .mockReset()
+        .mockResolvedValueOnce(new Response(null, { status: 200 }))
+        .mockResolvedValueOnce(step({ status: "done", stage: "done", result }));
+    });
+    afterEach(() => vi.unstubAllGlobals());
+    const scanningGenerator = () =>
+      createApiGenerator({ request } as HttpClient, fetcher as typeof fetch, readScans);
+
+    it("reads scans on the device and uploads the text instead", async () => {
+      const progress: unknown[] = [];
+      await scanningGenerator().generate(
+        { files: [scan], prompt: "", options: { ...options, termLang: "zh" } },
+        { onStage: (stage, p) => progress.push([stage, p]) },
+      );
+      expect(request.mock.calls[0][2].body).toMatchObject({ name: "scan.txt", mime: "text/plain" });
+      expect(progress[0]).toEqual([
+        "scanning",
+        { pages: { completed: 1, total: 1 }, scanned: true },
+      ]);
+      // Later steps keep the scanning step listed.
+      expect(progress.at(-1)).toEqual(["done", expect.objectContaining({ scanned: true })]);
+    });
+
+    it("leaves languages the on-device reader cannot read to the server", async () => {
+      await scanningGenerator().generate({
+        files: [scan],
+        prompt: "",
+        options: { ...options, termLang: "ja" },
+      });
+      expect(readScans).not.toHaveBeenCalled();
+      expect(request.mock.calls[0][2].body).toMatchObject({ name: "scan.pdf" });
+    });
   });
 });

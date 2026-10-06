@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createHttpClient, mapApiErrorCode, type HttpClient } from "@/lib/http-client";
 import { RepositoryError } from "@/lib/repository-error";
+import { canReadLocally, readScansLocally } from "../ocr/browser-ocr";
 import { getFileMime } from "./file-validation";
 import { jobStepSchema } from "../schemas";
 import type { CardGenerator, GenerateHandlers, GenerateResult } from "./generator";
@@ -163,6 +164,7 @@ async function driveJob(
 export function createApiGenerator(
   client: HttpClient = createHttpClient(),
   fetcher: typeof fetch = globalThis.fetch,
+  readScans: typeof readScansLocally = readScansLocally,
 ): CardGenerator {
   /** Runs `work` for a job; aborting the signal cancels the job on the server. */
   const withCancel = async <T>(
@@ -190,9 +192,28 @@ export function createApiGenerator(
     generate: (request, handlers = {}) =>
       withCancel(handlers, async (signal, setJob) => {
         signal.throwIfAborted();
-        handlers.onStage?.("uploading");
+        let files = request.files;
+        let scanned = false;
+        if (files.length && canReadLocally(request.options.termLang))
+          files = await readScans(
+            files,
+            (pages) => {
+              scanned = true;
+              handlers.onStage?.("scanning", { pages, scanned });
+            },
+            signal,
+          );
+        // Later stages keep the scanning step listed once it ran.
+        const stageHandlers: GenerateHandlers = scanned
+          ? {
+              ...handlers,
+              onStage: (stage, progress) =>
+                handlers.onStage?.(stage, { ...progress, scanned: true }),
+            }
+          : handlers;
+        stageHandlers.onStage?.("uploading");
         const uploadIds: string[] = [];
-        for (const file of request.files) {
+        for (const file of files) {
           signal.throwIfAborted();
           const mime = getFileMime(file);
           const { data } = await client.request(
@@ -230,7 +251,7 @@ export function createApiGenerator(
           body: { uploadIds, prompt: request.prompt, options: request.options },
         });
         setJob(data.jobId);
-        return driveJob(client, fetcher, data.jobId, handlers, signal);
+        return driveJob(client, fetcher, data.jobId, stageHandlers, signal);
       }),
 
     resume: (jobId, handlers = {}) =>

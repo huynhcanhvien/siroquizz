@@ -12,7 +12,11 @@ const MAX_TEXT = 180_000;
 // Vision tokens grow with pixel count and share an 8,000 tokens/minute free-tier quota, so images
 // are kept just large enough for printed text.
 const OCR_MAX_SIDE = 1400;
-const OCR_CONCURRENCY = 3;
+// The free vision model allows 1,000 output tokens a minute, about one dense page: reading pages
+// in parallel only gets them throttled and billed twice.
+const OCR_CONCURRENCY = 1;
+// One page's transcript; asking for more makes the provider refuse the request outright.
+const OCR_MAX_OUTPUT_TOKENS = 1000;
 /** Text shorter than this on a page means the page is a scan and needs OCR. */
 const MIN_PAGE_TEXT = 4;
 type TextContent = { items: readonly object[] };
@@ -132,7 +136,7 @@ async function ocr(bytes: Buffer, signal: AbortSignal, deadline?: number) {
     signal,
     [`data:image/jpeg;base64,${image.toString("base64")}`],
     getServerEnv().GROQ_VISION_MODEL,
-    { deadline },
+    { deadline, maxTokens: OCR_MAX_OUTPUT_TOKENS },
   );
 }
 export async function extractDocument(
@@ -145,7 +149,8 @@ export async function extractDocument(
   signal.throwIfAborted();
   const ext = validateMagic(bytes, name, mime);
   let text = "",
-    pages = 0;
+    pages = 0,
+    ocrPages = 0;
   const usage = emptyUsage();
   const add = (u: Usage) => addUsage(usage, u);
   if (["txt", "md", "csv"].includes(ext)) {
@@ -158,16 +163,18 @@ export async function extractDocument(
     if (range.retryAfterMs !== undefined) throw new RateLimitError(range.retryAfterMs);
     text = range.text;
     pages = range.totalPages;
+    ocrPages = range.ocrPages;
     add(range.usage);
     if (text.length > MAX_TEXT) throw new ApiError(400, "DOCUMENT_TOO_LONG");
   } else {
     const result = await ocr(bytes, signal, deadline);
     text = result.data.text;
+    ocrPages = 1;
     add(result.usage);
   }
   if (text.length > MAX_TEXT) throw new ApiError(400, "DOCUMENT_TOO_LONG");
   if (!text.trim()) throw new ApiError(400, "EMPTY_DOCUMENT");
-  return { text, pages, usage };
+  return { text, pages, ocrPages, usage };
 }
 
 export interface PdfRange {
@@ -176,6 +183,8 @@ export interface PdfRange {
   nextPage: number;
   totalPages: number;
   usage: Usage;
+  /** Scanned pages read by OCR in this range (kept pages only; billed per page). */
+  ocrPages: number;
   /** Set when OCR was throttled: pages from `nextPage` on still need reading after this delay. */
   retryAfterMs?: number;
 }
@@ -237,20 +246,22 @@ export async function extractPdfPages(
     );
     signal.throwIfAborted();
     const usage = emptyUsage();
-    let text = "";
-    // Pages OCR'd after a throttled one are billed too, even though they are read again later.
+    let text = "",
+      ocrPages = 0;
+    // Provider tokens of every OCR call count against the shared key, kept page or not.
     for (const outcome of outcomes) if (outcome.ok && outcome.usage) addUsage(usage, outcome.usage);
     for (const [index, outcome] of outcomes.entries()) {
       if (!outcome.ok) {
         if (!retryable(outcome.error)) throw outcome.error;
         const retryAfterMs =
           outcome.error instanceof RateLimitError ? outcome.error.retryAfterMs : 0;
-        return { text, nextPage: fromPage + index, totalPages, usage, retryAfterMs };
+        return { text, nextPage: fromPage + index, totalPages, usage, ocrPages, retryAfterMs };
       }
+      if (outcome.usage) ocrPages++;
       text += outcome.text + "\n";
       if (text.length > MAX_TEXT) throw new ApiError(400, "DOCUMENT_TOO_LONG");
     }
-    return { text, nextPage: end >= totalPages ? 0 : end + 1, totalPages, usage };
+    return { text, nextPage: end >= totalPages ? 0 : end + 1, totalPages, usage, ocrPages };
   } finally {
     await loading.destroy();
   }

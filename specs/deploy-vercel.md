@@ -74,6 +74,7 @@ TRUSTED_IP_HEADER=x-vercel-forwarded-for
 
 ## Giới hạn của gói free
 
-- Mỗi request serverless tối đa **60s**. App đã chia nhỏ job AI thành nhiều bước ngắn, nhưng tab trình duyệt cần **mở trong lúc sinh thẻ** (giống SSE trước đây). File OCR cực lớn có thể cần nhiều bước; nếu muốn chạy nền/không giữ tab → nâng Vercel **Pro** (maxDuration 300s) hoặc thêm hàng đợi (QStash).
+- Mỗi request serverless tối đa **60s**. App chia job AI thành nhiều bước ngắn do trình duyệt đẩy đi; người dùng **chuyển trang thoải mái** (job chạy nền trong app), đóng tab thì job tạm dừng và tự chạy tiếp ở lần mở app sau.
+- **OCR chạy trên máy người dùng** (PP-OCRv4 qua ONNX Runtime Web, trong Web Worker) cho PDF scan/ảnh khi ngôn ngữ thuật ngữ là tiếng Trung hoặc tiếng Anh: không tốn token Groq, không vào hàng đợi. Runtime + model (~30 MB) được `scripts/copy-browser-ocr-assets.mjs` chép từ `node_modules` vào `public/vendor/` lúc `pnpm build` (không commit). Ngôn ngữ khác vẫn OCR ở server bằng model vision của Groq (chậm: gói free chỉ cho 1.000 token đầu ra/phút ≈ 1 trang/phút).
 - Neon/Supabase free có thể tạm nghỉ khi không dùng; request đầu sau khi nghỉ hơi chậm.
-- Hạn mức AI tính bằng **credit** (1 credit = 1.000 token Groq thực dùng): 20 credit miễn phí/ngày/người (reset 00:00 giờ VN, không cộng dồn) + credit thưởng không hết hạn; tối đa 40 credit/lần tạo; toàn app `AI_GLOBAL_DAILY_CREDITS` (mặc định 480 ≈ 80% hạn mức ngày của key free). Hằng số trong [credits.ts](../src/features/ai-generate/lib/credits.ts).
+- Hạn mức AI tính bằng **credit theo số thẻ**: 1 credit = 4 thẻ thật sự tạo ra (+ 1 credit/trang nếu server phải OCR). Đọc tài liệu trên máy người dùng miễn phí. 20 credit miễn phí/ngày/người (reset 00:00 giờ VN, không cộng dồn) + credit thưởng không hết hạn; tối đa 50 credit (200 thẻ)/lần tạo. Toàn app giới hạn bằng **token** trên key chung: `AI_GLOBAL_DAILY_TOKENS` (mặc định 350.000). Hằng số trong [credits.ts](../src/features/ai-generate/lib/credits.ts).

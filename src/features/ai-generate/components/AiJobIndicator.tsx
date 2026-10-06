@@ -19,18 +19,24 @@ function useIndicatorText(phase: Exclude<AiPhase, { name: "compose" }>) {
   if (phase.name === "review")
     return { tone: "ready", title: t("background.readyTitle"), detail: t("background.ready") };
   const { stage, progress } = phase;
-  const detail = progress?.queuePosition
-    ? t("background.queued", { count: progress.queuePosition })
-    : progress?.waiting
-      ? t("background.waiting")
-      : [
-          stage ? t(`stage.${stage}`) : null,
-          progress?.total
-            ? t("background.parts", { completed: progress.completed ?? 0, total: progress.total })
-            : null,
-        ]
-          .filter(Boolean)
-          .join(" · ");
+  const detail =
+    progress?.pages && stage === "scanning"
+      ? `${t("stage.scanning")} · ${t("background.pages", progress.pages)}`
+      : progress?.queuePosition
+        ? t("background.queued", { count: progress.queuePosition })
+        : progress?.waiting
+          ? t("background.waiting")
+          : [
+              stage ? t(`stage.${stage}`) : null,
+              progress?.total
+                ? t("background.parts", {
+                    completed: progress.completed ?? 0,
+                    total: progress.total,
+                  })
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" · ");
   return { tone: "working", title: t("background.title"), detail };
 }
 

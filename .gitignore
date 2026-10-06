@@ -20,6 +20,9 @@
 # production
 /build
 
+# in-browser OCR runtime and models, copied from node_modules (scripts/copy-browser-ocr-assets.mjs)
+/public/vendor/
+
 # misc
 .DS_Store
 *.pem

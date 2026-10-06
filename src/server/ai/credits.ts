@@ -1,11 +1,7 @@
 import "server-only";
 import { and, eq, gte, inArray, like, lt, or, sql } from "drizzle-orm";
 import { v7 } from "uuid";
-import {
-  DAILY_FREE_CREDITS,
-  MAX_JOB_CREDITS,
-  creditsForTokens,
-} from "@/features/ai-generate/lib/credits";
+import { DAILY_FREE_CREDITS, MAX_JOB_CREDITS } from "@/features/ai-generate/lib/credits";
 import { ApiError } from "../api-error";
 import type { Database } from "../db/client";
 import { aiJobs, creditLedger, user } from "../db/schema";
@@ -73,11 +69,14 @@ export async function creditStatus(db: Executor, userId: string): Promise<Credit
   };
 }
 
+/** Provider tokens a reserved credit stands for while its job runs (4 cards ≈ 2,500 tokens). */
+const TOKENS_PER_RESERVED_CREDIT = 3000;
+
 /**
- * Credits the whole app has used or committed today on the one shared provider key: tokens spent
+ * Provider tokens the whole app has used or committed today on the one shared key: tokens spent
  * by finished jobs plus what running jobs have reserved.
  */
-export async function globalCreditsToday(db: Executor) {
+export async function globalTokensToday(db: Executor) {
   const { start } = quotaWindow();
   const [row] = await db
     .select({
@@ -85,10 +84,11 @@ export async function globalCreditsToday(db: Executor) {
       reserved: sql<number>`coalesce(sum(${aiJobs.creditsReserved}) filter (where ${inArray(aiJobs.status, ACTIVE_JOB_STATUSES)}), 0)::int`,
     })
     .from(aiJobs);
-  return creditsForTokens(row.spent) + row.reserved;
+  return row.spent + row.reserved * TOKENS_PER_RESERVED_CREDIT;
 }
-export async function assertGlobalCapacity(db: Executor, credits: number) {
-  if ((await globalCreditsToday(db)) + credits > getServerEnv().AI_GLOBAL_DAILY_CREDITS)
+/** Refuses work that would take the shared key past today's app-wide token budget. */
+export async function assertGlobalCapacity(db: Executor, tokens: number) {
+  if ((await globalTokensToday(db)) + tokens > getServerEnv().AI_GLOBAL_DAILY_TOKENS)
     throw new ApiError(429, "AI_GLOBAL_LIMIT");
 }
 
@@ -97,19 +97,21 @@ export const lockUser = (tx: Transaction, userId: string) =>
   tx.select({ id: user.id }).from(user).where(eq(user.id, userId)).for("update");
 
 /**
- * Holds `credits` for a job the user agreed to run. Call inside a transaction holding lockUser.
- * Fails with a specific reason so the user knows what to change.
+ * Holds `credits` for a job the user agreed to run, which will use about `tokens` provider tokens.
+ * Call inside a transaction holding lockUser. Fails with a specific reason so the user knows what
+ * to change.
  */
 export async function reserveCredits(
   tx: Transaction,
   userId: string,
   jobId: string,
   credits: number,
+  tokens: number,
 ) {
   if (credits > MAX_JOB_CREDITS) throw new ApiError(400, "AI_JOB_TOO_LARGE");
   const status = await creditStatus(tx, userId);
   if (credits > status.available) throw new ApiError(402, "AI_CREDITS_EXCEEDED");
-  await assertGlobalCapacity(tx, credits);
+  await assertGlobalCapacity(tx, tokens);
   await tx
     .update(aiJobs)
     .set({ creditsEstimated: credits, creditsReserved: credits })
@@ -122,21 +124,20 @@ export interface Charge {
   refunded: boolean;
 }
 /**
- * Works out what a finished job costs: nothing when the system failed it, otherwise the tokens it
- * actually spent, taken from today's free credits first and then from earned credits. Never
- * charges more than the user has. Call inside a transaction holding lockUser, then store the
- * returned figures on the job in the same transaction.
+ * Charges a finished job `cost` credits (see jobCredits), or nothing when the system failed it:
+ * from today's free credits first, then from earned credits. Never charges more than the user
+ * has. Call inside a transaction holding lockUser, then store the returned figures on the job in
+ * the same transaction.
  */
 export async function chargeJob(
   tx: Transaction,
   userId: string,
   jobId: string,
-  tokens: number,
+  cost: number,
   refund: boolean,
 ): Promise<Charge> {
   if (refund) return { credits: 0, daily: 0, refunded: true };
-  const cost = creditsForTokens(tokens);
-  if (!cost) return { credits: 0, daily: 0, refunded: false };
+  if (cost <= 0) return { credits: 0, daily: 0, refunded: false };
   const status = await creditStatus(tx, userId);
   const daily = Math.min(cost, status.dailyRemaining);
   const earned = Math.min(cost - daily, status.earned);

@@ -20,6 +20,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Third-party OCR runtime copied from node_modules (scripts/copy-browser-ocr-assets.mjs).
+    "public/vendor/**",
     "coverage/**",
     "playwright-report/**",
     "test-results/**",
