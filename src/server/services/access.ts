@@ -102,3 +102,9 @@ export async function requireStudySet(db: Db, userId: string, setId: string, loc
   if (!set) throw new ApiError(404, "NOT_FOUND");
   return set;
 }
+
+/** Serialize permission changes, then recheck the actor after any concurrent demotion/ban. */
+export async function lockAdminChange(tx: Db, adminId: string) {
+  await tx.execute(sql`select pg_advisory_xact_lock(735174, 1)`);
+  await requireAdmin(tx, adminId);
+}

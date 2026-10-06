@@ -127,7 +127,7 @@ test("a reader copies and reports a set, a moderator takes it down", async ({ br
   await expect(reader.page.getByText("Báo cáo đang mở")).toHaveCount(0);
   const moderator = await person(browser, "Kiểm duyệt viên");
   await makeAdmin(moderator.email);
-  await moderator.page.goto("/admin");
+  await moderator.page.goto("/admin/moderation");
   const report = moderator.page.getByRole("listitem").filter({ hasText: title });
   await expect(report).toBeVisible();
   await report.getByRole("button", { name: "Ẩn bộ thẻ" }).click();

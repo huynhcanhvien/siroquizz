@@ -23,6 +23,7 @@ import {
 } from "@/features/ai-generate/lib/credits";
 import { ApiError } from "../api-error";
 import type { Database } from "../db/client";
+import type { Transaction } from "../services/sets";
 import { aiJobs, aiUploads } from "../db/schema";
 import { getServerEnv } from "../env";
 import {
@@ -171,13 +172,29 @@ export async function listJobs(db: Database, userId: string, limit = 10) {
 /** Stops a job at the user's request; pages read by OCR and cards already made are charged. */
 export async function cancelJob(db: Database, userId: string, id: string) {
   await requireJob(db, userId, id);
-  await db.transaction(async (tx) => {
+  await stopJob(db, userId, id);
+}
+/**
+ * Cancels the owner's job if it is still open, charging for the work already done. A step still
+ * running cannot save over it, because steps only write while the job is active. Returns whether
+ * this call stopped the job.
+ */
+export async function stopJob(
+  db: Database,
+  userId: string,
+  id: string,
+  onStopped?: (tx: Transaction) => Promise<unknown>,
+) {
+  return db.transaction(async (tx) => {
     await lockUser(tx, userId);
     const [job] = await tx
       .select()
       .from(aiJobs)
-      .where(and(eq(aiJobs.id, id), inArray(aiJobs.status, openStatuses)));
-    if (!job) return;
+      .where(
+        and(eq(aiJobs.id, id), eq(aiJobs.userId, userId), inArray(aiJobs.status, openStatuses)),
+      )
+      .for("update");
+    if (!job) return false;
     const state = aiJobStateSchema.safeParse(job.state).data;
     const cost = state
       ? jobCredits({ ocrPages: state.ocrPages, cards: state.rawCards.length, cached: state.cached })
@@ -192,6 +209,8 @@ export async function cancelJob(db: Database, userId: string, id: string) {
         ...chargeColumns(charge),
       })
       .where(eq(aiJobs.id, id));
+    await onStopped?.(tx);
+    return true;
   });
 }
 

@@ -71,9 +71,10 @@ export function moderationSample(
 export const audit = (
   db: Db,
   entry: {
+    id?: string;
     actorId: string | null;
     action: string;
-    targetType: "set" | "user";
+    targetType: "set" | "user" | "job";
     targetId: string;
     meta?: object;
   },

@@ -1,3 +1,4 @@
+import { lockAdminChange } from "./access";
 import "server-only";
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { v7 } from "uuid";
@@ -142,6 +143,7 @@ export async function resolveReport(
 export async function setBanned(db: Database, adminId: string, userId: string, banned: boolean) {
   if (userId === adminId) throw new ApiError(400, "VALIDATION_ERROR");
   await db.transaction(async (tx) => {
+    await lockAdminChange(tx, adminId);
     const updated = await tx
       .update(user)
       .set({ bannedAt: banned ? new Date() : null, updatedAt: new Date() })

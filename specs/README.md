@@ -12,10 +12,11 @@ Thư mục này chứa đặc tả theo từng phase. Mỗi phase có thể bàn
 | [architecture.md](architecture.md)                       | Kiến trúc, cấu trúc thư mục, mô hình dữ liệu qua các phase, quy ước API, i18n, kiểm thử, bảo mật nền |
 | [phase-1-ui-mock.md](phase-1-ui-mock.md)                 | Toàn bộ giao diện chạy với mock data (localStorage)                                                  |
 | [phase-2-backend-auth.md](phase-2-backend-auth.md)       | Backend thật: tài khoản, CSDL, API, chuyển dữ liệu từ localStorage                                   |
-| [phase-3-ai-generation.md](phase-3-ai-generation.md)     | Tạo bộ thẻ bằng AI thật (Groq API) từ PDF/DOCX/ảnh/văn bản + prompt                                |
+| [phase-3-ai-generation.md](phase-3-ai-generation.md)     | Tạo bộ thẻ bằng AI thật (Groq API) từ PDF/DOCX/ảnh/văn bản + prompt                                  |
 | [phase-4-learning-engine.md](phase-4-learning-engine.md) | Học thông minh: chế độ Học thích ứng, lặp lại ngắt quãng (FSRS), thống kê, streak, thẻ có ảnh        |
 | [phase-5-community.md](phase-5-community.md)             | Chia sẻ & cộng đồng: công khai bộ thẻ, khám phá, thư mục, lớp học, bảng xếp hạng                     |
 | [phase-6-production.md](phase-6-production.md)           | Sẵn sàng ra mắt: hạ tầng, CI/CD, giám sát, bảo mật, hiệu năng, PWA/offline, SEO, pháp lý             |
+| [adminpage.md](adminpage.md)                             | Khu quản trị `/admin`: tổng quan, kiểm duyệt, người dùng, AI & credit, bộ thẻ, nhật ký               |
 
 ## Đối tượng người dùng
 
