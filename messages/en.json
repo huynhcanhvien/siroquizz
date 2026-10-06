@@ -492,6 +492,26 @@
       "round": "Word {current}/{total}",
       "answerArea": "Answer",
       "pool": "Letter tiles"
+    },
+    "ranked": {
+      "verified": "Your result was verified and added to the leaderboard.",
+      "rejected": "This game isn't ranked: {reason}.",
+      "unranked": "Practice game, not ranked.",
+      "checking": "Verifying your result…",
+      "reasons": {
+        "too_fast": "moves were implausibly fast",
+        "clock": "the timing doesn't match the game",
+        "unfinished": "the game wasn't finished",
+        "invalid_event": "the game data isn't valid"
+      },
+      "leaderboard": "Leaderboard",
+      "empty": "Nobody is on the leaderboard yet. Be the first!",
+      "you": "You",
+      "yourRank": "Your rank: #{rank}",
+      "rank": "Rank",
+      "player": "Player",
+      "result": "Result",
+      "starting": "Preparing the game…"
     }
   },
   "ai": {
@@ -884,7 +904,8 @@
       "save": "Save profile",
       "saved": "Profile saved.",
       "view": "View profile"
-    }
+    },
+    "studyNow": "Study now"
   },
   "folders": {
     "title": "Folders",

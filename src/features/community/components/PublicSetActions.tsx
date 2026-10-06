@@ -56,11 +56,10 @@ export function PublicSetActions({
     );
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {isOwner ? (
-        <Button asChild variant="secondary">
-          <Link href={`/sets/${setId}`}>{t("openSet")}</Link>
-        </Button>
-      ) : null}
+      {/* Shared sets can be studied (and their games ranked) without copying them. */}
+      <Button asChild variant="secondary">
+        <Link href={`/sets/${setId}`}>{isOwner ? t("openSet") : t("studyNow")}</Link>
+      </Button>
       <Button onClick={() => copy.mutate()} disabled={copy.isPending || copy.isSuccess}>
         <CopyPlus className="size-4" aria-hidden />
         {t("copyToLibrary")}

@@ -1,6 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { registerUser } from "./fixtures";
 
+// These tests sign up several people each; 30s is tight while the whole suite runs in parallel.
+test.describe.configure({ timeout: 90_000 });
+
 /** Drives a job the way the browser client does: repeated POST /step until it finishes. */
 async function driveToEnd(page: Page, jobId: string, headers: Record<string, string>) {
   for (let i = 0; i < 50; i++) {

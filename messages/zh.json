@@ -492,6 +492,26 @@
       "round": "第 {current}/{total} 个",
       "answerArea": "答案区",
       "pool": "字块"
+    },
+    "ranked": {
+      "verified": "成绩已验证并加入排行榜。",
+      "rejected": "本局不计入排行：{reason}。",
+      "unranked": "练习局，不计排行。",
+      "checking": "正在验证成绩…",
+      "reasons": {
+        "too_fast": "操作快得不合常理",
+        "clock": "时间与对局不符",
+        "unfinished": "对局未完成",
+        "invalid_event": "对局数据无效"
+      },
+      "leaderboard": "排行榜",
+      "empty": "排行榜还没有人，来当第一个吧！",
+      "you": "你",
+      "yourRank": "你的排名：第 {rank} 名",
+      "rank": "名次",
+      "player": "玩家",
+      "result": "成绩",
+      "starting": "正在准备对局…"
     }
   },
   "ai": {
@@ -884,7 +904,8 @@
       "save": "保存主页",
       "saved": "主页已保存。",
       "view": "查看主页"
-    }
+    },
+    "studyNow": "立即学习"
   },
   "folders": {
     "title": "文件夹",

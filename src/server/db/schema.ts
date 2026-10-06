@@ -465,6 +465,35 @@ export const classSets = pgTable(
   },
   (t) => [primaryKey({ columns: [t.classId, t.setId] }), index("class_sets_set_idx").on(t.setId)],
 );
+/**
+ * A ranked game: the server picks the seed the board is built from, then replays the player's
+ * events to compute the result. Only verified sessions reach the leaderboard.
+ */
+export const gameSessions = pgTable(
+  "game_sessions",
+  {
+    id: uuid("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    setId: uuid("set_id")
+      .notNull()
+      .references(() => studySets.id, { onDelete: "cascade" }),
+    game: gameKind("game").notNull(),
+    seed: integer("seed").notNull(),
+    answerSide: varchar("answer_side", { length: 10 }).notNull().default("term"),
+    startedAt: time("started_at").notNull().defaultNow(),
+    finishedAt: time("finished_at"),
+    verified: boolean("verified").notNull().default(false),
+    score: integer("score"),
+    timeMs: integer("time_ms"),
+    rejectedReason: varchar("rejected_reason", { length: 20 }),
+  },
+  (t) => [
+    index("game_sessions_board_idx").on(t.setId, t.game, t.verified),
+    index("game_sessions_user_idx").on(t.userId, t.startedAt),
+  ],
+);
 /** Finished results keyed by a hash of the exact files, request and options; reused for free. */
 export const aiResultCache = pgTable("ai_result_cache", {
   key: varchar("key", { length: 64 }).primaryKey(),

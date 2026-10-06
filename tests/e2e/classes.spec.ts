@@ -2,6 +2,9 @@ import { readFile } from "node:fs/promises";
 import { expect, test, type Browser } from "@playwright/test";
 import { registerUser } from "./fixtures";
 
+// These tests sign up several people each; 30s is tight while the whole suite runs in parallel.
+test.describe.configure({ timeout: 90_000 });
+
 test.skip(process.env.NEXT_PUBLIC_DATA_SOURCE !== "http", "Classes need the server backend");
 
 async function person(browser: Browser, name: string) {

@@ -29,10 +29,12 @@ interface GameIntroProps {
   icon: LucideIcon;
   best: GameScore | null;
   onStart: () => void;
+  /** A ranked game is being prepared with the server. */
+  starting?: boolean;
   children?: ReactNode;
 }
 
-export function GameIntro({ game, icon: Icon, best, onStart, children }: GameIntroProps) {
+export function GameIntro({ game, icon: Icon, best, onStart, starting = false, children }: GameIntroProps) {
   const t = useTranslations("games");
   return (
     <div className="mx-auto flex w-full max-w-lg animate-pop flex-col items-center gap-5 rounded-xl border border-border bg-surface p-8 text-center shadow-lg">
@@ -48,9 +50,9 @@ export function GameIntro({ game, icon: Icon, best, onStart, children }: GameInt
         {best ? t("best", { value: formatRecord(best, game) }) : t("noBest")}
       </p>
       {children}
-      <Button size="lg" className="w-full" onClick={onStart} autoFocus>
+      <Button size="lg" className="w-full" onClick={onStart} disabled={starting} autoFocus>
         <Play className="size-5" aria-hidden />
-        {t("start")}
+        {starting ? t("ranked.starting") : t("start")}
       </Button>
     </div>
   );

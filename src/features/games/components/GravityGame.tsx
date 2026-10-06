@@ -10,6 +10,9 @@ import { cn } from "@/lib/cn";
 import type { Card, Side, StudySet } from "@/lib/types";
 import { useGameFlow, useGameRecord, useStopwatch } from "../hooks";
 import { createGravityGame, gravityReducer, START_LIVES, type GravityAction, type GravityState } from "../lib/gravity";
+import { createRng } from "@/lib/random";
+import type { GameEvent } from "../lib/replay";
+import { RankedSummary, startRankedSession, type RankedSession } from "../ranked";
 import { GameIntro, GameResult, StatChip } from "./GameChrome";
 import { GAME_META } from "./game-meta";
 
@@ -131,12 +134,31 @@ function GravityAnnouncer({ state }: { state: GravityState }) {
 interface GravityBoardProps {
   set: StudySet;
   answerSide: Side;
-  onFinish: (state: GravityState, timeMs: number) => void;
+  session: RankedSession | null;
+  onFinish: (state: GravityState, timeMs: number, events: GameEvent[]) => void;
 }
 
-function GravityBoard({ set, answerSide, onFinish }: GravityBoardProps) {
+function GravityBoard({ set, answerSide, session, onFinish }: GravityBoardProps) {
   const t = useTranslations("games");
-  const [state, dispatch] = useReducer(gravityReducer, undefined, () => createGravityGame(set.cards, answerSide));
+  // A ranked game shuffles its deck with the server's seed so the server can replay it.
+  const [state, dispatch] = useReducer(gravityReducer, undefined, () =>
+    session
+      ? createGravityGame(session.cards, answerSide, createRng(session.seed))
+      : createGravityGame(set.cards, answerSide),
+  );
+  const events = useRef<GameEvent[]>([]);
+  // Milliseconds since the board appeared; created after mount, read only from event handlers.
+  const clock = useRef<() => number>(() => 0);
+  const lives = useRef(state.lives);
+  useEffect(() => {
+    const start = performance.now();
+    clock.current = () => Math.round(performance.now() - start);
+  }, []);
+  // A word reaching the ground costs a life; that is the "missed" event the server checks.
+  useEffect(() => {
+    if (state.lives < lives.current) events.current.push({ t: clock.current(), missed: true });
+    lives.current = state.lives;
+  }, [state.lives]);
   const [input, setInput] = useState("");
   const [shaking, setShaking] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -145,7 +167,7 @@ function GravityBoard({ set, answerSide, onFinish }: GravityBoardProps) {
 
   useAnimationFrame(playing, (dtMs) => dispatch({ type: "tick", dtMs }));
   usePauseShortcut(state.status, dispatch);
-  useOnceWhen(state.status === "over", () => onFinish(state, read()));
+  useOnceWhen(state.status === "over", () => onFinish(state, read(), events.current));
 
   useEffect(() => {
     if (playing) inputRef.current?.focus();
@@ -156,7 +178,10 @@ function GravityBoard({ set, answerSide, onFinish }: GravityBoardProps) {
     if (!input.trim()) return;
     const next = gravityReducer(state, { type: "submit", text: input });
     dispatch({ type: "submit", text: input });
-    if (next.lastResult === "correct") setInput("");
+    if (next.lastResult === "correct") {
+      events.current.push({ t: clock.current(), text: input });
+      setInput("");
+    }
     else setShaking(true);
   };
 
@@ -215,12 +240,32 @@ export function GravityGame({ set }: { set: StudySet }) {
   const t = useTranslations("games");
   const tFlash = useTranslations("flashcards");
   const { best, record } = useGameRecord(set.id, "gravity");
-  const { phase, start, finish } = useGameFlow<{ missed: Card[]; level: number }>();
+  const { phase, start, finish } = useGameFlow<{
+    missed: Card[];
+    level: number;
+    events: GameEvent[];
+    sessionId: string | null;
+  }>();
   const [answerSide, setAnswerSide] = useState<Side>("term");
+  const [session, setSession] = useState<RankedSession | null>(null);
+  const [starting, setStarting] = useState(false);
+  const begin = async () => {
+    if (starting) return;
+    setStarting(true);
+    setSession(await startRankedSession(set, "gravity", answerSide));
+    setStarting(false);
+    start();
+  };
 
   if (phase.name === "intro") {
     return (
-      <GameIntro game="gravity" icon={GAME_META.gravity.icon} best={best} onStart={start}>
+      <GameIntro
+        game="gravity"
+        icon={GAME_META.gravity.icon}
+        best={best}
+        onStart={begin}
+        starting={starting}
+      >
         <SegmentedControl
           label={t("gravity.answerWith")}
           value={answerSide}
@@ -242,13 +287,19 @@ export function GravityGame({ set }: { set: StudySet }) {
         game="gravity"
         setId={set.id}
         isRecord={phase.outcome.isRecord}
-        onPlayAgain={start}
+        onPlayAgain={begin}
         stats={[
           { label: t("score"), value: phase.outcome.score },
           { label: t("levelLabel"), value: phase.details.level },
         ]}
       >
         <MissedList cards={phase.details.missed} />
+        <RankedSummary
+          setId={set.id}
+          game="gravity"
+          sessionId={phase.details.sessionId}
+          events={phase.details.events}
+        />
       </GameResult>
     );
   }
@@ -258,7 +309,15 @@ export function GravityGame({ set }: { set: StudySet }) {
       key={phase.round}
       set={set}
       answerSide={answerSide}
-      onFinish={(state, timeMs) => finish(record({ score: state.score, timeMs }), { missed: state.missed, level: state.level })}
+      session={session}
+      onFinish={(state, timeMs, events) =>
+        finish(record({ score: state.score, timeMs }), {
+          missed: state.missed,
+          level: state.level,
+          events,
+          sessionId: session?.id ?? null,
+        })
+      }
     />
   );
 }

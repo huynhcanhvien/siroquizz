@@ -24,6 +24,7 @@ export default defineConfig({
         "src/server/services/profiles.ts",
         "src/server/services/folders.ts",
         "src/server/services/classes.ts",
+        "src/server/services/games.ts",
         "src/server/ai/auxiliary.ts",
         "src/server/ai/extract.ts",
         "src/server/ai/storage.ts",

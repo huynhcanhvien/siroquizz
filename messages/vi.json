@@ -492,6 +492,26 @@
       "round": "Từ {current}/{total}",
       "answerArea": "Ô trả lời",
       "pool": "Các ô chữ"
+    },
+    "ranked": {
+      "verified": "Kết quả đã được xác minh và ghi lên bảng xếp hạng.",
+      "rejected": "Ván này không được xếp hạng: {reason}.",
+      "unranked": "Ván luyện tập, không xếp hạng.",
+      "checking": "Đang xác minh kết quả…",
+      "reasons": {
+        "too_fast": "thao tác nhanh bất thường",
+        "clock": "thời gian không khớp với ván chơi",
+        "unfinished": "ván chưa hoàn thành",
+        "invalid_event": "dữ liệu ván chơi không hợp lệ"
+      },
+      "leaderboard": "Bảng xếp hạng",
+      "empty": "Chưa có ai trên bảng xếp hạng. Hãy là người đầu tiên!",
+      "you": "Bạn",
+      "yourRank": "Hạng của bạn: #{rank}",
+      "rank": "Hạng",
+      "player": "Người chơi",
+      "result": "Kết quả",
+      "starting": "Đang chuẩn bị ván…"
     }
   },
   "ai": {
@@ -884,7 +904,8 @@
       "save": "Lưu hồ sơ",
       "saved": "Đã lưu hồ sơ.",
       "view": "Xem hồ sơ"
-    }
+    },
+    "studyNow": "Học ngay"
   },
   "folders": {
     "title": "Thư mục",

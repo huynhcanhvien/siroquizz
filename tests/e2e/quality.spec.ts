@@ -75,7 +75,8 @@ test("passes automated accessibility checks (WCAG 2.1 AA)", async ({ page }) => 
   const pages = await pagesToCheck(page);
   for (const target of [{ name: "landing", path: "/" }, ...pages]) {
     for (const scheme of ["light", "dark"] as const) {
-      await page.emulateMedia({ colorScheme: scheme });
+      // Settled UI only: mid-animation frames (fades, pops) can read as false contrast failures.
+      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.goto(target.path);
       await page.waitForLoadState("networkidle");
       const results = await new AxeBuilder({ page })

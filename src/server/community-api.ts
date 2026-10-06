@@ -15,6 +15,7 @@ import {
   setVisibility,
 } from "./services/sharing";
 import { getProfileSettings, updateProfileSettings } from "./services/profiles";
+import { finishGameSession, leaderboard, startGameSession } from "./services/games";
 import {
   assignSet,
   assignedToMe,
@@ -44,6 +45,29 @@ import {
 } from "./services/folders";
 
 const SET_ACTIONS = ["approve", "reject", "hide", "restore"] as const;
+
+/** Ranked games: start (server seed), finish (server replay) and per-set leaderboards. */
+async function gameRoutes(db: Database, userId: string, request: Request, path: string[]) {
+  const [domain, id, sub] = path,
+    method = request.method;
+  if (domain === "sets" && id && path.length === 3) {
+    if (sub === "game-sessions" && method === "POST") {
+      await enforceLimit(`game-session:${userId}`, 60, 3600);
+      return { data: await startGameSession(db, userId, id, await readJson(request)) };
+    }
+    if (sub === "leaderboard" && method === "GET")
+      return { data: await leaderboard(db, userId, id, new URL(request.url).searchParams) };
+  }
+  if (
+    domain === "game-sessions" &&
+    id &&
+    sub === "finish" &&
+    path.length === 3 &&
+    method === "POST"
+  )
+    return { data: await finishGameSession(db, userId, id, await readJson(request)) };
+  return null;
+}
 
 /** Classes: create/join/leave, roster, assignments and the teacher's progress board. */
 async function classRoutes(db: Database, userId: string, request: Request, path: string[]) {
@@ -126,6 +150,8 @@ export async function communityApi(db: Database, userId: string, request: Reques
   if (folders) return folders;
   const klass = await classRoutes(db, userId, request, path);
   if (klass) return klass;
+  const games = await gameRoutes(db, userId, request, path);
+  if (games) return games;
   if (domain === "sets" && id && path.length === 3 && method !== "GET") {
     if (sub === "visibility" && method === "PATCH")
       return { data: await setVisibility(db, userId, id, await readJson(request)) };

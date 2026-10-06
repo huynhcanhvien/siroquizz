@@ -3,11 +3,16 @@
 > File này ghi lại **đã làm gì, đang làm dở gì, làm tiếp thế nào** để bất kỳ ai (người hoặc agent) cũng có thể tiếp tục.
 > Thời gian theo giờ Việt Nam (UTC+7). Mục mới nhất ở trên cùng của phần Nhật ký.
 
-**Cập nhật lần cuối:** 2026-10-05 21:00 +07
-**Phase hiện tại:** Phase 2–3 hoàn tất local (Groq live pass). Đã thêm hạ tầng **deploy Vercel free + chia nhỏ job AI (resumable step)**, đang chờ nghiệm thu production. Phase 4 (SRS) vẫn đang dở. Google OAuth/R2/Resend production còn chờ credentials.
+**Cập nhật lần cuối:** 2026-10-06 08:46 +07
+**Phase hiện tại:** AI (tốc độ + credit) xong trên nhánh `feat/ai-pipeline-speed` (PR #1 vào `main`, **chưa merge**). Phase 5 cộng đồng đợt 1–5 trên nhánh `feat/phase5-community` (tách từ nhánh AI); còn đợt 6 (review bảo mật + E2E nhiều người). Phase 4 (SRS) vẫn đang dở.
 **Tình trạng:** Người dùng yêu cầu hoàn thành toàn bộ Phase 2–6 và cập nhật state khi từng phase xong. Không coi credentials, deployment hay beta bên ngoài đã hoàn tất nếu chưa thực hiện.
 
 ## Tóm tắt nhanh cho người tiếp quản
+
+- **Nhánh:** `main` = production (user deploy từ đây, **không commit thẳng**). `feat/ai-pipeline-speed` (PR #1 → main) ⊂ `feat/phase5-community` (đang làm, chưa push).
+- **Migration mới chưa chạy trên Neon:** 0006–0013 (chỉ thêm cột/bảng/index; 0010 cần `CREATE EXTENSION pg_trgm`). Migrate local phải truyền `DATABASE_URL` local tường minh (drizzle.config đọc `.env.production.local`).
+- **E2E:** cổng 3100 có thể bị dự án `trip-expense-tracker` của user chiếm → `E2E_PORT=3200 RESEND_API_KEY= PW_CHANNEL=chrome pnpm e2e`, tạm cất `.env.production.local` khi chạy.
+- **Admin:** `DATABASE_URL=<url> pnpm admin:grant <email>` (kiểm tra quyền admin luôn đọc DB).
 
 - `.env.local` đang chạy HTTP với DB5433, Better Auth thật, SMTP Mailpit; khóa `GROQ_LLM_API` được giữ riêng, template không chứa secret.
 - `pnpm services:up` → `pnpm db:migrate` → `pnpm dev`; thư xác minh/reset ở http://localhost:8025. `pnpm build` và dev dùng webpack vì Turbopack panic PostCSS worker trên máy này.
@@ -42,9 +47,30 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 | LOW | —    | Đăng xuất dính `?next=`, guard mất query string, xóa bộ thẻ nháy "không tìm thấy", AI không hủy khi rời trang, `wait()` rò listener, bấm đúp Lưu/Tạo, đồng hồ lệch, kỷ lục điểm 0, Scramble `useMemo`, ô số câu hiện 0 | ✅ Đã sửa hết                                                                                                                                                                                                                                                                                                                                                           |
 | LOW | —    | Hàm > 50 dòng                                                                                                                                                                                                          | ✅ Đã tách `SetEditor`, `FlashcardDeck`, `TestMode` (+ `use-test-session.ts`), `GravityBoard`, `AiGenerator` (+ `use-ai-generation.ts`)                                                                                                                                                                                                                                 |
 
-**Bước tiếp theo:** Phase 4: learn-engine7cards/round, FSRS, due queue/new limits/preferences, stars, study sessions/stats/goals/streak/reminders/images. `ts-fsrs@5.4.2` đã cài, @types/node lên22 cho Vitest. Dataviz skill không có trong catalog/filesystem; dùng chart accessible theo design tokens và bảng thay thế. Sau P4 tiếp tục P5–6.
+**Bước tiếp theo:** (1) Phase 5 đợt 6: review bảo mật (IDOR, liệt kê, rate limit các route cộng đồng) + E2E nhiều người; (2) user merge PR #1 sau khi chạy migration 0006–0008 trên Neon, rồi tạo PR cho `feat/phase5-community`; (3) quay lại Phase 4 (SRS) phần còn dở.
 
 ## Nhật ký
+
+### 2026-10-06 08:46 +07: 🧾 Tóm tắt phiên 2026-10-05 (AI + credit + Phase 5 đợt 1–5)
+
+> Ghi chú: các mục nhật ký 17:10 / 18:20 / 19:30 / 21:00 bên dưới dùng giờ **ước lượng**, không phải giờ hệ thống; thứ tự các mục vẫn đúng.
+
+**1. AI tạo bộ thẻ: sửa lỗi + tăng tốc** (nhánh `feat/ai-pipeline-speed`, commit `f4c0755`, `9cce309`; PR #1)
+- Nguyên nhân lỗi chính đo được: chunk 25k ký tự vượt hạn mức free 8k token/phút → `413` 100% với tài liệu > ~15k ký tự. Thay bằng chunk theo token (~2.500), `reasoning_effort: low`, deadline theo bước, model dự phòng `gpt-oss-20b`, OCR song song, hàng đợi FIFO dùng chung một key, client tự chạy lại bước, step lease, báo phần bị bỏ qua.
+- Đo live: tài liệu 60k ký tự xong ~96s (85s là chờ hạn mức free), không lỗi; eval 21 case đạt 100%.
+
+**2. Credit AI** (commit `55153f7`): 1 credit = 1.000 token; 20 credit miễn phí/ngày (reset 0h, không cộng dồn) + credit thưởng không hết hạn (`credit_ledger`); báo giá + màn hình xác nhận; chỉ hoàn khi lỗi hệ thống; 40 credit/lần, 10 trang OCR, 2 job/người, trần toàn app; cache kết quả 30 ngày; lấy mẫu ~8 thẻ/chunk (20 thẻ từ tài liệu 60k: 41 → 11 credit).
+
+**3. Phase 5 cộng đồng** (nhánh `feat/phase5-community`)
+- Đợt 1 `e3bc8e2`: chia sẻ private/unlisted/public + `/s/[slug]` + QR, `access.ts`, kiểm duyệt tự động (`gpt-oss-safeguard-20b` trên Groq + regex liên hệ), báo cáo, trang `/admin`, audit log, nối credit thưởng (+5 công khai được duyệt, +1/lượt sao chép, thu hồi khi gỡ).
+- Đợt 2 `70e33c3`: `/explore` (tìm không dấu, pg_trgm, tag, phổ biến tuần), hồ sơ `/u/[username]`.
+- Đợt 3 `e2c1878`: thư mục, kéo-thả, học cả thư mục (Ôn tập lưu; Thẻ/Kiểm tra là luyện tập).
+- Đợt 4 `d30d65b`: lớp học, giao bài, bảng tiến độ + CSV, `requireStudySet`; sửa rò rỉ trường nội bộ trong response bộ thẻ.
+- Đợt 5 (commit cùng bản tóm tắt này): bảng xếp hạng Ghép thẻ/Rơi từ, server cấp seed và **chơi lại sự kiện** để tính kết quả (loại thao tác < 300ms, sai bàn, thời gian vượt thực tế); bảng `game_sessions` (**migration 0013**); người đăng nhập học/chơi trực tiếp bộ được chia sẻ (`sharedForStudy`); nút "Học ngay" trên trang công khai; nút Bắt đầu hiện "Đang chuẩn bị ván…". Test: 429 unit, 144 integration, `games.spec.ts` + `study.spec.ts` pass 18/18 khi chạy riêng.
+- **Đã xử lý sau đó:** các lần chạy E2E cả bộ hay có vài test timeout ngẫu nhiên (lần nào cũng khác test). Nguyên nhân: 4 worker mặc định làm quá tải máy 8 lõi đang chạy cả server Next, Postgres và Chrome. Đặt mặc định `workers: 3` (đổi bằng `E2E_WORKERS`) → **40/40 pass trong 3,2 phút** (4 worker: 4,3 phút và có timeout). Thêm `test.describe.configure({ timeout: 90_000 })` cho các file E2E nhiều người dùng.
+
+**Quyết định của user trong phiên:** key Groq free duy nhất → cần hàng đợi; credit như trên; tài liệu AI mặc định riêng tư, công khai được thưởng, có kiểm duyệt; làm Phase 5; merge nhánh credit vào nhánh AI và tạo PR vào `main`.
+
 
 ### 2026-10-05 21:00 +07: 🏫 Phase 5 đợt 4 — Lớp học (nhánh `feat/phase5-community`)
 

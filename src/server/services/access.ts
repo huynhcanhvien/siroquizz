@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, isNull, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { ApiError } from "../api-error";
 import { studySets, user } from "../db/schema";
@@ -64,9 +64,25 @@ export async function requireAdmin(db: Db, userId: string) {
 export const assignedTo = (userId: string) =>
   sql`exists(select 1 from class_sets cs inner join class_members cm on cm.class_id = cs.class_id where cs.set_id = ${studySets.id} and cm.user_id = ${userId})`;
 /**
- * A set the person may study and record progress on: their own, or one assigned to a class they
- * are in (unless a moderator hid it). Leaving the class removes the access at once. Editing,
- * deleting and sharing stay with the owner (requireOwnedSet).
+ * Shared sets anyone signed in may study by link, under the same rules as viewing them: not
+ * hidden, owner not banned, and a public set not flagged or rejected by moderation.
+ */
+export const sharedForStudy = () =>
+  and(
+    isNull(studySets.hiddenAt),
+    or(
+      eq(studySets.visibility, "unlisted"),
+      and(
+        eq(studySets.visibility, "public"),
+        inArray(studySets.moderationStatus, ["pending", "approved"]),
+      ),
+    ),
+    sql`not exists(select 1 from "user" u where u.id = ${studySets.ownerId} and u.banned_at is not null)`,
+  );
+/**
+ * A set the person may study and record progress on: their own, one assigned to a class they are
+ * in, or one shared by link (unless a moderator hid it). Leaving the class or unsharing removes
+ * the access at once. Editing, deleting and sharing stay with the owner (requireOwnedSet).
  */
 export async function requireStudySet(db: Db, userId: string, setId: string, lock = false) {
   const query = db
@@ -76,7 +92,11 @@ export async function requireStudySet(db: Db, userId: string, setId: string, loc
       and(
         eq(studySets.id, z.uuid().parse(setId)),
         isNull(studySets.deletedAt),
-        or(eq(studySets.ownerId, userId), and(isNull(studySets.hiddenAt), assignedTo(userId))),
+        or(
+          eq(studySets.ownerId, userId),
+          and(isNull(studySets.hiddenAt), assignedTo(userId)),
+          sharedForStudy(),
+        ),
       ),
     )
     .limit(1);

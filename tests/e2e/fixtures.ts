@@ -25,7 +25,8 @@ export async function registerUser(page: Page, name = "Bạn Test"): Promise<str
   await page.getByLabel(/Tôi đồng ý/).check();
   await page.getByRole("button", { name: "Tạo tài khoản" }).click();
   if (process.env.NEXT_PUBLIC_DATA_SOURCE === "http") {
-    await expect(page).toHaveURL(/\/verify-email$/);
+    // Sign-up hashes the password and sends mail; give it time while the server warms up.
+    await expect(page).toHaveURL(/\/verify-email$/, { timeout: 15_000 });
     await page.goto(await emailLink(page, email, "verify-email"));
   }
   await expect(page).toHaveURL(/\/home$/);

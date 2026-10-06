@@ -2,6 +2,9 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 import postgres from "postgres";
 import { registerUser } from "./fixtures";
 
+// These tests sign up several people each; 30s is tight while the whole suite runs in parallel.
+test.describe.configure({ timeout: 90_000 });
+
 test.skip(process.env.NEXT_PUBLIC_DATA_SOURCE !== "http", "Sharing needs the server backend");
 
 const cards = Array.from({ length: 10 }, (_, i) => ({
