@@ -73,7 +73,7 @@ export const audit = (
   entry: {
     actorId: string | null;
     action: string;
-    targetType: "set" | "user";
+    targetType: "set" | "user" | "job";
     targetId: string;
     meta?: object;
   },

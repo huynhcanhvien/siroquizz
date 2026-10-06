@@ -3,7 +3,7 @@
 > File này ghi lại **đã làm gì, đang làm dở gì, làm tiếp thế nào** để bất kỳ ai (người hoặc agent) cũng có thể tiếp tục.
 > Thời gian theo giờ Việt Nam (UTC+7). Mục mới nhất ở trên cùng của phần Nhật ký.
 
-**Cập nhật lần cuối:** 2026-10-06 11:23 +07
+**Cập nhật lần cuối:** 2026-10-06 12:02 +07
 **Phase hiện tại:** AI (tốc độ + credit) xong trên nhánh `feat/ai-pipeline-speed` (PR #1 vào `main`, **chưa merge**). Phase 5 cộng đồng **hoàn tất (đợt 1–6)** trên nhánh `feat/phase5-community` (tách từ nhánh AI, chưa push/PR). Phase 4 (SRS) vẫn đang dở.
 **Tình trạng:** Người dùng yêu cầu hoàn thành toàn bộ Phase 2–6 và cập nhật state khi từng phase xong. Không coi credentials, deployment hay beta bên ngoài đã hoàn tất nếu chưa thực hiện.
 
@@ -51,6 +51,19 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 
 ## Nhật ký
 
+### 2026-10-06 12:02 +07: 🛠️ Khu quản trị: Bước 1 (server) xong
+
+- Nhánh `feat/admin-console` (tách từ `main`).
+- Router mới `src/server/admin-api.ts`; `community-api.ts` chuyển mọi `admin/*` sang đây. Service mới trong `src/server/services/admin/` gồm overview, users, credits, jobs, sets, audit và schemas.
+- `stopJob` được tách ra khỏi `cancelJob` để admin hủy được job của người khác. `audit()` nhận thêm `targetType: "job"`.
+- Kiểm tra: typecheck sạch; lint còn 2 cảnh báo có từ trước; 453 unit pass; 164 integration pass (12 test mới); coverage của `services/admin` đạt 100% số dòng.
+- Tiếp theo: Bước 2 (layout `/admin` và menu con). Chi tiết ở `specs/adminpage.md`.
+
+### 2026-10-06 11:54 +07: 📝 Kế hoạch khu quản trị `/admin`
+
+- Lập kế hoạch mở rộng `/admin` thành khu quản trị riêng (6 trang: tổng quan, kiểm duyệt, người dùng, AI & credit, bộ thẻ, nhật ký). Chi tiết ở `specs/adminpage.md`.
+- Chưa viết code, đang chờ người dùng xác nhận. Nhánh dự kiến `feat/admin-console`.
+
 ### 2026-10-06 11:23 +07: ⚡ AI chạy nền + OCR trên máy người dùng + credit theo số thẻ
 
 - **Vấn đề người dùng báo:** PDF scan 10 trang tiếng Trung đọc mất ~8 phút và đọc xong là hết 20 credit. **Gốc:** model vision `qwen3.8` gói free bị giới hạn **1.000 token đầu ra/phút** (~1 trang/phút; trang dày bị cắt, sót dòng); OCR 3 trang song song bị chặn rồi đọc lại (tính token 2 lần); credit tính theo token.
@@ -77,12 +90,14 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 > Ghi chú: các mục nhật ký 17:10 / 18:20 / 19:30 / 21:00 bên dưới dùng giờ **ước lượng**, không phải giờ hệ thống; thứ tự các mục vẫn đúng.
 
 **1. AI tạo bộ thẻ: sửa lỗi + tăng tốc** (nhánh `feat/ai-pipeline-speed`, commit `f4c0755`, `9cce309`; PR #1)
+
 - Nguyên nhân lỗi chính đo được: chunk 25k ký tự vượt hạn mức free 8k token/phút → `413` 100% với tài liệu > ~15k ký tự. Thay bằng chunk theo token (~2.500), `reasoning_effort: low`, deadline theo bước, model dự phòng `gpt-oss-20b`, OCR song song, hàng đợi FIFO dùng chung một key, client tự chạy lại bước, step lease, báo phần bị bỏ qua.
 - Đo live: tài liệu 60k ký tự xong ~96s (85s là chờ hạn mức free), không lỗi; eval 21 case đạt 100%.
 
 **2. Credit AI** (commit `55153f7`): 1 credit = 1.000 token; 20 credit miễn phí/ngày (reset 0h, không cộng dồn) + credit thưởng không hết hạn (`credit_ledger`); báo giá + màn hình xác nhận; chỉ hoàn khi lỗi hệ thống; 40 credit/lần, 10 trang OCR, 2 job/người, trần toàn app; cache kết quả 30 ngày; lấy mẫu ~8 thẻ/chunk (20 thẻ từ tài liệu 60k: 41 → 11 credit).
 
 **3. Phase 5 cộng đồng** (nhánh `feat/phase5-community`)
+
 - Đợt 1 `e3bc8e2`: chia sẻ private/unlisted/public + `/s/[slug]` + QR, `access.ts`, kiểm duyệt tự động (`gpt-oss-safeguard-20b` trên Groq + regex liên hệ), báo cáo, trang `/admin`, audit log, nối credit thưởng (+5 công khai được duyệt, +1/lượt sao chép, thu hồi khi gỡ).
 - Đợt 2 `70e33c3`: `/explore` (tìm không dấu, pg_trgm, tag, phổ biến tuần), hồ sơ `/u/[username]`.
 - Đợt 3 `e2c1878`: thư mục, kéo-thả, học cả thư mục (Ôn tập lưu; Thẻ/Kiểm tra là luyện tập).
@@ -91,7 +106,6 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 - **Đã xử lý sau đó:** các lần chạy E2E cả bộ hay có vài test timeout ngẫu nhiên (lần nào cũng khác test). Nguyên nhân: 4 worker mặc định làm quá tải máy 8 lõi đang chạy cả server Next, Postgres và Chrome. Đặt mặc định `workers: 3` (đổi bằng `E2E_WORKERS`) → **40/40 pass trong 3,2 phút** (4 worker: 4,3 phút và có timeout). Thêm `test.describe.configure({ timeout: 90_000 })` cho các file E2E nhiều người dùng.
 
 **Quyết định của user trong phiên:** key Groq free duy nhất → cần hàng đợi; credit như trên; tài liệu AI mặc định riêng tư, công khai được thưởng, có kiểm duyệt; làm Phase 5; merge nhánh credit vào nhánh AI và tạo PR vào `main`.
-
 
 ### 2026-10-05 21:00 +07: 🏫 Phase 5 đợt 4 — Lớp học (nhánh `feat/phase5-community`)
 
@@ -198,7 +212,6 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 - **Bảo mật:** `.env.example` hiện không còn secret; **user cần rotate** `GROQ_LLM_API` + `RESEND_API_KEY` (đã từng lộ trong file).
 - **Lint:** sửa 2 lỗi `react-hooks/purity` trong [ReviewQueue.tsx](../src/features/srs/components/ReviewQueue.tsx) bằng helper `nowMs()` ở module scope. `pnpm lint` giờ 0 error (còn 1 warning cũ: import `StarButton` không dùng trong FlashcardDeck.tsx).
 
-
 ### 2026-10-04 16:13 +07: ✅ Phase 3 hoàn tất local + Groq thật; bắt đầu Phase 4
 
 - Upload signed5phút, magic/size/ZIP/pixel/page checks; private local files + R2/S3 adapter. Job/aux usage migrations đã chạy. PDF tổng30trang được preflight trước OCR để ngăn tốn API với job vượt giới hạn.
@@ -210,7 +223,6 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 - Cleanup24h qua `pnpm db:cleanup` đã chạy; production cron/R2 CORS+lifecycle chờ credentials/P6, không tự cài cron hệ thống. State không đánh dấu liveR2 hoặc independent review là hoàn tất.
 - Bắt đầu Phase4 theo spec; đã đọc tài liệu ts-fsrs, chuẩn bị pure learn/scheduler/timezone logic trước UI.
 
-
 ### 2026-10-04 15:46 +07: ✅ Phase 2 hoàn tất triển khai và nghiệm thu local HTTP
 
 - Postgres/Better Auth/API/repos/server guards/local import/security settings/CI đã triển khai và test với dịch vụ thật trên máy.
@@ -219,8 +231,8 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 - **Còn chờ nghiệm thu bên ngoài:** Google OAuth cần credentials; production Resend/Upstash cần tài khoản/domain; GitHub CI chưa chạy vì không có repo. Không tuyên bố các kiểm tra này đã pass. Phase2 local đủ làm nền cho Phase3.
 - Đã cập nhật spec Phase2 và README; bắt đầu Phase3 với Groq. [Groq structured outputs](https://console.groq.com/docs/structured-outputs) và [vision](https://console.groq.com/docs/vision) đã kiểm tra: chọn GPT-OSS cho text và Qwen3.8 cho ảnh, không dùng model Llama4 đã deprecate.
 
-
 ### 2026-10-04 15:33 +07: Phase 2 đã nối backend, đang nghiệm thu
+
 - Người dùng yêu cầu làm hết Phase 2–6 theo thứ tự và báo từng phase xong trong state.
 - Đã cài Drizzle/Postgres/Better Auth 1.7.7, Resend, Upstash, SMTP local; Docker Postgres 17 và Mailpit đang chạy. Postgres ở **5433** vì 5432 đang có dịch vụ khác. DATABASE_URL đã cập nhật trong `.env.local`.
 - Schema/migration SQL, unique position deferrable, seed, cleanup tombstone >30 ngày; migration dev và test DB đã chạy.
@@ -232,7 +244,6 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 - Docker credential helper bị treo; pull qua config tạm không dùng credential store ở `/private/tmp/siroquizz-docker-config`, không sửa config Docker của người dùng. Images đã cache, services up sau đó không cần pull lại.
 - Server thử ở port3000 (exec session13540), E2E server3100 do Playwright quản lý. Cần dừng server thử trước khi rebuild nếu nó đọc cùng `.next`.
 - Tiếp tục: full E2E, import/settings/rate-limit E2E, unit HTTP auth, review security, CI Postgres/Mailpit, chỉnh README/env template/spec. Không đánh dấu xong trước khi nghiệm thu; Google live và production services cần credentials từ người dùng.
-
 
 ### 2026-10-04 15:00 +07: Bắt đầu nền tảng Phase 2
 

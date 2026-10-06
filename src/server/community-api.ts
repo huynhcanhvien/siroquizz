@@ -1,12 +1,10 @@
 import "server-only";
-import { z } from "zod";
 import type { Database } from "./db/client";
 import { readJson } from "./api";
 import { ApiError } from "./api-error";
 import { enforceLimit } from "./rate-limit";
-import { requireAdmin } from "./services/access";
-import { applySetAction, moderationQueue } from "./services/moderation";
-import { createReport, listOpenReports, resolveReport, setBanned } from "./services/reports";
+import { adminApi } from "./admin-api";
+import { createReport } from "./services/reports";
 import {
   copyPublicSet,
   getPublicSet,
@@ -43,8 +41,6 @@ import {
   removeSetFromFolder,
   renameFolder,
 } from "./services/folders";
-
-const SET_ACTIONS = ["approve", "reject", "hide", "restore"] as const;
 
 /** Ranked games: start (server seed), finish (server replay) and per-set leaderboards. */
 async function gameRoutes(db: Database, userId: string, request: Request, path: string[]) {
@@ -142,9 +138,9 @@ async function folderRoutes(db: Database, userId: string, request: Request, path
   throw new ApiError(404, "NOT_FOUND");
 }
 
-/** Sharing, reports and moderation endpoints; returns null when the path is not one of them. */
+/** Sharing, reports, classes, folders and games, plus the admin API; null for other paths. */
 export async function communityApi(db: Database, userId: string, request: Request, path: string[]) {
-  const [domain, id, sub, action] = path,
+  const [domain, id, sub] = path,
     method = request.method;
   const folders = await folderRoutes(db, userId, request, path);
   if (folders) return folders;
@@ -176,33 +172,5 @@ export async function communityApi(db: Database, userId: string, request: Reques
     await createReport(db, userId, await readJson(request));
     return { data: null };
   }
-  if (domain !== "admin") return null;
-  await requireAdmin(db, userId);
-  if (id === "reports" && path.length === 2 && method === "GET")
-    return { data: await listOpenReports(db) };
-  if (id === "reports" && sub && action === "resolve" && path.length === 4 && method === "POST") {
-    await resolveReport(db, userId, sub, await readJson(request));
-    return { data: null };
-  }
-  if (id === "moderation" && path.length === 2 && method === "GET")
-    return {
-      data: (await moderationQueue(db)).map((row) => ({
-        ...row,
-        updatedAt: row.updatedAt.toISOString(),
-      })),
-    };
-  if (id === "sets" && sub && path.length === 4 && method === "POST") {
-    const setAction = z.enum(SET_ACTIONS).parse(action);
-    const { reason } = z
-      .object({ reason: z.string().trim().max(200).default("") })
-      .parse(await readJson(request));
-    await applySetAction(db, userId, z.uuid().parse(sub), setAction, reason);
-    return { data: null };
-  }
-  if (id === "users" && sub && path.length === 4 && method === "POST") {
-    if (action !== "ban" && action !== "unban") throw new ApiError(404, "NOT_FOUND");
-    await setBanned(db, userId, sub, action === "ban");
-    return { data: null };
-  }
-  throw new ApiError(404, "NOT_FOUND");
+  return adminApi(db, userId, request, path);
 }
