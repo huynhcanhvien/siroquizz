@@ -17,7 +17,7 @@ import type { User } from "@/lib/types";
 
 export function UserMenu({ user }: { user: User }) {
   const t = useTranslations("nav");
-  const tCommunity = useTranslations("community");
+  const tCommunity = useTranslations("admin");
   const logout = useLogout();
 
   const handleLogout = () => logout.mutate();
@@ -49,7 +49,7 @@ export function UserMenu({ user }: { user: User }) {
           <MenuItem asChild>
             <Link href="/admin">
               <ShieldCheck aria-hidden />
-              {tCommunity("admin.title")}
+              {tCommunity("title")}
             </Link>
           </MenuItem>
         ) : null}

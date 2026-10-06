@@ -60,12 +60,17 @@ export async function cancelAnyJob(db: Database, adminId: string, jobId: string)
     .from(aiJobs)
     .where(eq(aiJobs.id, id))
     .limit(1);
-  if (!job || !(await stopJob(db, job.userId, id))) throw new ApiError(404, "NOT_FOUND");
-  await audit(db, {
-    actorId: adminId,
-    action: "job_cancel",
-    targetType: "job",
-    targetId: id,
-    meta: { userId: job.userId },
-  });
+  if (
+    !job ||
+    !(await stopJob(db, job.userId, id, async (tx) => {
+      await audit(tx, {
+        actorId: adminId,
+        action: "job_cancel",
+        targetType: "job",
+        targetId: id,
+        meta: { userId: job.userId },
+      });
+    }))
+  )
+    throw new ApiError(404, "NOT_FOUND");
 }

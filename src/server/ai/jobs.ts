@@ -23,6 +23,7 @@ import {
 } from "@/features/ai-generate/lib/credits";
 import { ApiError } from "../api-error";
 import type { Database } from "../db/client";
+import type { Transaction } from "../services/sets";
 import { aiJobs, aiUploads } from "../db/schema";
 import { getServerEnv } from "../env";
 import {
@@ -178,7 +179,12 @@ export async function cancelJob(db: Database, userId: string, id: string) {
  * running cannot save over it, because steps only write while the job is active. Returns whether
  * this call stopped the job.
  */
-export async function stopJob(db: Database, userId: string, id: string) {
+export async function stopJob(
+  db: Database,
+  userId: string,
+  id: string,
+  onStopped?: (tx: Transaction) => Promise<unknown>,
+) {
   return db.transaction(async (tx) => {
     await lockUser(tx, userId);
     const [job] = await tx
@@ -186,7 +192,8 @@ export async function stopJob(db: Database, userId: string, id: string) {
       .from(aiJobs)
       .where(
         and(eq(aiJobs.id, id), eq(aiJobs.userId, userId), inArray(aiJobs.status, openStatuses)),
-      );
+      )
+      .for("update");
     if (!job) return false;
     const state = aiJobStateSchema.safeParse(job.state).data;
     const cost = state
@@ -202,6 +209,7 @@ export async function stopJob(db: Database, userId: string, id: string) {
         ...chargeColumns(charge),
       })
       .where(eq(aiJobs.id, id));
+    await onStopped?.(tx);
     return true;
   });
 }

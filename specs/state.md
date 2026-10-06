@@ -3,7 +3,7 @@
 > File này ghi lại **đã làm gì, đang làm dở gì, làm tiếp thế nào** để bất kỳ ai (người hoặc agent) cũng có thể tiếp tục.
 > Thời gian theo giờ Việt Nam (UTC+7). Mục mới nhất ở trên cùng của phần Nhật ký.
 
-**Cập nhật lần cuối:** 2026-10-06 12:02 +07
+**Cập nhật lần cuối:** 2026-10-06 14:03 +07
 **Phase hiện tại:** AI (tốc độ + credit) xong trên nhánh `feat/ai-pipeline-speed` (PR #1 vào `main`, **chưa merge**). Phase 5 cộng đồng **hoàn tất (đợt 1–6)** trên nhánh `feat/phase5-community` (tách từ nhánh AI, chưa push/PR). Phase 4 (SRS) vẫn đang dở.
 **Tình trạng:** Người dùng yêu cầu hoàn thành toàn bộ Phase 2–6 và cập nhật state khi từng phase xong. Không coi credentials, deployment hay beta bên ngoài đã hoàn tất nếu chưa thực hiện.
 
@@ -50,6 +50,22 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 **Bước tiếp theo:** (1) user merge PR #1 sau khi chạy migration 0006–0008 trên Neon; (2) push `feat/phase5-community` + tạo PR (migration 0009–0013); (3) các mục bảo mật còn để lại (xem nhật ký đợt 6); (4) quay lại Phase 4 (SRS) phần còn dở.
 
 ## Nhật ký
+
+### 2026-10-06 14:03 +07: ✅ Khu quản trị hoàn tất, mọi kiểm tra pass
+
+- E2E toàn dự án 44 pass, 2 skip (Groq live). Lỗi auth/thư mục ở lượt trước là do tải, không tái hiện.
+- Sửa race trong E2E hủy job của admin: job thuộc user khác thay vì chính admin (trình duyệt admin tự chạy tiếp job của mình), chờ toast thay vì chờ bảng bị ẩn sau dialog, dòng bộ thẻ xác định bằng link chủ sở hữu.
+- Typecheck, lint (0 lỗi), unit 456, integration 169, build đều pass. Tick tiêu chí nghiệm thu cuối trong `specs/adminpage.md`.
+- Tiếp theo: push `feat/admin-console` + PR vào `main` (không cần migration).
+
+### 2026-10-06 13:23 +07: Khu quản trị đã có layout và UI; đang xác nhận E2E hồi quy
+
+- Nhánh `feat/admin-console`: hoàn thành Bước 2–3 trong `specs/adminpage.md`, gồm layout bảo vệ bằng DB, menu 6 mục, tổng quan, kiểm duyệt, người dùng/chi tiết, AI & credit, bộ thẻ và audit.
+- `src/features/admin/` có bảng responsive, bộ lọc/cursor URL, confirm cho thao tác nguy hiểm, cấp quyền hai bước, TanStack Query + toast. Bản dịch vi/en/zh chuyển sang `admin.*`; UserMenu đổi thành Quản trị.
+- Review code/security độc lập phát hiện và đã sửa race thu quyền/khóa giữa admin, job đọc state không khóa khi hủy, cancellation thiếu audit nguyên tử và ledger.ref sai audit ID. Có integration regression; security reviewer đã đọc lại bản sửa.
+- Unit **456 pass**; integration toàn dự án **168 pass** trước test ban đồng thời bổ sung; suite admin hiện 17 test. Lint 0 lỗi/2 cảnh báo cũ; typecheck/format/build pass.
+- E2E admin đã pass luồng quản lý user/credit/audit, axe + 320/768/1440 ở sáng/tối. Test hủy job, ẩn/khôi phục/history và đổi ngôn ngữ cũng đã pass. Full E2E 46 test đang chạy; test auth đăng xuất và test thư mục đã thất bại, chưa tick nghiệm thu cuối.
+- Còn lại: xác nhận lượt E2E toàn dự án, kiểm tra lại lỗi auth/thư mục trước nghiệm thu. Chi tiết tiến độ tại `specs/adminpage.md`. Không cần migration mới; chưa push/PR.
 
 ### 2026-10-06 12:02 +07: 🛠️ Khu quản trị: Bước 1 (server) xong
 

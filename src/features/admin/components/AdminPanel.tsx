@@ -5,6 +5,8 @@ import { ExternalLink, ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { z } from "zod";
+import { ActionButton } from "./ActionButton";
+import { QueryStatus } from "./QueryStatus";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { createHttpClient } from "@/lib/http-client";
@@ -45,7 +47,7 @@ function Row({
   link: string | null;
   actions: ReactNode;
 }) {
-  const t = useTranslations("community.admin");
+  const t = useTranslations("admin");
   return (
     <li className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
@@ -78,7 +80,7 @@ function Section({
   empty: boolean;
   children: ReactNode;
 }) {
-  const t = useTranslations("community.admin");
+  const t = useTranslations("admin");
   return (
     <section aria-labelledby={id} className="flex flex-col gap-3">
       <h2 id={id} className="text-xl font-bold">
@@ -99,7 +101,8 @@ function Section({
 
 /** Moderator workspace: open reports and public sets the automatic check could not clear. */
 export function AdminPanel() {
-  const t = useTranslations("community");
+  const t = useTranslations("admin");
+  const reasons = useTranslations("community.reasons");
   const { toast } = useToast();
   const errorMessage = useErrorMessage();
   const queryClient = useQueryClient();
@@ -116,7 +119,7 @@ export function AdminPanel() {
     mutationFn: ({ path, body = {} }: { path: string; body?: object }) =>
       client.request(`/api/v1/admin/${path}`, z.null(), { method: "POST", body }),
     onSuccess: () => {
-      toast(t("admin.done"));
+      toast(t("done"));
       void queryClient.invalidateQueries({ queryKey: ["admin"] });
     },
     onError: (error) => toast(errorMessage(error), "error"),
@@ -126,37 +129,46 @@ export function AdminPanel() {
     path: string,
     body?: object,
     variant: "secondary" | "soft" | "ghost" = "secondary",
-  ) => (
-    <Button
-      size="sm"
-      variant={variant}
-      disabled={act.isPending}
-      onClick={() => act.mutate({ path, body })}
-    >
-      {label}
-    </Button>
-  );
+  ) =>
+    path.endsWith("/resolve") && (body as { action?: string })?.action === "ban" ? (
+      <ActionButton label={label} path={path} body={body} />
+    ) : (
+      <Button
+        size="sm"
+        variant={variant}
+        disabled={act.isPending}
+        onClick={() => act.mutate({ path, body })}
+      >
+        {label}
+      </Button>
+    );
 
   return (
     <div className="flex flex-col gap-10">
       <h1 className="flex items-center gap-3 text-title font-extrabold">
         <ShieldCheck className="size-8 text-primary" aria-hidden />
-        {t("admin.title")}
+        {t("moderation")}
       </h1>
-      <Section id="admin-reports" title={t("admin.reports")} empty={!reports.data?.length}>
+      <QueryStatus query={reports} />
+      <QueryStatus query={queue} />
+      <Section
+        id="admin-reports"
+        title={t("reports")}
+        empty={!!reports.data && !reports.data.length}
+      >
         {reports.data?.map((report) => (
           <Row
             key={report.id}
             title={
               report.targetType === "set"
-                ? t("admin.reportedSet", {
+                ? t("reportedSet", {
                     title: report.setTitle ?? "?",
                     name: report.userName ?? "?",
                   })
-                : t("admin.reportedUser", { name: report.userName ?? "?" })
+                : t("reportedUser", { name: report.userName ?? "?" })
             }
             detail={[
-              t(`reasons.${report.reason}`),
+              reasons(report.reason),
               report.note,
               new Date(report.createdAt).toLocaleString(),
             ]
@@ -166,31 +178,31 @@ export function AdminPanel() {
             actions={
               <>
                 {button(
-                  t("admin.dismiss"),
+                  t("dismiss"),
                   `reports/${report.id}/resolve`,
                   { action: "dismiss" },
                   "ghost",
                 )}
                 {report.targetType === "set"
-                  ? button(t("admin.hide"), `reports/${report.id}/resolve`, { action: "hide" })
+                  ? button(t("hide"), `reports/${report.id}/resolve`, { action: "hide" })
                   : null}
-                {button(t("admin.ban"), `reports/${report.id}/resolve`, { action: "ban" }, "soft")}
+                {button(t("ban"), `reports/${report.id}/resolve`, { action: "ban" }, "soft")}
               </>
             }
           />
         ))}
       </Section>
-      <Section id="admin-queue" title={t("admin.queue")} empty={!queue.data?.length}>
+      <Section id="admin-queue" title={t("queue")} empty={!!queue.data && !queue.data.length}>
         {queue.data?.map((set) => (
           <Row
             key={set.id}
             title={set.title}
-            detail={[t(`admin.status.${set.status}`), set.reason].filter(Boolean).join(" · ")}
+            detail={[t(`status.${set.status}`), set.reason].filter(Boolean).join(" · ")}
             link={set.slug ? `/s/${set.slug}` : null}
             actions={
               <>
-                {button(t("admin.approve"), `sets/${set.id}/approve`)}
-                {button(t("admin.reject"), `sets/${set.id}/reject`, {}, "soft")}
+                {button(t("approve"), `sets/${set.id}/approve`)}
+                {button(t("reject"), `sets/${set.id}/reject`, {}, "soft")}
               </>
             }
           />

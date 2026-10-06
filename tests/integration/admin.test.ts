@@ -9,6 +9,10 @@ import type { Database } from "@/server/db/client";
 import { creditStatus } from "@/server/ai/credits";
 import { adminApi } from "@/server/admin-api";
 import { communityApi } from "@/server/community-api";
+import { stopJob } from "@/server/ai/jobs";
+import { setBanned } from "@/server/services/reports";
+import { setRole } from "@/server/services/admin/users";
+import { initialState } from "@/server/ai/job-steps";
 import { ADMIN_PAGE_SIZE } from "@/server/services/admin/schemas";
 
 vi.mock("@/server/env", () => ({ getServerEnv: () => ({ AI_GLOBAL_DAILY_TOKENS: 350_000 }) }));
@@ -61,32 +65,43 @@ beforeEach(async () => {
 afterAll(() => connection.end());
 
 describe("admin access", () => {
-  const paths = [
-    "admin/overview",
-    "admin/users",
-    `admin/users/${member}`,
-    "admin/jobs",
-    "admin/sets",
-    "admin/audit",
-    "admin/reports",
-    "admin/moderation",
+  const endpoints = [
+    { path: "admin/overview" },
+    { path: "admin/users" },
+    { path: `admin/users/${member}` },
+    { path: "admin/jobs" },
+    { path: "admin/sets" },
+    { path: "admin/audit" },
+    { path: "admin/reports" },
+    { path: "admin/moderation" },
+    { path: `admin/sets/${v7()}/history` },
+    ...["ban", "unban", "credits"].map((action) => ({
+      path: `admin/users/${member}/${action}`,
+      method: "POST",
+      body: { delta: 5, note: "x" },
+    })),
+    { path: `admin/users/${member}/role`, method: "PATCH", body: { role: "admin" } },
+    { path: `admin/jobs/${v7()}/cancel`, method: "POST" },
+    { path: `admin/reports/${v7()}/resolve`, method: "POST", body: { action: "dismiss" } },
+    ...["approve", "reject", "hide", "restore"].map((action) => ({
+      path: `admin/sets/${v7()}/${action}`,
+      method: "POST",
+      body: {},
+    })),
   ];
-
-  it("refuses members on every admin route", async () => {
-    for (const path of paths)
-      await expect(call(member, path)).rejects.toMatchObject({ status: 403 });
-    await expect(
-      call(member, `admin/users/${admin}/credits`, {
-        method: "POST",
-        body: { delta: 5, note: "x" },
-      }),
-    ).rejects.toMatchObject({ status: 403 });
-  });
-
-  it("refuses a locked admin", async () => {
-    await db.update(schema.user).set({ bannedAt: new Date() }).where(eq(schema.user.id, admin));
-    await expect(call(admin, "admin/overview")).rejects.toMatchObject({ status: 403 });
-  });
+  it.each(["member", "banned", "deleted"])(
+    "refuses %s on every read and write route",
+    async (state) => {
+      const actor = state === "member" ? member : admin;
+      if (state !== "member")
+        await db
+          .update(schema.user)
+          .set(state === "banned" ? { bannedAt: new Date() } : { deletedAt: new Date() })
+          .where(eq(schema.user.id, actor));
+      for (const { path, ...init } of endpoints)
+        await expect(call(actor, path, init)).rejects.toMatchObject({ status: 403 });
+    },
+  );
 
   it("is reached through the community router and 404s unknown admin paths", async () => {
     const request = new Request("http://test/api/v1/admin/overview");
@@ -148,6 +163,32 @@ describe("users", () => {
   });
 });
 
+describe("concurrent role changes", () => {
+  it("keeps an active admin when two admins ban each other concurrently", async () => {
+    await db.update(schema.user).set({ role: "admin" }).where(eq(schema.user.id, member));
+    const results = await Promise.allSettled([
+      setBanned(db, admin, member, true),
+      setBanned(db, member, admin, true),
+    ]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    const admins = await db.select().from(schema.user).where(eq(schema.user.role, "admin"));
+    expect(admins.filter((account) => !account.bannedAt)).toHaveLength(1);
+    expect(await auditActions()).toEqual(["user_ban"]);
+  });
+
+  it("keeps an admin when two admins revoke each other concurrently", async () => {
+    await db.update(schema.user).set({ role: "admin" }).where(eq(schema.user.id, member));
+    const results = await Promise.allSettled([
+      setRole(db, admin, member, { role: "user" }),
+      setRole(db, member, admin, { role: "user" }),
+    ]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    const admins = await db.select().from(schema.user).where(eq(schema.user.role, "admin"));
+    expect(admins).toHaveLength(1);
+    expect(await auditActions()).toEqual(["user_revoke_admin"]);
+  });
+});
+
 describe("credits", () => {
   const adjust = (target: string, delta: number) =>
     call(admin, `admin/users/${target}/credits`, {
@@ -161,6 +202,22 @@ describe("credits", () => {
     await adjust(member, -15);
     expect((await creditStatus(db, member)).earned).toBe(25);
     expect(await auditActions()).toEqual(["credit_adjust", "credit_adjust"]);
+  });
+
+  it("references the audit ID and corrects a negative clawback baseline", async () => {
+    await db
+      .insert(schema.creditLedger)
+      .values({ id: v7(), userId: member, delta: -5, reason: "clawback", ref: v7() });
+    await adjust(member, 3);
+    expect((await creditStatus(db, member)).earned).toBe(3);
+    const [entry] = await db
+      .select()
+      .from(schema.creditLedger)
+      .where(eq(schema.creditLedger.reason, "admin_adjust"));
+    const [audit] = await db.select().from(schema.auditLogs);
+    expect(entry.ref).toBe(audit.id);
+    expect(audit.meta).toMatchObject({ delta: 3, baselineCorrection: 5 });
+    expect(await auditActions()).toEqual(["credit_adjust"]);
   });
 
   it("refuses to go below zero, to adjust oneself, or a bad amount", async () => {
@@ -182,6 +239,36 @@ describe("AI jobs", () => {
       expect.objectContaining({ status: "generating", userEmail: "a-member@example.com" }),
     ]);
     expect((await data<Page>(call(admin, "admin/jobs"))).items).toHaveLength(2);
+  });
+
+  it("rolls back cancellation and credit charging when its audit fails", async () => {
+    const [job] = await insertJob(member, "generating");
+    await db
+      .update(schema.aiJobs)
+      .set({
+        creditsReserved: 8,
+        state: {
+          ...initialState(),
+          rawCards: Array.from({ length: 16 }, () => ({
+            term: "a",
+            definition: "b",
+            phonetic: "",
+          })),
+        },
+      })
+      .where(eq(schema.aiJobs.id, job.id));
+    await expect(
+      stopJob(db, member, job.id, async () => {
+        throw new Error("Audit failed");
+      }),
+    ).rejects.toThrow("Audit failed");
+    const [row] = await db.select().from(schema.aiJobs).where(eq(schema.aiJobs.id, job.id));
+    expect(row).toMatchObject({ status: "generating", creditsReserved: 8, creditsCharged: 0 });
+    await call(admin, `admin/jobs/${job.id}/cancel`, { method: "POST" });
+    const [cancelled] = await db.select().from(schema.aiJobs).where(eq(schema.aiJobs.id, job.id));
+    expect(cancelled).toMatchObject({ status: "cancelled", creditsReserved: 0, creditsCharged: 4 });
+    expect((await creditStatus(db, member)).reserved).toBe(0);
+    expect(await auditActions()).toEqual(["job_cancel"]);
   });
 
   it("cancels an open job once and audits it", async () => {

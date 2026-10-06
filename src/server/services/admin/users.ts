@@ -6,6 +6,7 @@ import { creditStatus } from "../../ai/credits";
 import type { Database } from "../../db/client";
 import { aiJobs, creditLedger, reports, studySets, user } from "../../db/schema";
 import { audit } from "../moderation";
+import { lockAdminChange } from "../access";
 import {
   ADMIN_PAGE_SIZE,
   containsPattern,
@@ -106,8 +107,8 @@ export async function getUserDetail(db: Database, userId: string) {
 }
 
 /**
- * Grants or removes the admin role. Admins cannot change their own role, so the acting admin
- * always remains and the last admin can never be demoted. Locked or deleted accounts cannot be
+ * Grants or removes the admin role. Changes are serialized and the acting admin is rechecked
+ * inside the transaction, so concurrent revocations cannot remove the last admin. Locked or deleted accounts cannot be
  * made admins.
  */
 export async function setRole(db: Database, adminId: string, userId: string, input: unknown) {
@@ -115,6 +116,7 @@ export async function setRole(db: Database, adminId: string, userId: string, inp
   const { role } = roleInput.parse(input);
   if (id === adminId) throw new ApiError(400, "VALIDATION_ERROR");
   await db.transaction(async (tx) => {
+    await lockAdminChange(tx, adminId);
     const [target] = await tx
       .select({ role: user.role, bannedAt: user.bannedAt, deletedAt: user.deletedAt })
       .from(user)
@@ -124,6 +126,10 @@ export async function setRole(db: Database, adminId: string, userId: string, inp
     if (role === "admin" && (target.bannedAt || target.deletedAt))
       throw new ApiError(400, "VALIDATION_ERROR");
     if (target.role === role) return;
+    if (target.role === "admin" && role === "user") {
+      const [admins] = await tx.select({ count: count() }).from(user).where(eq(user.role, "admin"));
+      if (admins.count <= 1) throw new ApiError(400, "VALIDATION_ERROR");
+    }
     await tx.update(user).set({ role, updatedAt: new Date() }).where(eq(user.id, id));
     await audit(tx, {
       actorId: adminId,

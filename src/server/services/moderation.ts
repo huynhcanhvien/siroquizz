@@ -71,6 +71,7 @@ export function moderationSample(
 export const audit = (
   db: Db,
   entry: {
+    id?: string;
     actorId: string | null;
     action: string;
     targetType: "set" | "user" | "job";
