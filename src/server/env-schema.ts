@@ -32,7 +32,8 @@ export const serverEnvSchema = z
     AI_MAX_ACTIVE_JOBS: z.coerce.number().int().min(1).max(20).default(2),
     // App-wide credits per day (1 = 1,000 tokens): ~80% of the free key's 200k tokens/day for each
     // of the two text models plus the vision model.
-    AI_GLOBAL_DAILY_CREDITS: z.coerce.number().int().min(1).default(480),
+    // App-wide provider tokens per day on the shared key: two text models with 200k each, less margin.
+    AI_GLOBAL_DAILY_TOKENS: z.coerce.number().int().min(1).default(350_000),
     S3_ENDPOINT: optionalUrl,
     S3_ACCESS_KEY_ID: optionalString,
     S3_SECRET_ACCESS_KEY: optionalString,

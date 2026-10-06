@@ -17,7 +17,7 @@ vi.mock("@/server/ai/groq", async (importOriginal) => ({
     model: "m",
   })),
 }));
-vi.mock("@/server/env", () => ({ getServerEnv: () => ({ AI_GLOBAL_DAILY_CREDITS: 480 }) }));
+vi.mock("@/server/env", () => ({ getServerEnv: () => ({ AI_GLOBAL_DAILY_TOKENS: 350_000 }) }));
 vi.mock("@/server/rate-limit", () => ({ enforceLimit: vi.fn() }));
 
 const url =

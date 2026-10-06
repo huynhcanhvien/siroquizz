@@ -19,7 +19,7 @@ import {
 } from "@/server/ai/credits";
 
 vi.mock("@/server/rate-limit", () => ({ enforceLimit: vi.fn() }));
-vi.mock("@/server/env", () => ({ getServerEnv: () => ({ AI_GLOBAL_DAILY_CREDITS: 480 }) }));
+vi.mock("@/server/env", () => ({ getServerEnv: () => ({ AI_GLOBAL_DAILY_TOKENS: 350_000 }) }));
 const url =
   process.env.TEST_DATABASE_URL ??
   "postgresql://siroquizz:siroquizz_local_only@localhost:5433/siroquizz_test";
@@ -53,11 +53,11 @@ async function openJob(userId: string) {
   return id;
 }
 /** Charges a finished job the way the job runner does, storing the charge on the job. */
-async function charge(userId: string, tokens: number, refund = false) {
+async function charge(userId: string, credits: number, refund = false) {
   const jobId = await openJob(userId);
   return db.transaction(async (tx) => {
     await lockUser(tx, userId);
-    const result = await chargeJob(tx, userId, jobId, tokens, refund);
+    const result = await chargeJob(tx, userId, jobId, credits, refund);
     await tx
       .update(schema.aiJobs)
       .set({ status: "done", finishedAt: new Date(), ...chargeColumns(result) })
@@ -102,7 +102,7 @@ it("gives 20 free credits a day that reset at Vietnam midnight and never accumul
   expect((await creditStatus(db, author)).dailyRemaining).toBe(20);
 });
 
-it("charges tokens actually spent, today's free credits first, then earned ones", async () => {
+it("charges today's free credits first, then earned ones", async () => {
   await finishedJob(author, 18);
   await awardPublishCredit(db, {
     authorId: author,
@@ -110,16 +110,16 @@ it("charges tokens actually spent, today's free credits first, then earned ones"
     cardCount: 12,
     copiedFromId: null,
   });
-  // 4,200 tokens round up to 5 credits: 2 free, 3 earned.
-  await expect(charge(author, 4200)).resolves.toEqual({ credits: 5, daily: 2, refunded: false });
+  // 5 credits: 2 free, 3 earned.
+  await expect(charge(author, 5)).resolves.toEqual({ credits: 5, daily: 2, refunded: false });
   expect(await creditStatus(db, author)).toMatchObject({ dailyRemaining: 0, earned: 2 });
   // Never charges more than the user has.
-  await expect(charge(author, 50_000)).resolves.toMatchObject({ credits: 2, daily: 0 });
+  await expect(charge(author, 50)).resolves.toMatchObject({ credits: 2, daily: 0 });
   expect((await creditStatus(db, author)).earned).toBe(0);
 });
 
 it("refunds system failures in full", async () => {
-  await expect(charge(author, 9000, true)).resolves.toEqual({
+  await expect(charge(author, 9, true)).resolves.toEqual({
     credits: 0,
     daily: 0,
     refunded: true,
@@ -131,7 +131,7 @@ it("reserves credits for accepted jobs and rejects what cannot be paid", async (
   const first = await openJob(author);
   await db.transaction(async (tx) => {
     await lockUser(tx, author);
-    await reserveCredits(tx, author, first, 15);
+    await reserveCredits(tx, author, first, 15, 1000);
   });
   expect(await creditStatus(db, author)).toMatchObject({ reserved: 0, available: 20 });
   // Reservations only count while the job runs.
@@ -141,10 +141,10 @@ it("reserves credits for accepted jobs and rejects what cannot be paid", async (
   const reserve = (credits: number) =>
     db.transaction(async (tx) => {
       await lockUser(tx, author);
-      await reserveCredits(tx, author, second, credits);
+      await reserveCredits(tx, author, second, credits, 1000);
     });
   await expect(reserve(6)).rejects.toMatchObject({ code: "AI_CREDITS_EXCEEDED" });
-  await expect(reserve(41)).rejects.toMatchObject({ code: "AI_JOB_TOO_LARGE" });
+  await expect(reserve(51)).rejects.toMatchObject({ code: "AI_JOB_TOO_LARGE" });
   await expect(reserve(5)).resolves.toBeUndefined();
 });
 

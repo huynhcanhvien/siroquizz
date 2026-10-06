@@ -16,8 +16,10 @@ import {
 } from "@/features/ai-generate/lib/generator";
 import {
   SYSTEM_ERROR_CODES,
-  creditsForTokens,
-  estimateGenerationCredits,
+  OCR_CREDITS_PER_PAGE,
+  creditsForCards,
+  estimateGenerationTokens,
+  jobCredits,
 } from "@/features/ai-generate/lib/credits";
 import { ApiError } from "../api-error";
 import type { Database } from "../db/client";
@@ -104,7 +106,8 @@ export async function createJob(db: Database, userId: string, input: unknown) {
     if (open.count >= MAX_OPEN_JOBS_PER_USER) throw new ApiError(429, "AI_BUSY");
     if ((await creditStatus(tx, userId)).available < 1)
       throw new ApiError(402, "AI_CREDITS_EXCEEDED");
-    await assertGlobalCapacity(tx, 1);
+    // Only refuses once the shared key's daily budget is spent; each step is checked as it runs.
+    await assertGlobalCapacity(tx, 0);
     const uploads = data.uploadIds.length
       ? await tx
           .select()
@@ -165,7 +168,7 @@ export async function listJobs(db: Database, userId: string, limit = 10) {
     creditsCharged: job.creditsCharged,
   }));
 }
-/** Stops a job at the user's request; the tokens it already spent are charged. */
+/** Stops a job at the user's request; pages read by OCR and cards already made are charged. */
 export async function cancelJob(db: Database, userId: string, id: string) {
   await requireJob(db, userId, id);
   await db.transaction(async (tx) => {
@@ -176,8 +179,10 @@ export async function cancelJob(db: Database, userId: string, id: string) {
       .where(and(eq(aiJobs.id, id), inArray(aiJobs.status, openStatuses)));
     if (!job) return;
     const state = aiJobStateSchema.safeParse(job.state).data;
-    const tokens = state && !state.cached ? state.usage.input + state.usage.output : 0;
-    const charge = await chargeJob(tx, userId, id, tokens, false);
+    const cost = state
+      ? jobCredits({ ocrPages: state.ocrPages, cards: state.rawCards.length, cached: state.cached })
+      : 0;
+    const charge = await chargeJob(tx, userId, id, cost, false);
     await tx
       .update(aiJobs)
       .set({
@@ -210,9 +215,14 @@ export async function confirmJob(db: Database, userId: string, id: string, input
     const chunks = state.chunks ?? [""];
     state.tasks = planTasks(chunks.length, count);
     state.totalTasks = state.tasks.length;
-    const generation = estimateGenerationCredits(state.chunkTokens ?? [], count);
-    const used = creditsForTokens(state.cached ? 0 : state.usage.input + state.usage.output);
-    await reserveCredits(tx, userId, id, used + generation);
+    const used = (state.ocrPages ?? 0) * OCR_CREDITS_PER_PAGE;
+    await reserveCredits(
+      tx,
+      userId,
+      id,
+      used + creditsForCards(count),
+      estimateGenerationTokens(state.chunkTokens ?? [], count),
+    );
     await tx
       .update(aiJobs)
       .set({ status: "queued", state, options: { ...options, cardCount: count } })

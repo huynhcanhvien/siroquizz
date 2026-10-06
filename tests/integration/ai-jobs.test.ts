@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, afterAll, expect, it, vi } from "vitest";
+import { creditsForCards } from "@/features/ai-generate/lib/credits";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
@@ -39,7 +40,7 @@ async function runToEnd(
 }
 import { ApiError } from "@/server/api-error";
 const provider = vi.hoisted(() => vi.fn());
-const queue = vi.hoisted(() => ({ slots: 20, globalCredits: 480 }));
+const queue = vi.hoisted(() => ({ slots: 20, globalTokens: 350_000 }));
 vi.mock("@/server/ai/groq", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/ai/groq")>()),
   groqJson: provider,
@@ -51,6 +52,7 @@ vi.mock("@/server/ai/extract", async (importOriginal) => ({
   extractDocument: vi.fn(async () => ({
     text: "cat - mèo\ndog - chó",
     pages: 1,
+    ocrPages: 0,
     usage: { input: 0, output: 0, cached: 0, cost: 0 },
   })),
 }));
@@ -61,7 +63,7 @@ vi.mock("@/server/env", () => ({
     GROQ_TEXT_MODEL: "openai/gpt-oss-120b",
     GROQ_FALLBACK_MODEL: "openai/gpt-oss-20b",
     AI_MAX_ACTIVE_JOBS: queue.slots,
-    AI_GLOBAL_DAILY_CREDITS: queue.globalCredits,
+    AI_GLOBAL_DAILY_TOKENS: queue.globalTokens,
   }),
 }));
 const url =
@@ -95,7 +97,7 @@ beforeEach(async () => {
   ]);
   provider.mockReset().mockResolvedValue(output);
   queue.slots = 20;
-  queue.globalCredits = 480;
+  queue.globalTokens = 350_000;
 });
 /** Today's free credits left for a user. */
 const daily = async (userId: string) => (await getQuota(db, userId)).dailyRemaining;
@@ -399,7 +401,8 @@ it("asks before an expensive generation and reserves what the user accepts", asy
 });
 it("refuses a confirmation the user cannot afford, then spends earned credits", async () => {
   await spentToday(a, 18);
-  const job = await createJob(db, a, { ...input, options: { ...input.options, cardCount: 80 } });
+  // 40 cards cost 10 credits; only 2 free credits are left today.
+  const job = await createJob(db, a, { ...input, options: { ...input.options, cardCount: 40 } });
   const step = await stepJob(db, a, job.jobId, new AbortController().signal);
   expect(step.status).toBe("awaiting");
   await expect(confirmJob(db, a, job.jobId, {})).rejects.toMatchObject({
@@ -409,17 +412,30 @@ it("refuses a confirmation the user cannot afford, then spends earned credits", 
     .insert(schema.creditLedger)
     .values({ id: v7(), userId: a, delta: 10, reason: "publish_reward", ref: v7() });
   await confirmJob(db, a, job.jobId, {});
-  // Larger responses cost more than the 2 free credits left today; the rest comes from earned.
-  provider.mockResolvedValue({ ...output, usage: { ...output.usage, input: 1500, output: 500 } });
+  // Every request yields new cards; they cost more than the 2 free credits left today, so the
+  // rest comes from earned credits.
+  let made = 0;
+  provider.mockImplementation(async () => ({
+    ...output,
+    data: {
+      cards: Array.from({ length: 10 }, () => ({
+        term: `word ${++made}`,
+        definition: "nghĩa",
+        phonetic: "",
+      })),
+    },
+  }));
   const final = await runToEnd(db, a, job.jobId);
   expect(final.status).toBe("done");
+  expect(final.creditsCharged).toBe(creditsForCards(final.result!.cards.length));
   expect(final.creditsCharged).toBeGreaterThan(2);
   const quota = await getQuota(db, a);
   expect(quota.dailyRemaining).toBe(0);
   expect(quota.earned).toBe(10 - (final.creditsCharged! - 2));
 });
 it("stops new jobs when the app's shared daily allowance is used up", async () => {
-  queue.globalCredits = 1;
+  // 1,100 tokens already spent today against a budget of 1,000.
+  queue.globalTokens = 1000;
   await db.insert(schema.aiJobs).values({
     id: v7(),
     userId: b,

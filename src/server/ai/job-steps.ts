@@ -15,9 +15,11 @@ import {
   MAX_JOB_CREDITS,
   MAX_OCR_PAGES,
   OCR_CREDITS_PER_PAGE,
+  OCR_TOKENS_PER_PAGE,
   SYSTEM_ERROR_CODES,
-  creditsForTokens,
-  estimateGenerationCredits,
+  creditsForCards,
+  estimateGenerationTokens,
+  jobCredits,
 } from "@/features/ai-generate/lib/credits";
 import { parseAutoDetected } from "@/features/sets/lib/import-parser";
 import type { GenerationStage, GenerateResult } from "@/features/ai-generate/lib/generator";
@@ -96,8 +98,8 @@ export const initialState = (): AiJobState => ({
   rawCards: [],
   usage: { input: 0, output: 0, cached: 0, cost: 0 },
 });
-const spentTokens = (state: AiJobState) =>
-  state.cached ? 0 : state.usage.input + state.usage.output;
+/** Credits already earned by the work done before generating: pages the server OCR'd. */
+const readingCredits = (state: AiJobState) => (state.ocrPages ?? 0) * OCR_CREDITS_PER_PAGE;
 
 function loadUploads(db: Database, userId: string, ids: string[]) {
   return ids.length
@@ -149,7 +151,7 @@ async function inspectUploads(
   if (ocrCredits) {
     if (ocrCredits > (await creditStatus(db, userId)).available)
       throw new ApiError(402, "AI_CREDITS_EXCEEDED");
-    await assertGlobalCapacity(db, ocrCredits);
+    await assertGlobalCapacity(db, ocrPages * OCR_TOKENS_PER_PAGE);
   }
   state.pagesCounted = true;
   // Prompt-only requests are not cached: asking again should give fresh cards.
@@ -205,6 +207,7 @@ export async function extractStep(ctx: StepContext): Promise<StepResult> {
         const range = await extractPdfPages(bytes, from, PDF_PAGE_BATCH, signal, ctx.deadline);
         state.texts[state.extractIndex] = (state.texts[state.extractIndex] ?? "") + range.text;
         addUsage(state.usage, range.usage);
+        state.ocrPages = (state.ocrPages ?? 0) + range.ocrPages;
         if (range.nextPage !== from) state.throttledMs = 0;
         if (range.retryAfterMs !== undefined) {
           state.pdfPageCursor = range.nextPage;
@@ -222,6 +225,7 @@ export async function extractStep(ctx: StepContext): Promise<StepResult> {
         const doc = await extractDocument(bytes, upload.name, upload.mime, signal, ctx.deadline);
         state.texts[state.extractIndex] = doc.text;
         addUsage(state.usage, doc.usage);
+        state.ocrPages = (state.ocrPages ?? 0) + doc.ocrPages;
         state.extractIndex++;
         state.pdfPageCursor = 0;
         state.throttledMs = 0;
@@ -264,15 +268,21 @@ async function planGeneration(ctx: StepContext, hasFiles: boolean): Promise<Step
   state.tasks = planTasks(state.chunks.length, cardCount);
   state.totalTasks = state.tasks.length;
   state.phase = "generate";
-  const credits = estimateGenerationCredits(state.chunkTokens, cardCount);
-  const total = creditsForTokens(spentTokens(state)) + credits;
+  const credits = creditsForCards(cardCount);
+  const total = readingCredits(state) + credits;
   // Small requests the free daily credits cover just run; anything else asks the user first.
   const quota = await creditStatus(db, userId);
   if (credits <= AUTO_CONFIRM_CREDITS && total <= quota.dailyRemaining - quota.reserved) {
     const reserved = await db
       .transaction(async (tx) => {
         await lockUser(tx, userId);
-        await reserveCredits(tx, userId, job.id, total);
+        await reserveCredits(
+          tx,
+          userId,
+          job.id,
+          total,
+          estimateGenerationTokens(state.chunkTokens ?? [], cardCount),
+        );
         return true;
       })
       .catch((error: unknown) => {
@@ -300,8 +310,8 @@ export async function awaitingResult(
     status: "awaiting",
     stage: "analyzing",
     estimate: {
-      credits: estimateGenerationCredits(chunkTokens, cardCount),
-      usedCredits: creditsForTokens(spentTokens(state)),
+      credits: creditsForCards(cardCount),
+      usedCredits: readingCredits(state),
       cardCount,
       chunkTokens,
       quota: await creditStatus(db, userId),
@@ -350,7 +360,7 @@ export async function generateStep(ctx: StepContext): Promise<StepResult> {
 }
 
 /**
- * Completes the job and charges the tokens it spent. Returns null when the job was cancelled or
+ * Completes the job and charges for the cards it produced (and pages the server OCR'd). Returns null when the job was cancelled or
  * taken over meanwhile, so the caller reports the job's real state instead.
  */
 export async function finalizeStep({
@@ -376,7 +386,12 @@ export async function finalizeStep({
     .transaction(async (tx) => {
       await lockUser(tx, userId);
       signal.throwIfAborted();
-      const charge = await chargeJob(tx, userId, job.id, spentTokens(state), false);
+      const cost = jobCredits({
+        ocrPages: state.ocrPages,
+        cards: cards.length,
+        cached: state.cached,
+      });
+      const charge = await chargeJob(tx, userId, job.id, cost, false);
       // Conditional completion ensures a concurrent cancellation is never charged twice.
       const updated = await tx
         .update(aiJobs)
@@ -418,8 +433,8 @@ export async function finalizeStep({
 const isRollback = (error: unknown) => error instanceof TransactionRollbackError;
 
 /**
- * Records a failed job. Credits are refunded when the system is at fault; otherwise the tokens
- * already spent (for example OCR before the document turned out unusable) are charged.
+ * Records a failed job. Credits are refunded when the system is at fault; otherwise pages the
+ * server already OCR'd (before the document turned out unusable) are charged.
  */
 export async function failJob(
   db: Database,
@@ -441,7 +456,9 @@ export async function failJob(
   const charge = await db
     .transaction(async (tx) => {
       await lockUser(tx, userId);
-      const result = await chargeJob(tx, userId, jobId, state ? spentTokens(state) : 0, refund);
+      // No cards were delivered; only pages the server OCR'd are charged.
+      const cost = state ? readingCredits(state) : 0;
+      const result = await chargeJob(tx, userId, jobId, cost, refund);
       const updated = await tx
         .update(aiJobs)
         .set({

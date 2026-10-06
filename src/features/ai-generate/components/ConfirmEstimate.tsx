@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Label } from "@/components/ui/fields";
-import { estimateGenerationCredits } from "../lib/credits";
+import { creditsForCards } from "../lib/credits";
 import { CARD_COUNT_MAX, CARD_COUNT_MIN } from "../lib/generator";
 import type { CreditEstimate } from "../schemas";
 
@@ -24,7 +24,7 @@ export function ConfirmEstimate({
   const tCommon = useTranslations("common");
   const countId = useId();
   const [cardCount, setCardCount] = useState(estimate.cardCount);
-  const credits = estimateGenerationCredits(estimate.chunkTokens, cardCount);
+  const credits = creditsForCards(cardCount);
   const total = credits + estimate.usedCredits;
   const tooLarge = total > estimate.maxJobCredits;
   const notEnough = !tooLarge && total > estimate.quota.available;

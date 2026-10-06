@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/Button";
 import { createHttpClient } from "@/lib/http-client";
-import { jobSummarySchema, quotaSchema } from "../schemas";
+import { aiJobsQuery } from "../lib/jobs-query";
+import { quotaSchema } from "../schemas";
 import type { GenerateResult, GenerationOptions } from "../lib/generator";
 const client = createHttpClient();
 export function GenerationHistory({
@@ -16,10 +17,7 @@ export function GenerationHistory({
     queryKey: ["ai-quota"],
     queryFn: async () => (await client.request("/api/v1/ai/quota", quotaSchema)).data,
   });
-  const jobs = useQuery({
-    queryKey: ["ai-jobs"],
-    queryFn: async () => (await client.request("/api/v1/ai/jobs", jobSummarySchema.array())).data,
-  });
+  const jobs = useQuery(aiJobsQuery);
   return (
     <section
       className="rounded-xl border border-border bg-surface p-5"

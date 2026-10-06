@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import type { GenerationOptions } from "../lib/generator";
-import { useAiGeneration } from "../use-ai-generation";
+import { useAiGeneration } from "../AiGenerationProvider";
 import { ConfirmEstimate } from "./ConfirmEstimate";
 import { GenerationProgress } from "./GenerationProgress";
 import { OptionsPanel, PromptPanel } from "./PromptPanel";
@@ -48,7 +48,7 @@ export function AiGenerator() {
   const [files, setFiles] = useState<File[]>([]);
   const [prompt, setPrompt] = useState("");
   const [options, setOptions] = useState<GenerationOptions>(DEFAULT_OPTIONS);
-  const { phase, setPhase, generate, generationNotice, cancel, save, saving } = useAiGeneration();
+  const { phase, setPhase, generate, openResult, cancel, save, saving } = useAiGeneration();
   const hasInput = files.length > 0 || prompt.trim().length > 0;
 
   if (phase.name === "confirm")
@@ -65,7 +65,7 @@ export function AiGenerator() {
         notice={phase.notice}
         onCardsChange={(cards) => setPhase({ ...phase, cards })}
         saving={saving}
-        onSave={(title) => save(title, phase.cards, { prompt, options })}
+        onSave={(title) => save(title, phase.cards)}
         onStartOver={() => setPhase({ name: "compose" })}
       />
     );
@@ -79,12 +79,7 @@ export function AiGenerator() {
           onOpen={(result, previousPrompt, previousOptions) => {
             setOptions(previousOptions);
             setPrompt(previousPrompt);
-            setPhase({
-              name: "review",
-              cards: result.cards.map((card) => ({ ...card, included: true })),
-              title: t("defaultTitle", { source: previousPrompt.slice(0, 40) || t("history") }),
-              notice: generationNotice(result),
-            });
+            openResult(result, previousPrompt, previousOptions);
           }}
         />
       ) : null}

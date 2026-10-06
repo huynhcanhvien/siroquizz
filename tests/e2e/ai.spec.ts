@@ -60,9 +60,13 @@ test("asks to confirm the credit cost of a large request and can decline it", as
   await expect(page.getByRole("heading", { name: "Xác nhận chi phí" })).toBeVisible({
     timeout: 30_000,
   });
-  await expect(page.getByText(/Tạo 200 thẻ sẽ dùng khoảng \d+ credit/)).toBeVisible();
+  // 200 cards cost 50 credits (1 credit = 4 cards), more than today's 20 free credits.
+  await expect(page.getByText("Tạo 200 thẻ sẽ dùng 50 credit (1 credit = 4 thẻ).")).toBeVisible();
+  await expect(page.getByText("Không đủ credit. Hãy giảm số thẻ.")).toBeVisible();
   const confirm = page.getByRole("button", { name: /Tạo thẻ \(\d+ credit\)/ });
-  await expect(confirm).toBeEnabled();
+  await expect(confirm).toBeDisabled();
+  await page.getByLabel("Số thẻ").fill("40");
+  await expect(page.getByRole("button", { name: "Tạo thẻ (10 credit)" })).toBeEnabled();
   await page.getByRole("button", { name: "Hủy" }).click();
   await expect(page.getByText("Đã hủy tạo thẻ.")).toBeVisible();
   // Nothing was generated, so nothing was charged.

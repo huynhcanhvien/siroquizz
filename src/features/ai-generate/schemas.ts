@@ -69,6 +69,8 @@ export const aiJobStateSchema = z.object({
   throttledMs: z.number().int().min(0).optional(),
   /** Hash of the files + request + options; a finished identical job is reused for free. */
   cacheKey: z.string().optional(),
+  /** Scanned pages the server OCR'd, charged per page. */
+  ocrPages: z.number().int().min(0).optional(),
   /** Set when the result came from the cache, so nothing is charged. */
   cached: z.boolean().optional(),
   /** Estimated tokens of each chunk, used to price the generation for any card count. */

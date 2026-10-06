@@ -2,13 +2,13 @@ import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "@/test/render";
-import { estimateGenerationCredits } from "../lib/credits";
+import { creditsForCards } from "../lib/credits";
 import type { CreditEstimate } from "../schemas";
 import { ConfirmEstimate } from "./ConfirmEstimate";
 
 const chunkTokens = Array.from({ length: 20 }, () => 2500);
 const estimate = (available: number): CreditEstimate => ({
-  credits: estimateGenerationCredits(chunkTokens, 40),
+  credits: creditsForCards(40),
   usedCredits: 2,
   cardCount: 40,
   chunkTokens,
@@ -21,17 +21,17 @@ const estimate = (available: number): CreditEstimate => ({
     available,
     resetsAt: "2026-10-05T17:00:00.000Z",
   },
-  maxJobCredits: 40,
+  maxJobCredits: 50,
 });
 
 describe("ConfirmEstimate", () => {
   it("prices the requested cards and goes ahead with the chosen count", async () => {
     const onDecide = vi.fn();
     renderWithProviders(<ConfirmEstimate estimate={estimate(40)} onDecide={onDecide} />);
-    const total = estimateGenerationCredits(chunkTokens, 40) + 2;
+    const total = creditsForCards(40) + 2;
     await userEvent.click(screen.getByRole("button", { name: `Tạo thẻ (${total} credit)` }));
     expect(onDecide).toHaveBeenCalledWith(40);
-    expect(screen.getByText(/Đã dùng 2 credit để đọc/)).toBeInTheDocument();
+    expect(screen.getByText(/Đã dùng 2 credit để máy chủ đọc/)).toBeInTheDocument();
   });
 
   it("blocks a request the user cannot afford until fewer cards are asked for", async () => {
@@ -47,9 +47,12 @@ describe("ConfirmEstimate", () => {
 
   it("explains the per-generation limit", () => {
     renderWithProviders(
-      <ConfirmEstimate estimate={{ ...estimate(400), cardCount: 200 }} onDecide={vi.fn()} />,
+      <ConfirmEstimate
+        estimate={{ ...estimate(400), cardCount: 200, usedCredits: 5 }}
+        onDecide={vi.fn()}
+      />,
     );
-    expect(screen.getByRole("alert")).toHaveTextContent("Vượt giới hạn 40 credit");
+    expect(screen.getByRole("alert")).toHaveTextContent("Vượt giới hạn 50 credit");
   });
 
   it("cancels", async () => {
