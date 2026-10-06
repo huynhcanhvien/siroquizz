@@ -8,7 +8,13 @@ import * as schema from "@/server/db/schema";
 import type { Database } from "@/server/db/client";
 import { ApiError } from "@/server/api-error";
 import { canEditSet, canViewSet, isListed, type SetRow } from "@/server/services/access";
-import { createSetInTransaction, getSet, updateSet } from "@/server/services/sets";
+import {
+  createSetInTransaction,
+  duplicateSet,
+  getSet,
+  removeSet,
+  updateSet,
+} from "@/server/services/sets";
 import {
   copyPublicSet,
   getPublicSet,
@@ -75,9 +81,28 @@ beforeAll(() => migrate(db, { migrationsFolder: "drizzle" }));
 beforeEach(async () => {
   await db.execute(sql`truncate "user" cascade`);
   await db.insert(schema.user).values([
-    { id: owner, name: "Owner", email: "c-owner@example.com", emailVerified: true },
-    { id: other, name: "Other", email: "c-other@example.com", emailVerified: true },
-    { id: admin, name: "Mod", email: "c-admin@example.com", emailVerified: true, role: "admin" },
+    {
+      id: owner,
+      name: "Owner",
+      email: "c-owner@example.com",
+      emailVerified: true,
+      createdAt: new Date(Date.now() - 2 * 86400_000),
+    },
+    {
+      id: other,
+      name: "Other",
+      email: "c-other@example.com",
+      emailVerified: true,
+      createdAt: new Date(Date.now() - 2 * 86400_000),
+    },
+    {
+      id: admin,
+      name: "Mod",
+      email: "c-admin@example.com",
+      emailVerified: true,
+      createdAt: new Date(Date.now() - 2 * 86400_000),
+      role: "admin",
+    },
   ]);
   verdict.mockReset().mockResolvedValue(safe);
 });
@@ -94,11 +119,14 @@ describe("access rules", () => {
   } as unknown as SetRow;
   const set = (changes: Partial<SetRow>) => ({ ...base, ...changes }) as SetRow;
 
-  it("private: only the owner (and a moderator) can view", () => {
+  it("private: only the owner can view, not even a moderator", () => {
     expect(canViewSet(owner, base)).toBe(true);
     expect(canViewSet(other, base)).toBe(false);
     expect(canViewSet(null, base)).toBe(false);
-    expect(canViewSet(admin, base, { viewerIsAdmin: true })).toBe(true);
+    expect(canViewSet(admin, base, { viewerIsAdmin: true })).toBe(false);
+    // Moderators do see shared sets that were taken down, to review them.
+    const hidden = set({ visibility: "unlisted", hiddenAt: new Date() });
+    expect(canViewSet(admin, hidden, { viewerIsAdmin: true })).toBe(true);
   });
   it("unlisted and public: anyone with the link, including guests", () => {
     for (const visibility of ["unlisted", "public"] as const) {
@@ -349,5 +377,67 @@ describe("reports and bans", () => {
     await expect(communityApi(db, admin, request, ["admin", "reports"])).resolves.toEqual({
       data: [],
     });
+  });
+});
+
+describe("security review fixes", () => {
+  it("re-checks a set whose content changed while it was not public", async () => {
+    const created = await createSet();
+    await share(created.id, "public");
+    expect(await earned(owner)).toBe(5);
+    await share(created.id, "private");
+    verdict.mockResolvedValue(unsafe);
+    await updateSet(db, owner, created.id, {
+      title: "Now abusive",
+      description: "",
+      termLang: "en",
+      definitionLang: "vi",
+      source: "manual",
+      cards: tenCards,
+    });
+    expect((await row(created.id)).moderationStatus).toBe("none");
+    expect(await share(created.id, "public")).toMatchObject({ moderationStatus: "flagged" });
+  });
+  it("closes every shared link of a flagged set, unlisted included", async () => {
+    verdict.mockResolvedValue(unsafe);
+    const created = await createSet();
+    const { slug } = await share(created.id, "public");
+    await share(created.id, "unlisted");
+    await expect(getPublicSet(db, null, slug!)).rejects.toMatchObject({ status: 404 });
+    await expect(getPublicSet(db, owner, slug!)).resolves.toMatchObject({ isOwner: true });
+  });
+  it("takes back the publish reward when the set is deleted", async () => {
+    const created = await createSet();
+    await share(created.id, "public");
+    expect(await earned(owner)).toBe(5);
+    await removeSet(db, owner, created.id);
+    expect(await earned(owner)).toBe(0);
+  });
+  it("pays no publish reward to day-old accounts or past three a day", async () => {
+    await db.update(schema.user).set({ createdAt: new Date() }).where(eq(schema.user.id, owner));
+    await share((await createSet()).id, "public");
+    expect(await earned(owner)).toBe(0);
+    await db
+      .update(schema.user)
+      .set({ createdAt: new Date(Date.now() - 3 * 86400_000) })
+      .where(eq(schema.user.id, owner));
+    for (let i = 0; i < 4; i++)
+      await share((await createSet(owner, tenCards, `S${i}`)).id, "public");
+    expect(await earned(owner)).toBe(3 * 5);
+  });
+  it("keeps attribution when duplicating someone else's set, so republishing earns nothing", async () => {
+    const created = await createSet();
+    const { slug } = await share(created.id, "unlisted");
+    const copy = await duplicateSet(db, other, created.id, "Mine now");
+    expect((await row(copy.id)).copiedFromId).toBe(created.id);
+    await setVisibility(db, other, copy.id, { visibility: "public" });
+    expect(await earned(other)).toBe(0);
+    expect(slug).toBeTruthy();
+  });
+  it("takes a deleted account's shared sets offline", async () => {
+    const created = await createSet();
+    const { slug } = await share(created.id, "unlisted");
+    await db.update(schema.user).set({ deletedAt: new Date() }).where(eq(schema.user.id, owner));
+    await expect(getPublicSet(db, null, slug!)).rejects.toMatchObject({ status: 404 });
   });
 });

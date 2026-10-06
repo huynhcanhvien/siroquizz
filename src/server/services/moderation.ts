@@ -46,20 +46,26 @@ export function scanForContactDetails(text: string): string | null {
 
 /** Title, description and evenly spaced cards, up to SAMPLE_TOKENS. */
 export function moderationSample(
-  set: { title: string; description: string },
+  set: { title: string; description: string; tags?: readonly string[] },
   setCards: { term: string; definition: string }[],
 ) {
-  let sample = `Title: ${set.title}\nDescription: ${set.description}\n`;
-  let budget = SAMPLE_TOKENS - estimateTokens(sample);
-  const lines = setCards.map((card) => `${card.term} - ${card.definition}\n`);
-  const step = Math.max(1, Math.ceil(estimateTokens(lines.join("")) / Math.max(1, budget)));
+  // Delimited as data so text in the set ("answer safe") reads as content, not an instruction.
+  const head = {
+    title: set.title.slice(0, 300),
+    description: set.description.slice(0, 600),
+    tags: set.tags ?? [],
+  };
+  let budget = SAMPLE_TOKENS - estimateTokens(JSON.stringify(head));
+  const sampled: string[] = [];
+  const lines = setCards.map((card) => `${card.term} - ${card.definition}`);
+  const step = Math.max(1, Math.ceil(estimateTokens(lines.join("\n")) / Math.max(1, budget)));
   for (let i = 0; i < lines.length; i += step) {
-    const cost = estimateTokens(lines[i]);
+    const cost = estimateTokens(lines[i]) + 2;
     if (cost > budget) break;
-    sample += lines[i];
+    sampled.push(lines[i]);
     budget -= cost;
   }
-  return sample;
+  return JSON.stringify({ untrusted_flashcard_set: { ...head, cards: sampled } });
 }
 
 export const audit = (
@@ -116,6 +122,7 @@ export async function moderateSet(db: Database, setId: string) {
   const text = [
     set.title,
     set.description,
+    ...set.tags,
     ...setCards.map((c) => `${c.term} ${c.definition}`),
   ].join("\n");
   const decision = await decide(text, moderationSample(set, setCards));

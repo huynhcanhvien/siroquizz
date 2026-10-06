@@ -11,7 +11,7 @@ import type { Db } from "./sets";
  */
 export type SetRow = typeof studySets.$inferSelect;
 export interface SetAccessContext {
-  /** The owner was banned by a moderator: their sets disappear for everyone else. */
+  /** The owner was banned or deleted their account: their sets disappear for everyone else. */
   ownerBanned?: boolean;
   /** The viewer is a moderator, who may inspect anything that was reported or flagged. */
   viewerIsAdmin?: boolean;
@@ -21,13 +21,13 @@ export interface SetAccessContext {
 export function canViewSet(viewerId: string | null, set: SetRow, context: SetAccessContext = {}) {
   if (set.deletedAt) return false;
   if (viewerId !== null && viewerId === set.ownerId) return true;
+  if (set.visibility === "private") return false;
+  // Moderators review anything that was shared, including what they took down.
   if (context.viewerIsAdmin) return true;
   if (set.hiddenAt || context.ownerBanned) return false;
-  if (set.visibility === "unlisted") return true;
-  // A public set is reachable by its link unless moderation found a problem with it.
-  if (set.visibility === "public")
-    return set.moderationStatus === "pending" || set.moderationStatus === "approved";
-  return false;
+  // A verdict against the content closes every shared link until the owner changes it.
+  if (set.moderationStatus === "flagged" || set.moderationStatus === "rejected") return false;
+  return true;
 }
 /** Only the owner edits, deletes or changes who can see a set. */
 export const canEditSet = (viewerId: string | null, set: SetRow) =>
@@ -70,15 +70,13 @@ export const assignedTo = (userId: string) =>
 export const sharedForStudy = () =>
   and(
     isNull(studySets.hiddenAt),
-    or(
-      eq(studySets.visibility, "unlisted"),
-      and(
-        eq(studySets.visibility, "public"),
-        inArray(studySets.moderationStatus, ["pending", "approved"]),
-      ),
-    ),
-    sql`not exists(select 1 from "user" u where u.id = ${studySets.ownerId} and u.banned_at is not null)`,
+    inArray(studySets.visibility, ["unlisted", "public"]),
+    inArray(studySets.moderationStatus, ["none", "pending", "approved"]),
+    ownerInGoodStanding(),
   );
+/** The set's owner is neither banned nor gone (account deletion purges after 30 days). */
+export const ownerInGoodStanding = () =>
+  sql`not exists(select 1 from "user" u where u.id = ${studySets.ownerId} and (u.banned_at is not null or u.deleted_at is not null))`;
 /**
  * A set the person may study and record progress on: their own, one assigned to a class they are
  * in, or one shared by link (unless a moderator hid it). Leaving the class or unsharing removes
@@ -94,7 +92,7 @@ export async function requireStudySet(db: Db, userId: string, setId: string, loc
         isNull(studySets.deletedAt),
         or(
           eq(studySets.ownerId, userId),
-          and(isNull(studySets.hiddenAt), assignedTo(userId)),
+          and(isNull(studySets.hiddenAt), assignedTo(userId), ownerInGoodStanding()),
           sharedForStudy(),
         ),
       ),

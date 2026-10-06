@@ -152,7 +152,12 @@ export async function getClass(db: Database, userId: string, classId: string) {
   };
 }
 
-const updateInput = classInput.partial().extend({ joinLocked: z.boolean().optional() });
+// No defaults here: a PATCH changes only the fields it sends (a missing description stays).
+const updateInput = z.object({
+  name: z.string().trim().min(1).max(80).optional(),
+  description: z.string().trim().max(500).optional(),
+  joinLocked: z.boolean().optional(),
+});
 export async function updateClass(db: Database, userId: string, classId: string, input: unknown) {
   const data = updateInput.parse(input);
   await requireTeaching(db, userId, classId);

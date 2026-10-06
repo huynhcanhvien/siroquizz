@@ -81,8 +81,8 @@ export async function updateProfileSettings(db: Database, userId: string, input:
         .where(eq(user.username, data.username));
       if (taken) throw new ApiError(409, "USERNAME_TAKEN");
       changes.username = data.username;
-      // The first handle is free to pick; the cooldown applies to later changes.
-      changes.usernameChangedAt = current.username ? new Date() : null;
+      // Any pick, the first included, starts the 30-day cooldown (spec: once every 30 days).
+      changes.usernameChangedAt = new Date();
     }
     const [row] = await tx.update(user).set(changes).where(eq(user.id, userId)).returning();
     return settingsOf(row);

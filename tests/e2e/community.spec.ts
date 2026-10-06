@@ -50,6 +50,15 @@ async function approve(id: string) {
     await sql.end();
   }
 }
+/** Makes an account old enough to earn publish rewards (new accounts earn none). */
+async function ageAccount(email: string) {
+  const sql = postgres(process.env.DATABASE_URL!, { max: 1 });
+  try {
+    await sql`update "user" set created_at = now() - interval '2 days' where email = ${email}`;
+  } finally {
+    await sql.end();
+  }
+}
 async function makeAdmin(email: string) {
   const sql = postgres(process.env.DATABASE_URL!, { max: 1 });
   try {
@@ -136,6 +145,7 @@ test("a reader copies and reports a set, a moderator takes it down", async ({ br
 test("publishing a clean set earns credits, and so does being copied", async ({ browser }) => {
   test.skip(process.env.E2E_AI_LIVE !== "1", "Calls the live moderation model");
   const owner = await person(browser, "Người đóng góp");
+  await ageAccount(owner.email);
   const id = await createSet(owner.page, owner.headers, "Từ vựng nhà bếp công khai");
   const shared = await share(owner.page, owner.headers, id, "public");
   expect(["approved", "pending"]).toContain(shared.moderationStatus);

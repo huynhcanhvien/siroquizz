@@ -8,6 +8,7 @@ import { ApiError } from "../api-error";
 import type { Database } from "../db/client";
 import { attributionOf, markEdited, sharingOf } from "./sharing";
 import { requireStudySet } from "./access";
+import { clawbackSetCredits } from "../ai/credits";
 import { buildSearchText } from "@/features/community/lib/search";
 import {
   cards,
@@ -147,12 +148,9 @@ export async function updateSet(db: Database, ownerId: string, id: string, input
       .where(owned(ownerId, id));
     return getSet(tx, ownerId, id);
   });
-  // A public set's new content must pass moderation again before it stays listed.
-  if (updated.sharing?.visibility === "public") {
-    await markEdited(db, id);
-    return getSet(db, ownerId, id);
-  }
-  return updated;
+  // New content needs a new moderation verdict (checked now if the set is public).
+  await markEdited(db, id);
+  return getSet(db, ownerId, id);
 }
 export async function removeSet(db: Database, ownerId: string, id: string) {
   await db.transaction(async (tx) => {
@@ -167,6 +165,8 @@ export async function removeSet(db: Database, ownerId: string, id: string) {
     await tx.delete(gameScores).where(eq(gameScores.setId, id));
     await tx.delete(studyActivity).where(eq(studyActivity.setId, id));
   });
+  // A reward for publishing this set does not outlive it (create-publish-delete farming).
+  await clawbackSetCredits(db, ownerId, id);
 }
 const pageSchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(50),
@@ -285,4 +285,20 @@ export async function listSets(db: Database, ownerId: string, query: URLSearchPa
     })),
     meta: { nextCursor },
   };
+}
+
+/**
+ * Copies a set the person may study into their library. A copy of someone else's set keeps
+ * pointing at the original, so it is credited and earns its copier no publish reward.
+ */
+export async function duplicateSet(db: Database, viewerId: string, id: string, title: string) {
+  const original = await requireStudySet(db, viewerId, id);
+  const source = await getSet(db, viewerId, id);
+  const copiedFromId = original.ownerId === viewerId ? original.copiedFromId : original.id;
+  return db.transaction(async (tx) => {
+    const created = await createSetInTransaction(tx, viewerId, { ...source, title });
+    if (!copiedFromId) return created;
+    await tx.update(studySets).set({ copiedFromId }).where(eq(studySets.id, created.id));
+    return getSet(tx, viewerId, created.id);
+  });
 }

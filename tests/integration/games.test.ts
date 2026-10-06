@@ -24,6 +24,7 @@ vi.mock("@/server/ai/groq", async (importOriginal) => ({
     model: "m",
   })),
 }));
+vi.mock("@/server/rate-limit", () => ({ enforceLimit: vi.fn() }));
 vi.mock("@/server/env", () => ({ getServerEnv: () => ({ AI_GLOBAL_DAILY_CREDITS: 480 }) }));
 
 const url =
@@ -69,7 +70,8 @@ function playMatch(deck: Card[], seed: number, gap: number): GameEvent[] {
 async function rankedMatch(userId: string, setId: string, deck: Card[], gap: number) {
   const session = await startGameSession(db, userId, setId, { game: "match" });
   expect(session.cardIds).toEqual(deck.map((card) => card.id));
-  await backdate(session.id, 60_000);
+  // The game took as long as its moves (6 pairs), plus a moment to load the board.
+  await backdate(session.id, 6 * gap + 1000);
   return finishGameSession(db, userId, session.id, { events: playMatch(deck, session.seed, gap) });
 }
 
@@ -77,9 +79,27 @@ beforeAll(() => migrate(db, { migrationsFolder: "drizzle" }));
 beforeEach(async () => {
   await db.execute(sql`truncate "user" cascade`);
   await db.insert(schema.user).values([
-    { id: owner, name: "Owner", email: "g-owner@example.com", emailVerified: true },
-    { id: player, name: "Player", email: "g-player@example.com", emailVerified: true },
-    { id: stranger, name: "Stranger", email: "g-stranger@example.com", emailVerified: true },
+    {
+      id: owner,
+      name: "Owner",
+      email: "g-owner@example.com",
+      emailVerified: true,
+      createdAt: new Date(Date.now() - 2 * 86400_000),
+    },
+    {
+      id: player,
+      name: "Player",
+      email: "g-player@example.com",
+      emailVerified: true,
+      createdAt: new Date(Date.now() - 2 * 86400_000),
+    },
+    {
+      id: stranger,
+      name: "Stranger",
+      email: "g-stranger@example.com",
+      emailVerified: true,
+      createdAt: new Date(Date.now() - 2 * 86400_000),
+    },
   ]);
 });
 afterAll(() => connection.end());
@@ -173,4 +193,16 @@ it("limits games and boards to sets the player may study, and ranks within a cla
   await expect(
     leaderboard(db, stranger, set.id, new URLSearchParams({ game: "match", classId })),
   ).rejects.toMatchObject({ status: 404 });
+});
+
+it("never ranks a Match time shorter than the real time the session took", async () => {
+  const set = await makeSet();
+  const session = await startGameSession(db, owner, set.id, { game: "match" });
+  // Moves claim 12s, but the session has been open for 40s.
+  await backdate(session.id, 40_000);
+  const result = await finishGameSession(db, owner, session.id, {
+    events: playMatch(set.cards, session.seed, 2000),
+  });
+  expect(result).toMatchObject({ verified: true });
+  expect((result as { timeMs: number }).timeMs).toBeGreaterThanOrEqual(35_000);
 });

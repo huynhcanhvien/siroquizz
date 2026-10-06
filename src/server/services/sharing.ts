@@ -1,6 +1,7 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { enforceLimit } from "../rate-limit";
 import { z } from "zod";
 import type { SetVisibility } from "@/lib/types";
 import { ApiError } from "../api-error";
@@ -47,7 +48,7 @@ export async function setVisibility(db: Database, ownerId: string, setId: string
     return updated;
   });
   if (set.visibility === "public" && set.moderationStatus === "pending")
-    await moderateSet(db, setId);
+    await moderateThrottled(db, ownerId, setId);
   return sharingOf(await requireOwnedSet(db, ownerId, setId));
 }
 async function uniqueSlug(db: Db) {
@@ -63,20 +64,38 @@ async function uniqueSlug(db: Db) {
 /** Asks for a fresh automatic check of a public set the provider could not review yet. */
 export async function retryModeration(db: Database, ownerId: string, setId: string) {
   await requireOwnedSet(db, ownerId, setId);
-  await moderateSet(db, setId);
+  await moderateThrottled(db, ownerId, setId);
   return sharingOf(await requireOwnedSet(db, ownerId, setId));
 }
 /**
- * Called after the owner edits a set: a public set's content must be checked again before it
- * stays listed. Rejected sets get another chance once changed.
+ * Called after the owner changes a set's content, tags or images. A verdict always belongs to the
+ * content it judged: a public set is checked again, any other set loses its old verdict, so
+ * making it public later starts a fresh check (approval cannot be kept across an edit).
  */
 export async function markEdited(db: Database, setId: string) {
   const [set] = await db
     .update(studySets)
-    .set({ moderationStatus: "pending", moderationReason: null })
-    .where(and(eq(studySets.id, setId), eq(studySets.visibility, "public")))
-    .returning({ id: studySets.id });
-  if (set) await moderateSet(db, setId);
+    .set({
+      moderationStatus: sql`case when ${studySets.visibility} = 'public' then 'pending'::moderation_status else 'none'::moderation_status end`,
+      moderationReason: null,
+    })
+    .where(eq(studySets.id, setId))
+    .returning({ ownerId: studySets.ownerId, visibility: studySets.visibility });
+  if (set?.visibility === "public") await moderateThrottled(db, set.ownerId, setId);
+}
+
+// Each check uses the shared safeguard model (2,000 tokens a minute); beyond this a set waits
+// for the cron instead, so one person cannot starve everyone else's checks or re-roll verdicts.
+const MODERATION_CHECKS_PER_HOUR = 10;
+/** Runs moderation now unless the owner used their hourly share; then it stays pending. */
+async function moderateThrottled(db: Database, ownerId: string, setId: string) {
+  try {
+    await enforceLimit(`moderation:${ownerId}`, MODERATION_CHECKS_PER_HOUR, 3600);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 429) return;
+    throw error;
+  }
+  await moderateSet(db, setId);
 }
 
 const tagsSchema = z.object({ tags: z.array(z.string().max(100)).max(20) });
@@ -123,6 +142,7 @@ async function setBySlug(db: Db, slug: string) {
         name: user.name,
         avatarColor: user.avatarColor,
         bannedAt: user.bannedAt,
+        deletedAt: user.deletedAt,
         username: user.username,
         profilePublic: user.profilePublic,
       },
@@ -164,7 +184,7 @@ export async function getPublicSet(
 ): Promise<PublicSet> {
   const { set, author } = await setBySlug(db, slug);
   const context = {
-    ownerBanned: Boolean(author.bannedAt),
+    ownerBanned: Boolean(author.bannedAt || author.deletedAt),
     viewerIsAdmin: viewerId !== null && viewerId !== set.ownerId && (await isAdmin(db, viewerId)),
   };
   if (!canViewSet(viewerId, set, context)) throw new ApiError(404, "NOT_FOUND");
@@ -237,12 +257,20 @@ export async function copyPublicSet(db: Database, viewerId: string, slug: string
 export async function attributionOf(db: Db, viewerId: string, copiedFromId: string | null) {
   if (!copiedFromId) return null;
   const [row] = await db
-    .select({ set: studySets, author: { name: user.name, bannedAt: user.bannedAt } })
+    .select({
+      set: studySets,
+      author: { name: user.name, bannedAt: user.bannedAt, deletedAt: user.deletedAt },
+    })
     .from(studySets)
     .innerJoin(user, eq(user.id, studySets.ownerId))
     .where(eq(studySets.id, copiedFromId))
     .limit(1);
-  if (!row || !canViewSet(viewerId, row.set, { ownerBanned: Boolean(row.author.bannedAt) }))
+  if (
+    !row ||
+    !canViewSet(viewerId, row.set, {
+      ownerBanned: Boolean(row.author.bannedAt || row.author.deletedAt),
+    })
+  )
     return null;
   return { title: row.set.title, slug: row.set.slug, authorName: row.author.name };
 }

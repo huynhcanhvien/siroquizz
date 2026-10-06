@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { apiError, getSessionContext } from "@/server/api";
 import { ApiError } from "@/server/api-error";
@@ -17,14 +17,18 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     );
     const db = getDatabase();
     const [row] = await db
-      .select({ image: cardImages, set: studySets, ownerBannedAt: user.bannedAt })
+      .select({
+        image: cardImages,
+        set: studySets,
+        ownerGone: sql<boolean>`${user.bannedAt} is not null or ${user.deletedAt} is not null`,
+      })
       .from(cardImages)
       .innerJoin(cards, eq(cards.id, cardImages.cardId))
       .innerJoin(studySets, eq(studySets.id, cards.setId))
       .innerJoin(user, eq(user.id, studySets.ownerId))
       .where(eq(cardImages.id, id))
       .limit(1);
-    if (!row || !canViewSet(viewerId, row.set, { ownerBanned: Boolean(row.ownerBannedAt) }))
+    if (!row || !canViewSet(viewerId, row.set, { ownerBanned: row.ownerGone }))
       throw new ApiError(404, "NOT_FOUND");
     const { image } = row;
     return new Response(new Uint8Array(await getUpload(image.key, image.size, request.signal)), {

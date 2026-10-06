@@ -3,8 +3,8 @@
 > File này ghi lại **đã làm gì, đang làm dở gì, làm tiếp thế nào** để bất kỳ ai (người hoặc agent) cũng có thể tiếp tục.
 > Thời gian theo giờ Việt Nam (UTC+7). Mục mới nhất ở trên cùng của phần Nhật ký.
 
-**Cập nhật lần cuối:** 2026-10-06 08:46 +07
-**Phase hiện tại:** AI (tốc độ + credit) xong trên nhánh `feat/ai-pipeline-speed` (PR #1 vào `main`, **chưa merge**). Phase 5 cộng đồng đợt 1–5 trên nhánh `feat/phase5-community` (tách từ nhánh AI); còn đợt 6 (review bảo mật + E2E nhiều người). Phase 4 (SRS) vẫn đang dở.
+**Cập nhật lần cuối:** 2026-10-06 09:11 +07
+**Phase hiện tại:** AI (tốc độ + credit) xong trên nhánh `feat/ai-pipeline-speed` (PR #1 vào `main`, **chưa merge**). Phase 5 cộng đồng **hoàn tất (đợt 1–6)** trên nhánh `feat/phase5-community` (tách từ nhánh AI, chưa push/PR). Phase 4 (SRS) vẫn đang dở.
 **Tình trạng:** Người dùng yêu cầu hoàn thành toàn bộ Phase 2–6 và cập nhật state khi từng phase xong. Không coi credentials, deployment hay beta bên ngoài đã hoàn tất nếu chưa thực hiện.
 
 ## Tóm tắt nhanh cho người tiếp quản
@@ -47,9 +47,23 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 | LOW | —    | Đăng xuất dính `?next=`, guard mất query string, xóa bộ thẻ nháy "không tìm thấy", AI không hủy khi rời trang, `wait()` rò listener, bấm đúp Lưu/Tạo, đồng hồ lệch, kỷ lục điểm 0, Scramble `useMemo`, ô số câu hiện 0 | ✅ Đã sửa hết                                                                                                                                                                                                                                                                                                                                                           |
 | LOW | —    | Hàm > 50 dòng                                                                                                                                                                                                          | ✅ Đã tách `SetEditor`, `FlashcardDeck`, `TestMode` (+ `use-test-session.ts`), `GravityBoard`, `AiGenerator` (+ `use-ai-generation.ts`)                                                                                                                                                                                                                                 |
 
-**Bước tiếp theo:** (1) Phase 5 đợt 6: review bảo mật (IDOR, liệt kê, rate limit các route cộng đồng) + E2E nhiều người; (2) user merge PR #1 sau khi chạy migration 0006–0008 trên Neon, rồi tạo PR cho `feat/phase5-community`; (3) quay lại Phase 4 (SRS) phần còn dở.
+**Bước tiếp theo:** (1) user merge PR #1 sau khi chạy migration 0006–0008 trên Neon; (2) push `feat/phase5-community` + tạo PR (migration 0009–0013); (3) các mục bảo mật còn để lại (xem nhật ký đợt 6); (4) quay lại Phase 4 (SRS) phần còn dở.
 
 ## Nhật ký
+
+### 2026-10-06 09:11 +07: 🔒 Phase 5 đợt 6 — Review bảo mật (nhánh `feat/phase5-community`)
+
+- Agent security-reviewer: **không có CRITICAL**; access rules, admin (role đọc DB), CSRF (Origin), SQL, XSS, CSV, slug/mã lớp được xác nhận ổn.
+- **Đã sửa:**
+  - **H1 lách kiểm duyệt:** sửa nội dung/tag/ảnh ở **mọi** chế độ hiển thị đều xóa phán quyết cũ (`markEdited`: public → `pending` + kiểm tra lại, còn lại → `none`); bộ `flagged`/`rejected` đóng mọi link (cả unlisted) cho tới khi chủ sửa.
+  - **H2 cày credit:** thưởng công khai chỉ khi tài khoản ≥ 24h và tối đa 3 lần/ngày; xóa bộ đã thưởng → thu hồi; nhân bản bộ người khác (`duplicateSet`) giữ `copiedFromId` nên không được thưởng khi đăng lại.
+  - **M1:** đưa tag vào kiểm duyệt, gói nội dung bộ thẻ trong JSON "untrusted" (giảm prompt injection); gắn ảnh cũng kiểm duyệt lại.
+  - **M2:** gọi model kiểm duyệt tối đa 10 lần/giờ/người (vượt → `pending`, cron xử lý) — không ai làm cạn hạn mức chung hay "quay lại" phán quyết.
+  - **M3:** thời gian Ghép thẻ không thể nhỏ hơn thời gian thực trên server (trừ 5s) → bot không đứng đầu bằng sự kiện giả.
+  - **M5:** chủ tài khoản đã xóa ⇒ bộ chia sẻ/được giao offline (như bị khóa). **M6:** mọi request ghi kiểm tra `banned_at`/`deleted_at` trong DB (không chờ cookie 5 phút).
+  - **L1** admin không xem bộ private; **L2** PATCH lớp không còn xóa mô tả; **L3** đổi username: cooldown tính từ lần đặt đầu; **L9** kiểm tra chủ ảnh trước khi xử lý file.
+- **Để lại (rủi ro thấp, cần quyết định sản phẩm):** M4 giới hạn tham gia lớp theo IP + gộp lỗi "không có lớp"/"đã khóa"; L4 bảng tiến độ dựa trên dữ liệu học sinh tự gửi; L5 bộ của đồng giáo viên đã rời lớp vẫn được giao; L6 `ownerId` trong payload; L7 tùy chọn ẩn tên trên bảng xếp hạng; L8 đổi slug khi chia sẻ lại; L10 tham số folder của hàng ôn tập; L11 rate limit tìm kiếm Khám phá theo IP + chống thổi "phổ biến" bằng tài khoản ảo; L12 giới hạn báo cáo chưa nguyên tử; chống trùng nội dung bộ thẻ bằng hash.
+- **Kiểm tra:** 429 unit, **152 integration** (thêm 8 test hồi quy cho các lỗ hổng trên), **E2E 40 pass** (3 worker; test thưởng live lùi tuổi tài khoản 2 ngày).
 
 ### 2026-10-06 08:46 +07: 🧾 Tóm tắt phiên 2026-10-05 (AI + credit + Phase 5 đợt 1–5)
 

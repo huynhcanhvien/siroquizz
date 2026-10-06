@@ -57,9 +57,28 @@ beforeAll(() => migrate(db, { migrationsFolder: "drizzle" }));
 beforeEach(async () => {
   await db.execute(sql`truncate "user" cascade`);
   await db.insert(schema.user).values([
-    { id: owner, name: "Owner", email: "r-owner@example.com", emailVerified: true },
-    { id: reader, name: "Reader", email: "r-reader@example.com", emailVerified: true },
-    { id: admin, name: "Admin", email: "r-admin@example.com", emailVerified: true, role: "admin" },
+    {
+      id: owner,
+      name: "Owner",
+      email: "r-owner@example.com",
+      emailVerified: true,
+      createdAt: new Date(Date.now() - 2 * 86400_000),
+    },
+    {
+      id: reader,
+      name: "Reader",
+      email: "r-reader@example.com",
+      emailVerified: true,
+      createdAt: new Date(Date.now() - 2 * 86400_000),
+    },
+    {
+      id: admin,
+      name: "Admin",
+      email: "r-admin@example.com",
+      emailVerified: true,
+      createdAt: new Date(Date.now() - 2 * 86400_000),
+      role: "admin",
+    },
   ]);
 });
 afterAll(() => connection.end());

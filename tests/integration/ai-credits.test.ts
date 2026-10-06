@@ -18,6 +18,7 @@ import {
   reserveCredits,
 } from "@/server/ai/credits";
 
+vi.mock("@/server/rate-limit", () => ({ enforceLimit: vi.fn() }));
 vi.mock("@/server/env", () => ({ getServerEnv: () => ({ AI_GLOBAL_DAILY_CREDITS: 480 }) }));
 const url =
   process.env.TEST_DATABASE_URL ??
@@ -68,8 +69,20 @@ beforeAll(() => migrate(db, { migrationsFolder: "drizzle" }));
 beforeEach(async () => {
   await db.execute(sql`truncate "user" cascade`);
   await db.insert(schema.user).values([
-    { id: author, name: "Author", email: "credit-author@example.com", emailVerified: true },
-    { id: reader, name: "Reader", email: "credit-reader@example.com", emailVerified: true },
+    {
+      id: author,
+      name: "Author",
+      email: "credit-author@example.com",
+      emailVerified: true,
+      createdAt: new Date(Date.now() - 2 * 86400_000),
+    },
+    {
+      id: reader,
+      name: "Reader",
+      email: "credit-reader@example.com",
+      emailVerified: true,
+      createdAt: new Date(Date.now() - 2 * 86400_000),
+    },
   ]);
 });
 afterAll(() => connection.end());

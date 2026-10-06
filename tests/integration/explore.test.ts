@@ -28,6 +28,7 @@ vi.mock("@/server/ai/groq", async (importOriginal) => ({
     model: "m",
   })),
 }));
+vi.mock("@/server/rate-limit", () => ({ enforceLimit: vi.fn() }));
 vi.mock("@/server/env", () => ({ getServerEnv: () => ({ AI_GLOBAL_DAILY_CREDITS: 480 }) }));
 
 const url =
@@ -72,8 +73,20 @@ beforeAll(() => migrate(db, { migrationsFolder: "drizzle" }));
 beforeEach(async () => {
   await db.execute(sql`truncate "user" cascade`);
   await db.insert(schema.user).values([
-    { id: author, name: "Tác giả", email: "x-author@example.com", emailVerified: true },
-    { id: reader, name: "Người đọc", email: "x-reader@example.com", emailVerified: true },
+    {
+      id: author,
+      name: "Tác giả",
+      email: "x-author@example.com",
+      emailVerified: true,
+      createdAt: new Date(Date.now() - 2 * 86400_000),
+    },
+    {
+      id: reader,
+      name: "Người đọc",
+      email: "x-reader@example.com",
+      emailVerified: true,
+      createdAt: new Date(Date.now() - 2 * 86400_000),
+    },
   ]);
 });
 afterAll(() => connection.end());
@@ -162,25 +175,25 @@ describe("profiles", () => {
   it("picks a valid, unique username, then waits 30 days to change it", async () => {
     for (const bad of ["ab", "Has Space", "admin", "x".repeat(21), "dấu"])
       await expect(updateProfileSettings(db, author, { username: bad })).rejects.toBeTruthy();
-    expect(await updateProfileSettings(db, author, { username: "TacGia_1" })).toEqual({
-      username: "tacgia_1",
-      profilePublic: true,
-      nextUsernameChangeAt: null,
-    });
+    const picked = await updateProfileSettings(db, author, { username: "TacGia_1" });
+    expect(picked).toMatchObject({ username: "tacgia_1", profilePublic: true });
+    expect(picked.nextUsernameChangeAt).not.toBeNull();
     await expect(updateProfileSettings(db, reader, { username: "tacgia_1" })).rejects.toMatchObject(
       {
         code: "USERNAME_TAKEN",
       },
     );
-    // The first pick is free; a change starts the cooldown, a second change waits for it.
-    const changed = await updateProfileSettings(db, author, { username: "tacgia_2" });
-    expect(changed.nextUsernameChangeAt).not.toBeNull();
-    await expect(updateProfileSettings(db, author, { username: "tacgia_3" })).rejects.toMatchObject(
+    // Even the first pick starts the 30-day wait; other settings still save.
+    await expect(updateProfileSettings(db, author, { username: "tacgia_2" })).rejects.toMatchObject(
       {
         code: "USERNAME_COOLDOWN",
       },
     );
-    expect((await getProfileSettings(db, author)).username).toBe("tacgia_2");
+    await updateProfileSettings(db, author, { profilePublic: false });
+    expect(await getProfileSettings(db, author)).toMatchObject({
+      username: "tacgia_1",
+      profilePublic: false,
+    });
   });
   it("shows a public profile with its listed sets only", async () => {
     await updateProfileSettings(db, author, { username: "tacgia" });

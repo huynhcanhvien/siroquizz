@@ -9,6 +9,7 @@ import { getDatabase } from "@/server/db/client";
 import { account, session as sessionTable, user } from "@/server/db/schema";
 import {
   createSetInTransaction,
+  duplicateSet,
   getSet,
   listSets,
   removeSet,
@@ -132,12 +133,7 @@ async function handle(request: Request, context: Context) {
     }
     if (id && sub === "duplicate" && method === "POST") {
       const { title } = z.object({ title: z.string().min(1).max(120) }).parse(await body());
-      const source = await getSet(db, current.id, id);
-      return {
-        data: await db.transaction((tx) =>
-          createSetInTransaction(tx, current.id, { ...source, title }),
-        ),
-      };
+      return { data: await duplicateSet(db, current.id, id, title) };
     }
     if (id && sub === "progress") {
       if (method === "GET") return { data: await getProgress(db, current.id, id) };

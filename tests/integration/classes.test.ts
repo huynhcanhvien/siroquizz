@@ -196,3 +196,14 @@ it("co-teachers manage students but only the owner manages teachers and deletes"
   await deleteClass(db, teacher, id);
   expect(await listClasses(db, coTeacher)).toEqual([]);
 });
+
+it("updating one class field keeps the others", async () => {
+  const { id } = await createClass(db, teacher, { name: "Kept", description: "Room 12" });
+  await updateClass(db, teacher, id, { joinLocked: true });
+  await updateClass(db, teacher, id, { name: "Renamed" });
+  expect(await getClass(db, teacher, id)).toMatchObject({
+    name: "Renamed",
+    description: "Room 12",
+    joinLocked: true,
+  });
+});

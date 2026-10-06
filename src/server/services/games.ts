@@ -13,6 +13,8 @@ import { requireStudySet } from "./access";
 /** A ranked game must be finished within this long of starting. */
 const MAX_SESSION_MS = 2 * 3600_000;
 const LEADERBOARD_SIZE = 20;
+/** Time between starting the session and the board appearing, plus sending the result. */
+const SERVER_CLOCK_SLACK_MS = 5000;
 export const RANKED_GAMES = ["match", "gravity"] as const;
 type RankedGame = (typeof RANKED_GAMES)[number];
 
@@ -92,20 +94,25 @@ export async function finishGameSession(
             events,
             elapsedMs,
           );
+  // The server's own clock is a floor: a scripted client cannot finish faster than real time.
+  const checked =
+    result.verified && session.game === "match"
+      ? { ...result, timeMs: Math.max(result.timeMs, elapsedMs - SERVER_CLOCK_SLACK_MS) }
+      : result;
   const updated = await db
     .update(gameSessions)
     .set({
       finishedAt: now,
-      verified: result.verified,
-      score: result.verified ? result.score : null,
-      timeMs: result.verified ? result.timeMs : null,
-      rejectedReason: result.verified ? null : result.reason,
+      verified: checked.verified,
+      score: checked.verified ? checked.score : null,
+      timeMs: checked.verified ? checked.timeMs : null,
+      rejectedReason: checked.verified ? null : checked.reason,
     })
     .where(and(eq(gameSessions.id, session.id), isNull(gameSessions.finishedAt)))
     .returning({ id: gameSessions.id });
   // A concurrent finish already recorded this session.
   if (!updated.length) throw new ApiError(409, "CONFLICT");
-  return result;
+  return checked;
 }
 
 const boardSchema = z.object({
