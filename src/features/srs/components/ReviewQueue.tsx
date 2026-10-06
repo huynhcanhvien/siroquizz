@@ -1,4 +1,6 @@
 "use client";
+
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { v7 } from "uuid";
@@ -8,6 +10,7 @@ import { Switch } from "@/components/ui/Switch";
 import { EmptyState, ProgressBar } from "@/components/ui/misc";
 import { QueryError } from "@/components/ui/QueryState";
 import { Flashcard } from "@/features/flashcards/components/Flashcard";
+import { useFolder } from "@/features/folders/hooks";
 import { StudySessionContext } from "@/features/study/session-context";
 import type { LangCode } from "@/lib/types";
 import { useDue, useReview, useSessionRecording } from "../hooks";
@@ -96,10 +99,13 @@ function ActiveReview({
     </div>
   );
 }
-export function ReviewQueue() {
+/** The spaced-repetition queue; `folderId` narrows it to one folder's sets. */
+export function ReviewQueue({ folderId }: { folderId?: string }) {
   const t = useTranslations("learning"),
+    tFolders = useTranslations("folders"),
+    folder = useFolder(folderId ?? "", Boolean(folderId)),
     [starred, setStarred] = useState(false),
-    query = useDue(starred),
+    query = useDue(starred, folderId),
     [queue, setQueue] = useState<z.infer<typeof dueResponseSchema> | null>(null),
     count = useSessionRecording(null, "review");
   if (queue)
@@ -117,6 +123,14 @@ export function ReviewQueue() {
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-title font-extrabold">{t("reviewTitle")}</h1>
+      {folderId && folder.data ? (
+        <p className="flex flex-wrap items-center gap-3 rounded-lg bg-primary-soft px-4 py-3 font-semibold text-primary-text">
+          {tFolders("reviewScope", { name: folder.data.name })}
+          <Link href="/review" className="underline underline-offset-2">
+            {tFolders("reviewAll")}
+          </Link>
+        </p>
+      ) : null}
       <Switch checked={starred} onCheckedChange={setStarred} label={t("onlyStarred")} />
       {query.isError ? (
         <QueryError error={query.error} onRetry={() => void query.refetch()} />

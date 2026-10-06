@@ -2,21 +2,42 @@
 
 import { Timer } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { refocusWithin, useOnceWhen } from "@/lib/client-hooks";
 import { cn } from "@/lib/cn";
 import type { StudySet } from "@/lib/types";
 import { useGameFlow, useGameRecord, useStopwatch, type GameOutcome } from "../hooks";
 import { formatDuration } from "../lib/best-score";
 import { createMatchBoard, matchReducer } from "../lib/match";
+import { createRng } from "@/lib/random";
+import type { GameEvent } from "../lib/replay";
+import { RankedSummary, startRankedSession, type RankedSession } from "../ranked";
 import { GameIntro, GameResult, StatChip } from "./GameChrome";
 import { GAME_META } from "./game-meta";
 
 const WRONG_FLASH_MS = 450;
 
-function MatchBoard({ set, onFinish }: { set: StudySet; onFinish: (timeMs: number, pairs: number) => void }) {
+function MatchBoard({
+  set,
+  session,
+  onFinish,
+}: {
+  set: StudySet;
+  session: RankedSession | null;
+  onFinish: (timeMs: number, pairs: number, events: GameEvent[]) => void;
+}) {
   const t = useTranslations("games");
-  const [state, dispatch] = useReducer(matchReducer, set.cards, createMatchBoard);
+  // A ranked board comes from the server's seed so the server can rebuild and check it.
+  const [state, dispatch] = useReducer(matchReducer, session, (ranked) =>
+    ranked ? createMatchBoard(ranked.cards, createRng(ranked.seed)) : createMatchBoard(set.cards),
+  );
+  const events = useRef<GameEvent[]>([]);
+  // Milliseconds since the board appeared; created after mount, read only from event handlers.
+  const clock = useRef<() => number>(() => 0);
+  useEffect(() => {
+    const start = performance.now();
+    clock.current = () => Math.round(performance.now() - start);
+  }, []);
   const { elapsed, read } = useStopwatch(!state.finished);
   const gridRef = useRef<HTMLUListElement>(null);
   const pairs = state.tiles.length / 2;
@@ -27,9 +48,10 @@ function MatchBoard({ set, onFinish }: { set: StudySet; onFinish: (timeMs: numbe
     return () => window.clearTimeout(timer);
   }, [state.wrongIds]);
 
-  useOnceWhen(state.finished, () => onFinish(read() + state.penaltyMs, pairs));
+  useOnceWhen(state.finished, () => onFinish(read() + state.penaltyMs, pairs, events.current));
 
   const select = (tileId: string) => {
+    events.current.push({ t: clock.current(), tileId });
     dispatch({ type: "select", tileId });
     refocusWithin(gridRef.current);
   };
@@ -85,9 +107,19 @@ function MatchBoard({ set, onFinish }: { set: StudySet; onFinish: (timeMs: numbe
 export function MatchGame({ set }: { set: StudySet }) {
   const t = useTranslations("games");
   const { best, record } = useGameRecord(set.id, "match");
-  const { phase, start, finish } = useGameFlow<{ pairs: number }>();
+  const { phase, start, finish } = useGameFlow<{ pairs: number; events: GameEvent[]; sessionId: string | null }>();
+  const [session, setSession] = useState<RankedSession | null>(null);
+  const [starting, setStarting] = useState(false);
+  const begin = async () => {
+    if (starting) return;
+    setStarting(true);
+    setSession(await startRankedSession(set, "match"));
+    setStarting(false);
+    start();
+  };
 
-  if (phase.name === "intro") return <GameIntro game="match" icon={GAME_META.match.icon} best={best} onStart={start} />;
+  if (phase.name === "intro")
+    return <GameIntro game="match" icon={GAME_META.match.icon} best={best} onStart={begin} starting={starting} />;
 
   if (phase.name === "done") {
     const { outcome, details } = phase;
@@ -97,19 +129,21 @@ export function MatchGame({ set }: { set: StudySet }) {
         game="match"
         setId={set.id}
         isRecord={outcome.isRecord}
-        onPlayAgain={start}
+        onPlayAgain={begin}
         stats={[
           { label: t("time"), value: formatDuration(outcome.timeMs) },
           { label: t("pairsLabel"), value: details.pairs },
         ]}
-      />
+      >
+        <RankedSummary setId={set.id} game="match" sessionId={details.sessionId} events={details.events} />
+      </GameResult>
     );
   }
 
-  const handleFinish = (timeMs: number, pairs: number) => {
+  const handleFinish = (timeMs: number, pairs: number, events: GameEvent[]) => {
     const outcome: GameOutcome = record({ score: pairs, timeMs });
-    finish(outcome, { pairs });
+    finish(outcome, { pairs, events, sessionId: session?.id ?? null });
   };
 
-  return <MatchBoard key={phase.round} set={set} onFinish={handleFinish} />;
+  return <MatchBoard key={phase.round} set={set} session={session} onFinish={handleFinish} />;
 }

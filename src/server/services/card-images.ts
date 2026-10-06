@@ -9,6 +9,7 @@ import { aiUploads, cardImages } from "../db/schema";
 import { getUpload, putStoredFile, deleteUpload } from "../ai/storage";
 import { validateMagic } from "../ai/extract";
 import {requireOwnedSet} from "./sets";
+import { markEdited } from "./sharing";
 import { requireCard } from "./learning";
 export async function attachCardImage(
   db: Database,
@@ -21,6 +22,8 @@ export async function attachCardImage(
       .object({ uploadId: z.uuid(), alt: z.string().trim().max(1000).default("") })
       .parse(input),
     card = await requireCard(db, userId, cardId);
+  // Only the owner adds images; check before doing any work on the upload.
+  await requireOwnedSet(db, userId, card.setId);
   const [upload] = await db
     .select()
     .from(aiUploads)
@@ -57,5 +60,7 @@ export async function attachCardImage(
     await deleteUpload(key);
     throw error;
   }
+  // An image is content too: a shared set needs a fresh moderation verdict.
+  await markEdited(db, card.setId);
   return { imageUrl: `/api/v1/images/${id}`, imageAlt: alt };
 }

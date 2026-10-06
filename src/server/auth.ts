@@ -54,6 +54,8 @@ function makeAuth() {
         uiLocale: { type: "string", defaultValue: "vi" },
         deletedAt: { type: "date", required: false, input: false },
         samplesSeeded: { type: "boolean", defaultValue: false, input: false },
+        role: { type: "string", defaultValue: "user", input: false },
+        bannedAt: { type: "date", required: false, input: false },
       },
       changeEmail: {
         enabled: true,

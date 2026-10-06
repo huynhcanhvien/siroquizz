@@ -1,6 +1,6 @@
 # Phase 5 — Chia sẻ, cộng đồng & lớp học
 
-**Trạng thái:** chưa bắt đầu
+**Trạng thái:** đang làm (nhánh `feat/phase5-community`): đợt 1 (chia sẻ, `access.ts`, kiểm duyệt, báo cáo, admin, credit thưởng), đợt 2 (Khám phá, hồ sơ), đợt 3 (thư mục), đợt 4 (lớp học), đợt 5 (bảng xếp hạng), đợt 6 (review bảo mật) xong — Phase 5 hoàn tất trên nhánh, chờ merge
 **Phụ thuộc:** Phase 2 (nên có Phase 4 để lớp học có dữ liệu tiến độ)
 **Kết quả:** bộ thẻ có thể chia sẻ, có trang khám phá bộ thẻ công khai, thư mục, lớp học cho giáo viên, bảng xếp hạng trò chơi, và công cụ kiểm duyệt nội dung.
 
@@ -59,7 +59,7 @@
 
 ### 8. Credit AI (đã chốt với người dùng 2026-10-05)
 - **Đã làm** (nhánh `feat/ai-credits`): 1 credit = 1.000 token Groq thực dùng. **20 credit miễn phí/ngày**, reset 0h giờ VN, **không cộng dồn**. **Credit thưởng không hết hạn**, lưu ở bảng `credit_ledger`. Dùng credit miễn phí trước, credit thưởng sau. Báo giá sau khi đọc tài liệu; ≤ 5 credit và đủ credit miễn phí thì chạy luôn, còn lại người dùng xác nhận (có thể giảm số thẻ). Tối đa 40 credit/lần tạo, 10 trang OCR/lần, 2 lần tạo chưa xong/người, hạn mức chung toàn app. **Chỉ hoàn credit khi lỗi do hệ thống** (`SYSTEM_ERROR_CODES`); lỗi do người dùng/tự hủy thì trừ đúng token đã dùng; thông báo lỗi nói rõ nguyên nhân và đã hoàn hay đã trừ. Cùng file + yêu cầu + tùy chọn → dùng lại kết quả (0 credit, giữ 30 ngày).
-- **Quy tắc thưởng đã code sẵn** trong [credits.ts](../src/server/ai/credits.ts), chờ nối khi làm §1/§7:
+- **Quy tắc thưởng** trong [credits.ts](../src/server/ai/credits.ts), **đã nối** (đợt 1):
   - `awardPublishCredit`: +5 khi bộ chuyển `public` **và qua kiểm duyệt**; một lần mỗi bộ; bộ ≥ 10 thẻ; bản sao của người khác không được thưởng. → gọi khi kiểm duyệt duyệt bộ.
   - `awardCopyCredit`: +1 cho tác giả mỗi người khác sao chép bộ (một lần mỗi người/bộ, không tính tự sao chép), tối đa 30/ngày. → gọi trong "Tạo bản sao vào thư viện".
   - `clawbackSetCredits`: thu hồi toàn bộ thưởng của bộ khi bị gỡ do vi phạm. → gọi khi admin ẩn bộ.
@@ -97,15 +97,15 @@ Logic phân quyền tập trung trong `server/services/access.ts` (`canViewSet`,
 
 ## Thứ tự triển khai
 
-- [ ] 1. `visibility`, `slug`, trang `/s/[slug]` render ở server, hộp thoại Chia sẻ, tạo bản sao.
-- [ ] 2. `access.ts` kèm bộ test phân quyền đầy đủ.
-- [ ] 3. Khám phá: index `pg_trgm` + `unaccent`, tag, phổ biến.
-- [ ] 4. Hồ sơ công khai, username.
-- [ ] 5. Thư mục.
-- [ ] 6. Lớp học: tạo, tham gia, giao bài, bảng tiến độ, xuất CSV.
-- [ ] 7. Bảng xếp hạng kèm xác thực phiên chơi.
-- [ ] 8. Báo cáo, trang admin, audit log, kiểm duyệt tự động.
-- [ ] 9. Review bảo mật (IDOR, liệt kê dữ liệu), E2E nhiều người dùng.
+- [x] 1. `visibility`, `slug`, trang `/s/[slug]` render ở server, hộp thoại Chia sẻ (link + QR), tạo bản sao (ghi nguồn).
+- [x] 2. `access.ts` kèm bộ test phân quyền (owner/người khác/khách/admin; luật lớp học thêm ở mục 6).
+- [x] 3. Khám phá: index GIN `pg_trgm` trên cột `search_text` đã bỏ dấu sẵn trong code (thay cho `unaccent`, vốn không dùng được trong index), tag (tối đa 5), "Phổ biến tuần này" = số lượt sao chép trong 7 ngày.
+- [x] 4. Hồ sơ công khai `/u/[username]`, username (đổi 30 ngày/lần, từ khóa dành riêng), ẩn hồ sơ.
+- [x] 5. Thư mục: CRUD, một bộ ở nhiều thư mục, kéo thả trong Thư viện (+ menu "Thêm vào thư mục" cho bàn phím/cảm ứng), học cả thư mục: Ôn tập lọc theo thư mục (lưu lịch FSRS bình thường); Thẻ ghi nhớ/Kiểm tra gộp thẻ là **phiên luyện tập không lưu tiến độ** (kết quả gộp không thuộc riêng bộ nào).
+- [x] 6. Lớp học: tạo (mã 6 ký tự, link mời có bước xác nhận), tham gia/rời, khóa đăng ký, đổi mã, đồng giáo viên, giao bộ (của chính giáo viên) có hạn chót, "Bài được giao" trên Home, bảng tiến độ học sinh × bộ (% đã thuộc, kiểm tra gần nhất, lần học cuối), xuất CSV ở trình duyệt (chống CSV injection). Quyền học qua lớp: `requireStudySet` thay cho kiểm tra chủ sở hữu ở mọi API học; rời lớp mất quyền ngay.
+- [x] 7. Bảng xếp hạng Ghép thẻ (thời gian) / Rơi từ (điểm): server cấp seed, client gửi sự kiện, server **chơi lại** để tính kết quả, loại thao tác < 300ms / sai bàn / thời gian vượt thực tế; theo bộ và theo lớp (`classId`); chơi bằng bộ lọc sao thì không xếp hạng. Phạm vi "bạn bè" chưa làm.
+- [x] 8. Báo cáo, trang admin, audit log, kiểm duyệt tự động. Kiểm duyệt dùng **`openai/gpt-oss-safeguard-20b` trên Groq** (không có key Anthropic): quét cứng link/SĐT/email toàn bộ + AI xem mẫu ~1.200 token (model chỉ 2.000 token/phút); bận thì `pending`, cron/nút "Kiểm tra lại" chạy lại. Cấp quyền admin: `DATABASE_URL=… pnpm admin:grant email`.
+- [x] 9. Review bảo mật (agent security-reviewer, không có CRITICAL; 2 HIGH + MEDIUM chính đã sửa, xem `state.md`), E2E nhiều người dùng (`community`, `classes`, `games`, `folders`).
 
 ## Tiêu chí nghiệm thu
 

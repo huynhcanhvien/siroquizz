@@ -3,12 +3,16 @@ import { lt } from "drizzle-orm";
 import { getDatabase } from "@/server/db/client";
 import { user, studySets } from "@/server/db/schema";
 import { cleanupAi } from "@/server/ai/cleanup";
+import { moderatePending } from "@/server/services/moderation";
 import { getServerEnv } from "@/server/env";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-/** Removes 30-day-old account/set tombstones and expired AI uploads/jobs. Invoked by Vercel Cron. */
+/**
+ * Removes 30-day-old account/set tombstones and expired AI uploads/jobs, and retries pending
+ * moderation. Invoked by Vercel Cron.
+ */
 function authorized(request: Request) {
   const secret = getServerEnv().CRON_SECRET;
   if (!secret) return false;
@@ -28,8 +32,10 @@ async function handle(request: Request) {
     await tx.delete(studySets).where(lt(studySets.deletedAt, cutoff));
   });
   const removedUploads = await cleanupAi(db);
+  // Public sets the moderation model could not check yet (it allows 2,000 tokens a minute).
+  const moderated = (await moderatePending(db)).length;
   return Response.json(
-    { success: true, data: { removedUploads } },
+    { success: true, data: { removedUploads, moderated } },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

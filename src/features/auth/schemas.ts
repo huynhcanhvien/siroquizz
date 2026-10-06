@@ -74,6 +74,7 @@ export const userSchema = z.object({
   avatarColor: z.string(),
   uiLocale: z.string(),
   createdAt: z.string(),
+  role: z.literal("admin").optional(),
 });
 
 export const storedAccountSchema = userSchema.extend({ passwordHash: z.string().min(1) });

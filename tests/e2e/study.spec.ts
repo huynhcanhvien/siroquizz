@@ -66,6 +66,8 @@ test("finishes the Match game and records the time", async ({ page }) => {
   await page.getByRole("button", { name: "Bắt đầu" }).click();
 
   const tiles = page.locator("ul button:not([disabled])");
+  // Starting asks the server for a ranked game first; wait for the board.
+  await tiles.first().waitFor();
   while ((await tiles.count()) > 0) {
     const first = tiles.first();
     const text = ((await first.textContent()) ?? "").trim();

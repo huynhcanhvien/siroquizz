@@ -32,6 +32,13 @@ export const user = pgTable("user", {
   uiLocale: varchar("ui_locale", { length: 8 }).notNull().default("vi"),
   deletedAt: time("deleted_at"),
   samplesSeeded: boolean("samples_seeded").notNull().default(false),
+  role: varchar("role", { length: 16 }).notNull().default("user"),
+  // Public handle for /u/[username], lower-case; changeable once every 30 days.
+  username: varchar("username", { length: 20 }).unique(),
+  usernameChangedAt: time("username_changed_at"),
+  profilePublic: boolean("profile_public").notNull().default(true),
+  // Locked by a moderator: sessions are revoked and sign-in is refused.
+  bannedAt: time("banned_at"),
   ...timestamps,
 });
 export const session = pgTable(
@@ -85,6 +92,18 @@ export const verification = pgTable(
 );
 
 export const setSource = pgEnum("set_source", ["manual", "ai", "import"]);
+export const setVisibility = pgEnum("set_visibility", ["private", "unlisted", "public"]);
+/**
+ * Review state of a set's public listing: `none` until first made public, `pending` while the
+ * automatic check runs, then `approved`, `flagged` (waiting for a moderator) or `rejected`.
+ */
+export const moderationStatus = pgEnum("moderation_status", [
+  "none",
+  "pending",
+  "approved",
+  "flagged",
+  "rejected",
+]);
 export const cardStatus = pgEnum("card_status", ["new", "learning", "known"]);
 export const gameKind = pgEnum("game_kind", ["match", "gravity", "memory", "scramble"]);
 export const studySets = pgTable(
@@ -101,10 +120,26 @@ export const studySets = pgTable(
     source: setSource("source").notNull().default("manual"),
     cardCount: integer("card_count").notNull(),
     deletedAt: time("deleted_at"),
+    visibility: setVisibility("visibility").notNull().default("private"),
+    // Random public link id, created the first time the set is shared.
+    slug: varchar("slug", { length: 10 }).unique(),
+    copiedFromId: uuid("copied_from_id"),
+    moderationStatus: moderationStatus("moderation_status").notNull().default("none"),
+    moderationReason: varchar("moderation_reason", { length: 200 }),
+    // Taken down by a moderator: invisible to everyone but its owner.
+    hiddenAt: time("hidden_at"),
+    // Accent-folded title, description, tags and cards for Explore (see community/lib/search).
+    searchText: text("search_text").notNull().default(""),
+    tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
     ...timestamps,
   },
   (t) => [
     index("sets_owner_updated_idx").on(t.ownerId, t.updatedAt, t.id),
+    index("sets_moderation_idx").on(t.moderationStatus, t.updatedAt),
+    // Substring search in any script; needs the pg_trgm extension (created in the migration).
+    index("sets_search_trgm_idx").using("gin", sql`${t.searchText} gin_trgm_ops`),
+    // "Popular this week" counts recent copies of each original.
+    index("sets_copied_from_idx").on(t.copiedFromId, t.createdAt),
     check("sets_card_count", sql`${t.cardCount} between 2 and 500`),
   ],
 );
@@ -318,6 +353,145 @@ export const creditLedger = pgTable(
   (t) => [
     uniqueIndex("credit_ledger_once_idx").on(t.userId, t.reason, t.ref),
     index("credit_ledger_user_idx").on(t.userId, t.createdAt),
+  ],
+);
+export const reports = pgTable(
+  "reports",
+  {
+    id: uuid("id").primaryKey(),
+    reporterId: text("reporter_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    targetType: varchar("target_type", { length: 8 }).notNull(),
+    targetId: text("target_id").notNull(),
+    reason: varchar("reason", { length: 16 }).notNull(),
+    note: varchar("note", { length: 500 }).notNull().default(""),
+    status: varchar("status", { length: 16 }).notNull().default("open"),
+    handledBy: text("handled_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: time("created_at").notNull().defaultNow(),
+    handledAt: time("handled_at"),
+  },
+  (t) => [
+    index("reports_status_idx").on(t.status, t.createdAt),
+    // One open report per person and target.
+    uniqueIndex("reports_open_once_idx")
+      .on(t.reporterId, t.targetType, t.targetId)
+      .where(sql`${t.status} = 'open'`),
+  ],
+);
+/** Every moderator action, kept for accountability. */
+export const auditLogs = pgTable(
+  "audit_logs",
+  {
+    id: uuid("id").primaryKey(),
+    actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+    action: varchar("action", { length: 40 }).notNull(),
+    targetType: varchar("target_type", { length: 8 }).notNull(),
+    targetId: text("target_id").notNull(),
+    meta: jsonb("meta").notNull().default({}),
+    createdAt: time("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("audit_target_idx").on(t.targetType, t.targetId, t.createdAt)],
+);
+/** Personal folders grouping one's own sets; a set may sit in several folders. */
+export const folders = pgTable(
+  "folders",
+  {
+    id: uuid("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 60 }).notNull(),
+    ...timestamps,
+  },
+  (t) => [index("folders_user_idx").on(t.userId, t.name)],
+);
+export const folderSets = pgTable(
+  "folder_sets",
+  {
+    folderId: uuid("folder_id")
+      .notNull()
+      .references(() => folders.id, { onDelete: "cascade" }),
+    setId: uuid("set_id")
+      .notNull()
+      .references(() => studySets.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    addedAt: time("added_at").notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.folderId, t.setId] }),
+    index("folder_sets_set_idx").on(t.setId),
+  ],
+);
+export const classRole = pgEnum("class_role", ["owner", "teacher", "student"]);
+/** A teacher's class: members join with a short code and study the sets assigned to it. */
+export const classes = pgTable("classes", {
+  id: uuid("id").primaryKey(),
+  ownerId: text("owner_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 80 }).notNull(),
+  description: varchar("description", { length: 500 }).notNull().default(""),
+  joinCode: varchar("join_code", { length: 6 }).notNull().unique(),
+  joinLocked: boolean("join_locked").notNull().default(false),
+  ...timestamps,
+});
+export const classMembers = pgTable(
+  "class_members",
+  {
+    classId: uuid("class_id")
+      .notNull()
+      .references(() => classes.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: classRole("role").notNull(),
+    joinedAt: time("joined_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.classId, t.userId] }), index("class_members_user_idx").on(t.userId)],
+);
+export const classSets = pgTable(
+  "class_sets",
+  {
+    classId: uuid("class_id")
+      .notNull()
+      .references(() => classes.id, { onDelete: "cascade" }),
+    setId: uuid("set_id")
+      .notNull()
+      .references(() => studySets.id, { onDelete: "cascade" }),
+    assignedBy: text("assigned_by").references(() => user.id, { onDelete: "set null" }),
+    dueAt: time("due_at"),
+    assignedAt: time("assigned_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.classId, t.setId] }), index("class_sets_set_idx").on(t.setId)],
+);
+/**
+ * A ranked game: the server picks the seed the board is built from, then replays the player's
+ * events to compute the result. Only verified sessions reach the leaderboard.
+ */
+export const gameSessions = pgTable(
+  "game_sessions",
+  {
+    id: uuid("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    setId: uuid("set_id")
+      .notNull()
+      .references(() => studySets.id, { onDelete: "cascade" }),
+    game: gameKind("game").notNull(),
+    seed: integer("seed").notNull(),
+    answerSide: varchar("answer_side", { length: 10 }).notNull().default("term"),
+    startedAt: time("started_at").notNull().defaultNow(),
+    finishedAt: time("finished_at"),
+    verified: boolean("verified").notNull().default(false),
+    score: integer("score"),
+    timeMs: integer("time_ms"),
+    rejectedReason: varchar("rejected_reason", { length: 20 }),
+  },
+  (t) => [
+    index("game_sessions_board_idx").on(t.setId, t.game, t.verified),
+    index("game_sessions_user_idx").on(t.userId, t.startedAt),
   ],
 );
 /** Finished results keyed by a hash of the exact files, request and options; reused for free. */

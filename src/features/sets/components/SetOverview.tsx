@@ -4,6 +4,7 @@ import {
   Brain,
   Copy,
   Ellipsis,
+  FolderPlus,
   Gamepad2,
   Layers,
   ListChecks,
@@ -27,6 +28,8 @@ import type { StudySet } from "@/lib/types";
 import { useErrorMessage } from "@/lib/use-messages";
 import { useDeleteSet, useDuplicateSet } from "../hooks";
 import { AiSetTools } from "@/features/ai-generate/components/AiSetTools";
+import { ShareDialog } from "@/features/community/components/ShareDialog";
+import { AddToFolderDialog } from "@/features/folders/components/AddToFolderDialog";
 import { CardList } from "./CardList";
 import { ProgressPanel } from "./ProgressPanel";
 import { SetPreview } from "./SetPreview";
@@ -81,6 +84,8 @@ function SetActions({ set }: { set: StudySet }) {
   const duplicate = useDuplicateSet();
   const remove = useDeleteSet();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [folderOpen, setFolderOpen] = useState(false);
+  const tFolders = useTranslations("folders");
 
   const handleDuplicate = () =>
     duplicate.mutate(
@@ -105,6 +110,7 @@ function SetActions({ set }: { set: StudySet }) {
 
   return (
     <div className="flex items-center gap-2">
+      {process.env.NEXT_PUBLIC_DATA_SOURCE === "http" ? <ShareDialog set={set} /> : null}
       <Button asChild variant="secondary" size="sm">
         <Link href={`/sets/${set.id}/edit`}>
           <Pencil className="size-4" aria-hidden />
@@ -122,6 +128,12 @@ function SetActions({ set }: { set: StudySet }) {
             <Copy aria-hidden />
             {t("duplicate")}
           </MenuItem>
+          {process.env.NEXT_PUBLIC_DATA_SOURCE === "http" ? (
+            <MenuItem onSelect={() => setFolderOpen(true)}>
+              <FolderPlus aria-hidden />
+              {tFolders("addToFolder")}
+            </MenuItem>
+          ) : null}
           <MenuSeparator />
           <MenuItem tone="danger" onSelect={() => setConfirmOpen(true)}>
             <Trash aria-hidden />
@@ -129,6 +141,9 @@ function SetActions({ set }: { set: StudySet }) {
           </MenuItem>
         </MenuContent>
       </Menu>
+      {folderOpen ? (
+        <AddToFolderDialog setId={set.id} open={folderOpen} onOpenChange={setFolderOpen} />
+      ) : null}
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
@@ -147,7 +162,10 @@ export function SetOverview({ set }: { set: StudySet }) {
   const t = useTranslations("set");
   const tCommon = useTranslations("common");
   const tLang = useTranslations("contentLanguages");
+  const tCommunity = useTranslations("community");
   const { data: user } = useSession();
+  // A set assigned in a class can be studied by students but only changed by its owner.
+  const isOwner = !user || user.id === set.ownerId;
 
   return (
     <div className="flex flex-col gap-10">
@@ -163,10 +181,30 @@ export function SetOverview({ set }: { set: StudySet }) {
         </div>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <h1 className="max-w-3xl text-title font-extrabold text-balance">{set.title}</h1>
-          <SetActions set={set} />
+          {isOwner ? <SetActions set={set} /> : null}
         </div>
         {set.description ? <p className="max-w-2xl text-lg text-muted">{set.description}</p> : null}
-        {user ? (
+        {set.copiedFrom ? (
+          <p className="text-sm text-muted">
+            {set.copiedFrom.slug ? (
+              <Link
+                href={`/s/${set.copiedFrom.slug}`}
+                className="underline-offset-2 hover:underline"
+              >
+                {tCommunity("copiedFrom", {
+                  title: set.copiedFrom.title,
+                  author: set.copiedFrom.authorName,
+                })}
+              </Link>
+            ) : (
+              tCommunity("copiedFrom", {
+                title: set.copiedFrom.title,
+                author: set.copiedFrom.authorName,
+              })
+            )}
+          </p>
+        ) : null}
+        {user && isOwner ? (
           <p className="flex items-center gap-2 text-sm font-medium text-muted">
             <Avatar name={user.displayName} color={user.avatarColor} size="sm" />
             {t("by", { name: user.displayName })}
@@ -210,8 +248,8 @@ export function SetOverview({ set }: { set: StudySet }) {
         <ProgressPanel set={set} />
       </div>
 
-      {process.env.NEXT_PUBLIC_DATA_SOURCE === "http" ? <AiSetTools set={set} /> : null}
-      <CardList set={set} />
+      {process.env.NEXT_PUBLIC_DATA_SOURCE === "http" && isOwner ? <AiSetTools set={set} /> : null}
+      <CardList set={set} editable={isOwner} />
     </div>
   );
 }

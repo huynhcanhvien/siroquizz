@@ -27,6 +27,11 @@ export const REPOSITORY_ERROR_CODES = [
   "AI_JOB_TOO_LARGE",
   "AI_BUSY",
   "OCR_PAGE_LIMIT",
+  "USERNAME_TAKEN",
+  "USERNAME_COOLDOWN",
+  "CLASS_NOT_FOUND",
+  "CLASS_LOCKED",
+  "CLASS_FULL",
   "UNKNOWN",
 ] as const;
 export type RepositoryErrorCode = (typeof REPOSITORY_ERROR_CODES)[number];

@@ -15,10 +15,10 @@ export const learningKeys = {
   stats: ["stats"] as const,
 };
 const isHttp = process.env.NEXT_PUBLIC_DATA_SOURCE === "http";
-export function useDue(starred = false) {
+export function useDue(starred = false, folderId?: string) {
   return useQuery({
-    queryKey: [...learningKeys.due, starred],
-    queryFn: () => repository.due(starred),
+    queryKey: [...learningKeys.due, starred, folderId ?? null],
+    queryFn: () => repository.due(starred, folderId),
     enabled: isHttp,
   });
 }

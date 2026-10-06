@@ -1,15 +1,23 @@
 "use client";
 
-import { LogOut, Settings } from "lucide-react";
+import { LogOut, Settings, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Avatar } from "@/components/ui/misc";
-import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui/Menu";
+import {
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuLabel,
+  MenuSeparator,
+  MenuTrigger,
+} from "@/components/ui/Menu";
 import { useLogout } from "@/features/auth/hooks";
 import type { User } from "@/lib/types";
 
 export function UserMenu({ user }: { user: User }) {
   const t = useTranslations("nav");
+  const tCommunity = useTranslations("community");
   const logout = useLogout();
 
   const handleLogout = () => logout.mutate();
@@ -37,6 +45,14 @@ export function UserMenu({ user }: { user: User }) {
             {t("settings")}
           </Link>
         </MenuItem>
+        {user.role === "admin" ? (
+          <MenuItem asChild>
+            <Link href="/admin">
+              <ShieldCheck aria-hidden />
+              {tCommunity("admin.title")}
+            </Link>
+          </MenuItem>
+        ) : null}
         <MenuItem onSelect={handleLogout}>
           <LogOut aria-hidden />
           {t("logout")}

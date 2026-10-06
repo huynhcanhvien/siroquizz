@@ -15,7 +15,7 @@ const STATUS_DOT = {
   new: "bg-surface-3 ring-1 ring-border-strong",
 } as const;
 
-export function CardList({ set }: { set: StudySet }) {
+export function CardList({ set, editable = true }: { set: StudySet; editable?: boolean }) {
   const t = useTranslations("set");
   const { data: progress = [] } = useSetProgress(set.id);
   const statusByCard = new Map(progress.map((item) => [item.cardId, item.status]));
@@ -53,7 +53,7 @@ export function CardList({ set }: { set: StudySet }) {
                 <p lang={set.definitionLang} className="flex-1 break-words whitespace-pre-line">
                   {card.definition}
                 </p>
-                <CardImage card={card}/><CardImageEditor setId={set.id} cardId={card.id}/><SpeakButton text={card.definition} lang={set.definitionLang} className="-my-1" />
+                <CardImage card={card}/>{editable ? <CardImageEditor setId={set.id} cardId={card.id}/> : null}<SpeakButton text={card.definition} lang={set.definitionLang} className="-my-1" />
               </div>
             </li>
           );

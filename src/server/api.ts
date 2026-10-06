@@ -1,10 +1,13 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getAuth } from "./auth";
 import { getServerEnv } from "./env";
 import { trustedOrigins } from "./env-schema";
 import { ApiError } from "./api-error";
+import { getDatabase } from "./db/client";
+import { user } from "./db/schema";
 import { enforceLimit } from "./rate-limit";
 import type { User } from "@/lib/types";
 
@@ -33,7 +36,7 @@ export async function getSessionContext(headers: Headers, fresh = false): Promis
   });
   const setCookies = authHeaders.getSetCookie();
   const record = response?.user;
-  if (!record || record.deletedAt || !record.emailVerified)
+  if (!record || record.deletedAt || record.bannedAt || !record.emailVerified)
     throw new ApiError(401, "UNAUTHENTICATED", setCookies);
   return {
     user: {
@@ -43,6 +46,7 @@ export async function getSessionContext(headers: Headers, fresh = false): Promis
       avatarColor: record.avatarColor ?? "indigo",
       uiLocale: record.uiLocale ?? "vi",
       createdAt: new Date(record.createdAt).toISOString(),
+      ...(record.role === "admin" ? { role: "admin" as const } : {}),
     },
     samplesSeeded: Boolean(record.samplesSeeded),
     setCookies,
@@ -83,6 +87,14 @@ export async function readJson(request: Request, maxBytes = 2 * 1024 * 1024): Pr
     reader.releaseLock();
   }
 }
+async function assertActiveAccount(userId: string) {
+  const [row] = await getDatabase()
+    .select({ bannedAt: user.bannedAt, deletedAt: user.deletedAt })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+  if (!row || row.bannedAt || row.deletedAt) throw new ApiError(401, "UNAUTHENTICATED");
+}
 export interface ApiContext {
   samplesSeeded: boolean;
   /** Call after changing user fields carried in the session cookie cache. */
@@ -98,7 +110,11 @@ export async function api(
     checkOrigin(request);
     const session = await getSessionContext(request.headers);
     const current = session.user;
-    if (request.method !== "GET") await enforceLimit(`write:${current.id}`);
+    if (request.method !== "GET") {
+      await enforceLimit(`write:${current.id}`);
+      // The session cookie can be minutes old; a ban or deletion must stop writes at once.
+      await assertActiveAccount(current.id);
+    }
     let shouldRefresh = false;
     const result = await action(current, {
       samplesSeeded: session.samplesSeeded,

@@ -31,6 +31,7 @@ import type { User } from "@/lib/types";
 import { useErrorMessage, useValidationMessage } from "@/lib/use-messages";
 import { LearningPreferences } from "@/features/srs/components/LearningPreferences";
 import { AccountSecurity } from "@/features/auth/components/AccountSecurity";
+import { PublicProfileSettings } from "@/features/community/components/PublicProfileSettings";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -218,7 +219,13 @@ export function SettingsView({ user }: { user: User }) {
       <h1 className="text-title font-extrabold">{t("title")}</h1>
       <ProfileSection user={user} />
       <AppearanceSection />
-      {process.env.NEXT_PUBLIC_DATA_SOURCE === "http" ? <><LearningPreferences/><AccountSecurity /></> : null}
+      {process.env.NEXT_PUBLIC_DATA_SOURCE === "http" ? (
+        <>
+          <PublicProfileSettings />
+          <LearningPreferences />
+          <AccountSecurity />
+        </>
+      ) : null}
       <AccountSection user={user} />
     </div>
   );

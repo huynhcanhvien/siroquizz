@@ -17,7 +17,7 @@ export type TestPhase =
   | { name: "results"; questions: Question[]; durationMs: number };
 
 /** Owns the setup → taking → results flow, persistence of results and score overrides. */
-export function useTestSession(set: StudySet) {
+export function useTestSession(set: StudySet, practice = false) {
   const { toast } = useToast();
   const errorMessage = useErrorMessage();
   const { mutate: saveResult } = useSaveTestResult();
@@ -89,10 +89,12 @@ export function useTestSession(set: StudySet) {
     setAnswers(next);
     const grade = gradeTest(phase.questions, next);
     const durationMs = Date.now() - phase.startedAt;
-    saveResult(
-      { setId: set.id, score: grade.score, total: grade.total, durationMs },
-      { onSuccess: (result) => (resultIdRef.current = result.id), onError },
-    );
+    // Practice sessions (a whole folder) have no single set to file the result under.
+    if (!practice)
+      saveResult(
+        { setId: set.id, score: grade.score, total: grade.total, durationMs },
+        { onSuccess: (result) => (resultIdRef.current = result.id), onError },
+      );
     setPhase({ name: "results", questions: phase.questions, durationMs });
     window.scrollTo({ top: 0 });
     gradingRef.current = false;

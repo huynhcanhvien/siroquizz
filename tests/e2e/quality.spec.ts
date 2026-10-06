@@ -4,6 +4,24 @@ import { findSet, registerUser } from "./fixtures";
 
 const BREAKPOINTS = [320, 768, 1024, 1440] as const;
 
+/** Shares a set by link and picks a username, for the public pages. */
+async function publicPages(page: Page, setId: string) {
+  const headers = { Origin: new URL(page.url()).origin };
+  const shared = await page.request.patch(`/api/v1/sets/${setId}/visibility`, {
+    headers,
+    data: { visibility: "unlisted" },
+  });
+  const username = `qa_${Date.now().toString(36)}`;
+  await page.request.patch("/api/v1/me/profile", { headers, data: { username } });
+  return [
+    { name: "explore", path: "/explore" },
+    { name: "shared-set", path: `/s/${(await shared.json()).data.slug}` },
+    { name: "profile", path: `/u/${username}` },
+    { name: "folders", path: "/folders" },
+    { name: "classes", path: "/classes" },
+  ];
+}
+
 async function pagesToCheck(page: Page) {
   await registerUser(page);
   const set = await findSet(page, "HSK");
@@ -21,6 +39,7 @@ async function pagesToCheck(page: Page) {
       ? [
           { name: "stats", path: "/stats" },
           { name: "review", path: "/review" },
+          ...(await publicPages(page, set.id)),
         ]
       : []),
   ];

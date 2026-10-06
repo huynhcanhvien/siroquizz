@@ -12,6 +12,7 @@ import { QueryError } from "@/components/ui/QueryState";
 import { SET_SOURCES } from "@/lib/types";
 import { useSets } from "../hooks";
 import { filterAndSortSets, type LibrarySort, type LibrarySourceFilter } from "../lib/set-utils";
+import { FolderDropBar, dragSet } from "@/features/folders/components/FolderDropBar";
 import { SetCard } from "./SetCard";
 
 const SORTS: readonly LibrarySort[] = ["recent", "title", "cards"];
@@ -52,6 +53,9 @@ function useLibraryParams() {
   };
   return { filter, update };
 }
+
+// Folders need the server backend.
+const isHttp = process.env.NEXT_PUBLIC_DATA_SOURCE === "http";
 
 export function LibraryView() {
   const t = useTranslations("library");
@@ -120,6 +124,7 @@ export function LibraryView() {
         </div>
       </div>
 
+      {isHttp ? <FolderDropBar /> : null}
       {isPending ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }, (_, index) => (
@@ -138,7 +143,12 @@ export function LibraryView() {
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visible.map((set) => (
-            <li key={set.id} className="flex">
+            <li
+              key={set.id}
+              className="flex"
+              draggable={isHttp}
+              onDragStart={isHttp ? dragSet(set.id) : undefined}
+            >
               <SetCard set={set} className="flex-1" />
             </li>
           ))}

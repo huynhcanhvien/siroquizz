@@ -18,6 +18,9 @@ export const PUBLISH_REWARD = 5;
 export const COPY_REWARD = 1;
 export const MAX_COPY_REWARDS_PER_DAY = 30;
 export const MIN_PUBLIC_CARDS = 10;
+export const MAX_PUBLISH_REWARDS_PER_DAY = 3;
+/** Accounts younger than this earn no publish rewards (throwaway-account farming). */
+export const MIN_ACCOUNT_AGE_MS = 24 * 3600_000;
 
 /** The Vietnam calendar day: free credits reset at local midnight. */
 export function quotaWindow(now = new Date()) {
@@ -162,13 +165,31 @@ async function grant(db: Executor, userId: string, delta: number, reason: string
 }
 /**
  * Rewards an author once per set when it becomes public and passes moderation. Copies of other
- * people's sets and very small sets earn nothing. Returns the credits granted.
+ * people's sets, very small sets, accounts under a day old and anything past the daily cap earn
+ * nothing. Deleting a rewarded set takes the reward back (removeSet). Returns credits granted.
  */
-export function awardPublishCredit(
+export async function awardPublishCredit(
   db: Executor,
   set: { authorId: string; setId: string; cardCount: number; copiedFromId: string | null },
 ) {
-  if (set.cardCount < MIN_PUBLIC_CARDS || set.copiedFromId) return Promise.resolve(0);
+  if (set.cardCount < MIN_PUBLIC_CARDS || set.copiedFromId) return 0;
+  // Farming guards: brand-new accounts earn nothing, and only a few sets a day pay out.
+  const { start } = quotaWindow();
+  const [[author], [today]] = await Promise.all([
+    db.select({ createdAt: user.createdAt }).from(user).where(eq(user.id, set.authorId)),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(creditLedger)
+      .where(
+        and(
+          eq(creditLedger.userId, set.authorId),
+          eq(creditLedger.reason, "publish_reward"),
+          gte(creditLedger.createdAt, start),
+        ),
+      ),
+  ]);
+  if (!author || Date.now() - author.createdAt.getTime() < MIN_ACCOUNT_AGE_MS) return 0;
+  if (today.count >= MAX_PUBLISH_REWARDS_PER_DAY) return 0;
   return grant(db, set.authorId, PUBLISH_REWARD, "publish_reward", set.setId);
 }
 /** Rewards an author when another person copies their public set: once per copier and set. */

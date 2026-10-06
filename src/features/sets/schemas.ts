@@ -60,6 +60,14 @@ export const cardSchema = z.object({
   imageAlt: z.string().max(1000).optional(),
 });
 
+export const setSharingSchema = z.object({
+  visibility: z.enum(["private", "unlisted", "public"]),
+  tags: z.array(z.string()).default([]),
+  slug: z.string().nullable(),
+  moderationStatus: z.enum(["none", "pending", "approved", "flagged", "rejected"]),
+  moderationReason: z.string().nullable(),
+  hidden: z.boolean(),
+});
 export const studySetSchema = z.object({
   id: z.string().min(1),
   ownerId: z.string().min(1),
@@ -71,6 +79,11 @@ export const studySetSchema = z.object({
   source: z.enum(SET_SOURCES),
   createdAt: z.string(),
   updatedAt: z.string(),
+  sharing: setSharingSchema.optional(),
+  copiedFrom: z
+    .object({ title: z.string(), slug: z.string().nullable(), authorName: z.string() })
+    .nullable()
+    .optional(),
 });
 
 /** Editor rows that are completely empty are ignored, like Quizlet does. */

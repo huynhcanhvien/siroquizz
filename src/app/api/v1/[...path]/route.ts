@@ -2,12 +2,14 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { profileUpdateSchema } from "@/features/auth/schemas";
 import { learningApi } from "@/server/learning-api";
+import { communityApi } from "@/server/community-api";
 import { api, readJson } from "@/server/api";
 import { ApiError } from "@/server/api-error";
 import { getDatabase } from "@/server/db/client";
 import { account, session as sessionTable, user } from "@/server/db/schema";
 import {
   createSetInTransaction,
+  duplicateSet,
   getSet,
   listSets,
   removeSet,
@@ -39,6 +41,8 @@ async function handle(request: Request, context: Context) {
     const body = () => readJson(request);
     const learning = await learningApi(db, current.id, request, path);
     if (learning) return learning;
+    const community = await communityApi(db, current.id, request, path);
+    if (community) return community;
     if (domain === "me" && path.length === 1) {
       if (method === "GET") {
         if (!session.samplesSeeded) {
@@ -129,12 +133,7 @@ async function handle(request: Request, context: Context) {
     }
     if (id && sub === "duplicate" && method === "POST") {
       const { title } = z.object({ title: z.string().min(1).max(120) }).parse(await body());
-      const source = await getSet(db, current.id, id);
-      return {
-        data: await db.transaction((tx) =>
-          createSetInTransaction(tx, current.id, { ...source, title }),
-        ),
-      };
+      return { data: await duplicateSet(db, current.id, id, title) };
     }
     if (id && sub === "progress") {
       if (method === "GET") return { data: await getProgress(db, current.id, id) };

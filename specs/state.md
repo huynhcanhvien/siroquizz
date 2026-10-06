@@ -3,11 +3,16 @@
 > File này ghi lại **đã làm gì, đang làm dở gì, làm tiếp thế nào** để bất kỳ ai (người hoặc agent) cũng có thể tiếp tục.
 > Thời gian theo giờ Việt Nam (UTC+7). Mục mới nhất ở trên cùng của phần Nhật ký.
 
-**Cập nhật lần cuối:** 2026-10-05 15:40 +07
-**Phase hiện tại:** Phase 2–3 hoàn tất local (Groq live pass). Đã thêm hạ tầng **deploy Vercel free + chia nhỏ job AI (resumable step)**, đang chờ nghiệm thu production. Phase 4 (SRS) vẫn đang dở. Google OAuth/R2/Resend production còn chờ credentials.
+**Cập nhật lần cuối:** 2026-10-06 09:11 +07
+**Phase hiện tại:** AI (tốc độ + credit) xong trên nhánh `feat/ai-pipeline-speed` (PR #1 vào `main`, **chưa merge**). Phase 5 cộng đồng **hoàn tất (đợt 1–6)** trên nhánh `feat/phase5-community` (tách từ nhánh AI, chưa push/PR). Phase 4 (SRS) vẫn đang dở.
 **Tình trạng:** Người dùng yêu cầu hoàn thành toàn bộ Phase 2–6 và cập nhật state khi từng phase xong. Không coi credentials, deployment hay beta bên ngoài đã hoàn tất nếu chưa thực hiện.
 
 ## Tóm tắt nhanh cho người tiếp quản
+
+- **Nhánh:** `main` = production (user deploy từ đây, **không commit thẳng**). `feat/ai-pipeline-speed` (PR #1 → main) ⊂ `feat/phase5-community` (đang làm, chưa push).
+- **Migration mới chưa chạy trên Neon:** 0006–0013 (chỉ thêm cột/bảng/index; 0010 cần `CREATE EXTENSION pg_trgm`). Migrate local phải truyền `DATABASE_URL` local tường minh (drizzle.config đọc `.env.production.local`).
+- **E2E:** cổng 3100 có thể bị dự án `trip-expense-tracker` của user chiếm → `E2E_PORT=3200 RESEND_API_KEY= PW_CHANNEL=chrome pnpm e2e`, tạm cất `.env.production.local` khi chạy.
+- **Admin:** `DATABASE_URL=<url> pnpm admin:grant <email>` (kiểm tra quyền admin luôn đọc DB).
 
 - `.env.local` đang chạy HTTP với DB5433, Better Auth thật, SMTP Mailpit; khóa `GROQ_LLM_API` được giữ riêng, template không chứa secret.
 - `pnpm services:up` → `pnpm db:migrate` → `pnpm dev`; thư xác minh/reset ở http://localhost:8025. `pnpm build` và dev dùng webpack vì Turbopack panic PostCSS worker trên máy này.
@@ -42,9 +47,85 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 | LOW | —    | Đăng xuất dính `?next=`, guard mất query string, xóa bộ thẻ nháy "không tìm thấy", AI không hủy khi rời trang, `wait()` rò listener, bấm đúp Lưu/Tạo, đồng hồ lệch, kỷ lục điểm 0, Scramble `useMemo`, ô số câu hiện 0 | ✅ Đã sửa hết                                                                                                                                                                                                                                                                                                                                                           |
 | LOW | —    | Hàm > 50 dòng                                                                                                                                                                                                          | ✅ Đã tách `SetEditor`, `FlashcardDeck`, `TestMode` (+ `use-test-session.ts`), `GravityBoard`, `AiGenerator` (+ `use-ai-generation.ts`)                                                                                                                                                                                                                                 |
 
-**Bước tiếp theo:** Phase 4: learn-engine7cards/round, FSRS, due queue/new limits/preferences, stars, study sessions/stats/goals/streak/reminders/images. `ts-fsrs@5.4.2` đã cài, @types/node lên22 cho Vitest. Dataviz skill không có trong catalog/filesystem; dùng chart accessible theo design tokens và bảng thay thế. Sau P4 tiếp tục P5–6.
+**Bước tiếp theo:** (1) user merge PR #1 sau khi chạy migration 0006–0008 trên Neon; (2) push `feat/phase5-community` + tạo PR (migration 0009–0013); (3) các mục bảo mật còn để lại (xem nhật ký đợt 6); (4) quay lại Phase 4 (SRS) phần còn dở.
 
 ## Nhật ký
+
+### 2026-10-06 09:11 +07: 🔒 Phase 5 đợt 6 — Review bảo mật (nhánh `feat/phase5-community`)
+
+- Agent security-reviewer: **không có CRITICAL**; access rules, admin (role đọc DB), CSRF (Origin), SQL, XSS, CSV, slug/mã lớp được xác nhận ổn.
+- **Đã sửa:**
+  - **H1 lách kiểm duyệt:** sửa nội dung/tag/ảnh ở **mọi** chế độ hiển thị đều xóa phán quyết cũ (`markEdited`: public → `pending` + kiểm tra lại, còn lại → `none`); bộ `flagged`/`rejected` đóng mọi link (cả unlisted) cho tới khi chủ sửa.
+  - **H2 cày credit:** thưởng công khai chỉ khi tài khoản ≥ 24h và tối đa 3 lần/ngày; xóa bộ đã thưởng → thu hồi; nhân bản bộ người khác (`duplicateSet`) giữ `copiedFromId` nên không được thưởng khi đăng lại.
+  - **M1:** đưa tag vào kiểm duyệt, gói nội dung bộ thẻ trong JSON "untrusted" (giảm prompt injection); gắn ảnh cũng kiểm duyệt lại.
+  - **M2:** gọi model kiểm duyệt tối đa 10 lần/giờ/người (vượt → `pending`, cron xử lý) — không ai làm cạn hạn mức chung hay "quay lại" phán quyết.
+  - **M3:** thời gian Ghép thẻ không thể nhỏ hơn thời gian thực trên server (trừ 5s) → bot không đứng đầu bằng sự kiện giả.
+  - **M5:** chủ tài khoản đã xóa ⇒ bộ chia sẻ/được giao offline (như bị khóa). **M6:** mọi request ghi kiểm tra `banned_at`/`deleted_at` trong DB (không chờ cookie 5 phút).
+  - **L1** admin không xem bộ private; **L2** PATCH lớp không còn xóa mô tả; **L3** đổi username: cooldown tính từ lần đặt đầu; **L9** kiểm tra chủ ảnh trước khi xử lý file.
+- **Để lại (rủi ro thấp, cần quyết định sản phẩm):** M4 giới hạn tham gia lớp theo IP + gộp lỗi "không có lớp"/"đã khóa"; L4 bảng tiến độ dựa trên dữ liệu học sinh tự gửi; L5 bộ của đồng giáo viên đã rời lớp vẫn được giao; L6 `ownerId` trong payload; L7 tùy chọn ẩn tên trên bảng xếp hạng; L8 đổi slug khi chia sẻ lại; L10 tham số folder của hàng ôn tập; L11 rate limit tìm kiếm Khám phá theo IP + chống thổi "phổ biến" bằng tài khoản ảo; L12 giới hạn báo cáo chưa nguyên tử; chống trùng nội dung bộ thẻ bằng hash.
+- **Kiểm tra:** 429 unit, **152 integration** (thêm 8 test hồi quy cho các lỗ hổng trên), **E2E 40 pass** (3 worker; test thưởng live lùi tuổi tài khoản 2 ngày).
+
+### 2026-10-06 08:46 +07: 🧾 Tóm tắt phiên 2026-10-05 (AI + credit + Phase 5 đợt 1–5)
+
+> Ghi chú: các mục nhật ký 17:10 / 18:20 / 19:30 / 21:00 bên dưới dùng giờ **ước lượng**, không phải giờ hệ thống; thứ tự các mục vẫn đúng.
+
+**1. AI tạo bộ thẻ: sửa lỗi + tăng tốc** (nhánh `feat/ai-pipeline-speed`, commit `f4c0755`, `9cce309`; PR #1)
+- Nguyên nhân lỗi chính đo được: chunk 25k ký tự vượt hạn mức free 8k token/phút → `413` 100% với tài liệu > ~15k ký tự. Thay bằng chunk theo token (~2.500), `reasoning_effort: low`, deadline theo bước, model dự phòng `gpt-oss-20b`, OCR song song, hàng đợi FIFO dùng chung một key, client tự chạy lại bước, step lease, báo phần bị bỏ qua.
+- Đo live: tài liệu 60k ký tự xong ~96s (85s là chờ hạn mức free), không lỗi; eval 21 case đạt 100%.
+
+**2. Credit AI** (commit `55153f7`): 1 credit = 1.000 token; 20 credit miễn phí/ngày (reset 0h, không cộng dồn) + credit thưởng không hết hạn (`credit_ledger`); báo giá + màn hình xác nhận; chỉ hoàn khi lỗi hệ thống; 40 credit/lần, 10 trang OCR, 2 job/người, trần toàn app; cache kết quả 30 ngày; lấy mẫu ~8 thẻ/chunk (20 thẻ từ tài liệu 60k: 41 → 11 credit).
+
+**3. Phase 5 cộng đồng** (nhánh `feat/phase5-community`)
+- Đợt 1 `e3bc8e2`: chia sẻ private/unlisted/public + `/s/[slug]` + QR, `access.ts`, kiểm duyệt tự động (`gpt-oss-safeguard-20b` trên Groq + regex liên hệ), báo cáo, trang `/admin`, audit log, nối credit thưởng (+5 công khai được duyệt, +1/lượt sao chép, thu hồi khi gỡ).
+- Đợt 2 `70e33c3`: `/explore` (tìm không dấu, pg_trgm, tag, phổ biến tuần), hồ sơ `/u/[username]`.
+- Đợt 3 `e2c1878`: thư mục, kéo-thả, học cả thư mục (Ôn tập lưu; Thẻ/Kiểm tra là luyện tập).
+- Đợt 4 `d30d65b`: lớp học, giao bài, bảng tiến độ + CSV, `requireStudySet`; sửa rò rỉ trường nội bộ trong response bộ thẻ.
+- Đợt 5 (commit cùng bản tóm tắt này): bảng xếp hạng Ghép thẻ/Rơi từ, server cấp seed và **chơi lại sự kiện** để tính kết quả (loại thao tác < 300ms, sai bàn, thời gian vượt thực tế); bảng `game_sessions` (**migration 0013**); người đăng nhập học/chơi trực tiếp bộ được chia sẻ (`sharedForStudy`); nút "Học ngay" trên trang công khai; nút Bắt đầu hiện "Đang chuẩn bị ván…". Test: 429 unit, 144 integration, `games.spec.ts` + `study.spec.ts` pass 18/18 khi chạy riêng.
+- **Đã xử lý sau đó:** các lần chạy E2E cả bộ hay có vài test timeout ngẫu nhiên (lần nào cũng khác test). Nguyên nhân: 4 worker mặc định làm quá tải máy 8 lõi đang chạy cả server Next, Postgres và Chrome. Đặt mặc định `workers: 3` (đổi bằng `E2E_WORKERS`) → **40/40 pass trong 3,2 phút** (4 worker: 4,3 phút và có timeout). Thêm `test.describe.configure({ timeout: 90_000 })` cho các file E2E nhiều người dùng.
+
+**Quyết định của user trong phiên:** key Groq free duy nhất → cần hàng đợi; credit như trên; tài liệu AI mặc định riêng tư, công khai được thưởng, có kiểm duyệt; làm Phase 5; merge nhánh credit vào nhánh AI và tạo PR vào `main`.
+
+
+### 2026-10-05 21:00 +07: 🏫 Phase 5 đợt 4 — Lớp học (nhánh `feat/phase5-community`)
+
+- **Schema (migration `drizzle/0012_premium_dormammu.sql`):** `classes` (mã tham gia 6 ký tự không nhầm lẫn, `join_locked`), `class_members` (owner/teacher/student), `class_sets` (`due_at`).
+- **Quyền học qua lớp:** `requireStudySet` ([access.ts](../src/server/services/access.ts)) = chủ bộ **hoặc** bộ được giao cho lớp mình (chưa bị ẩn). Thay `requireOwnedSet` ở mọi API học (tiến độ, kiểm tra, game, hoạt động, ôn tập, sao, phiên học, `GET /sets/:id`); sửa/xóa/chia sẻ vẫn chỉ chủ. Hàng đợi Ôn tập của học sinh gồm cả bộ được giao. Rời lớp mất quyền ngay.
+- **Phát hiện khi làm:** `getSet`/`listSets` trả nguyên hàng DB (`...set`) → lộ slug/kiểm duyệt cho học sinh và **gửi kèm `search_text` (tới 20k ký tự) mỗi bộ** (hồi quy từ đợt 2). Đã chỉ trả các trường client cần.
+- **Service** [classes.ts](../src/server/services/classes.ts) + route trong `community-api`: tạo/xem/sửa/xóa lớp, tham gia (≤200 thành viên, `CLASS_NOT_FOUND`/`CLASS_LOCKED`/`CLASS_FULL`), rời, xóa thành viên (giáo viên xóa học sinh; chỉ chủ lớp quản lý đồng giáo viên), giao/bỏ giao bộ của chính mình, `GET /classes/assigned`, bảng tiến độ (chỉ đọc tiến độ của bộ được giao).
+- **UI:** `/classes` (dạy/học, tạo, nhập mã), `/classes/join/[code]` (xác nhận trước khi vào), `/classes/[id]` (giáo viên: mã + link mời, khóa, đổi mã, giao bộ + hạn, bảng tiến độ có `<table>` cho trình đọc màn hình + Xuất CSV, thành viên; học sinh: bộ được giao, rời lớp), "Bài được giao" trên Home, trang bộ thẻ ẩn nút của chủ với học sinh (và sửa lỗi dòng "Tạo bởi" hiện tên người xem).
+- **Kiểm tra:** **422 unit** (thêm `csv.test.ts`), **140 integration** (thêm `classes.test.ts`, `community-api.test.ts` cho router; coverage lines 91%, branches 79.7%), **E2E 38 pass** (thêm `classes.spec.ts` 2 trình duyệt: giao → học → bảng tiến độ → CSV → rời lớp mất quyền; `/classes` vào quét axe/tràn layout).
+- **Deploy:** migration 0012.
+
+### 2026-10-05 19:30 +07: 📁 Phase 5 đợt 3 — Thư mục (nhánh `feat/phase5-community`)
+
+- **Schema (migration `drizzle/0011_marvelous_omega_flight.sql`):** `folders` (tối đa 100/người), `folder_sets` (pk folder+set, `position`, tối đa 500 bộ/thư mục). Chỉ chứa bộ của chính mình; xóa thư mục không xóa bộ; bộ đã xóa mềm không hiện.
+- **API:** `GET/POST /folders`, `GET/PATCH/DELETE /folders/:id`, `PUT/DELETE /folders/:id/sets/:setId`, `GET /folders/:id/study` (gộp ≤500 thẻ theo thứ tự thư mục), `GET /sets/:id/folders`, `GET /reviews/due?folder=` ([folders.ts](../src/server/services/folders.ts)).
+- **UI:** trang `/folders`, `/folders/[id]` (đổi tên, xóa, bỏ bộ), menu bộ thẻ "Thêm vào thư mục" (checkbox cập nhật lạc quan), Thư viện có dải chip thư mục để kéo-thả bộ thẻ, mục "Thư mục" trong điều hướng (chỉ chế độ http).
+- **Học cả thư mục:** Ôn tập `/review?folder=` lưu FSRS bình thường; `/study/folder/[id]/flashcards|test` là **luyện tập không lưu tiến độ** (`FlashcardDeck`/`TestMode` thêm prop `practice`), có nhãn trên thanh trên cùng.
+- **Kiểm tra:** 419 unit, **130 integration** (thêm `folders.test.ts`), **E2E 37 pass** (thêm `folders.spec.ts`: tạo, thêm qua menu và kéo-thả, luyện tập không gửi request lưu, ôn theo thư mục, xóa giữ bộ; `/folders` vào quét axe/tràn layout).
+- **Deploy:** migration 0011.
+
+### 2026-10-05 18:20 +07: 🧭 Phase 5 đợt 2 — Khám phá và hồ sơ công khai (nhánh `feat/phase5-community`)
+
+- **Tìm kiếm:** cột `study_sets.search_text` = tiêu đề + mô tả + tag + thẻ đã **bỏ dấu tiếng Việt, đ→d, chữ thường** trong code ([search.ts](../src/features/community/lib/search.ts)), index GIN `pg_trgm` (**migration `drizzle/0010_slippery_black_queen.sql`**, có `CREATE EXTENSION pg_trgm`). Không dùng `unaccent` vì không IMMUTABLE nên không index được. "tu vung du lich" → "Từ vựng du lịch", "你好" → bộ có thuật ngữ đó.
+- **`/explore`** (trang công khai, server render, trạng thái trên URL qua form GET): lọc ngôn ngữ thuật ngữ/định nghĩa, số thẻ, tag; sắp xếp liên quan/mới/phổ biến; "Phổ biến tuần này" = lượt sao chép trong 7 ngày; chip chủ đề = tag dùng nhiều nhất; phân trang 24/trang (tối đa 20 trang). Chỉ hiện bộ public + approved + không bị ẩn + chủ không bị khóa/xóa.
+- **Tag:** tối đa 5, sửa trong hộp thoại Chia sẻ khi công khai (`PATCH /sets/:id/tags`); đổi tag → kiểm duyệt lại.
+- **Hồ sơ `/u/[username]`:** username `[a-z0-9_]{3,20}`, chặn từ dành riêng, lần đầu chọn tự do, sau đó 30 ngày/lần (`USERNAME_TAKEN`, `USERNAME_COOLDOWN`); ẩn hồ sơ → 404 với người khác; tổng số bộ/thẻ/lượt sao chép; tên tác giả ở Khám phá và trang bộ thẻ link tới hồ sơ. Cài đặt: mục "Hồ sơ công khai".
+- **UI:** header công khai dùng chung (`PublicHeader`), "Khám phá" trong thanh điều hướng (chỉ chế độ http). **Quality spec bắt được 2 lỗi thật:** header tràn 143px ở 320px (đã thu gọn như landing) và tương phản chữ nhỏ `accent-strong` trên `accent-soft` (thêm token `--accent-text`).
+- **Kiểm tra:** typecheck/lint 0 lỗi; **419 unit**, **126 integration** (thêm `explore.test.ts`), **E2E 36 pass** (thêm luồng Khám phá → hồ sơ → bộ thẻ; axe + tràn layout cho `/explore`, `/s/…`, `/u/…`). Cổng 3100 đang bị dự án khác của user chiếm → chạy E2E với `E2E_PORT=3200`.
+- **Deploy:** thêm migration 0010 (cần quyền `CREATE EXTENSION`, Neon cho phép `pg_trgm`).
+
+### 2026-10-05 17:10 +07: 🌐 Phase 5 đợt 1 — chia sẻ, kiểm duyệt, báo cáo, admin, credit thưởng (nhánh `feat/phase5-community`, tách từ `feat/ai-pipeline-speed`)
+
+- **Kế hoạch Phase 5 theo đợt:** (1) chia sẻ + `access.ts` + kiểm duyệt/báo cáo/admin + nối credit ✅; (2) Khám phá + hồ sơ/username; (3) thư mục; (4) lớp học; (5) bảng xếp hạng; (6) review bảo mật + E2E nhiều người.
+- **Schema (migration `drizzle/0009_magenta_valkyrie.sql`):** `study_sets` + `visibility` (private/unlisted/public), `slug` (10 ký tự ngẫu nhiên, không ký tự dễ nhầm), `copied_from_id`, `moderation_status` (none/pending/approved/flagged/rejected), `moderation_reason`, `hidden_at`; `user` + `role`, `banned_at`; bảng `reports`, `audit_logs`.
+- **Phân quyền tập trung** [access.ts](../src/server/services/access.ts): `canViewSet` (private chỉ chủ; unlisted ai có link; public khi pending/approved; ẩn/chủ bị khóa/đã xóa → chỉ chủ), `canEditSet`, `isListed`, `isAdmin` **đọc role từ DB** (cookie session trễ 5 phút). Route ảnh thẻ dùng chung luật (khách xem ảnh của bộ được chia sẻ).
+- **Chia sẻ** [sharing.ts](../src/server/services/sharing.ts): `PATCH /sets/:id/visibility`, trang server `/s/[slug]` (khách xem + thẻ lật, noindex nếu chưa listed), `POST /public/:slug/copy` (bản sao riêng tư, ghi "Bản sao từ … của …"). Sửa bộ đang công khai → kiểm duyệt lại.
+- **Kiểm duyệt** [moderation.ts](../src/server/services/moderation.ts): regex link/SĐT/email trên toàn bộ + `gpt-oss-safeguard-20b` trên mẫu ≤1.200 token; vi phạm → `flagged` (hàng chờ admin), sạch → `approved` + **+5 credit** (một lần/bộ, ≥10 thẻ, không phải bản sao). Model bận → `pending`, cron hằng ngày + nút "Kiểm tra lại".
+- **Báo cáo & admin** [reports.ts](../src/server/services/reports.ts), trang `/admin` (menu tài khoản, chỉ admin): báo cáo (≤10/ngày/người, 1 báo cáo mở/người/mục tiêu), bỏ qua / ẩn bộ (thu hồi credit) / khóa tài khoản (xóa mọi phiên, bộ thẻ biến mất); duyệt/từ chối bộ trong hàng chờ; mọi hành động vào `audit_logs`. Sao chép bộ công khai đã duyệt → **+1 credit** cho tác giả.
+- **Bug bắt được nhờ test:** điều kiện chống ghi đè kết quả kiểm duyệt so `updated_at` (Postgres micro giây vs Date mili giây) → không bao giờ ghi; sửa bằng `date_trunc('milliseconds', …)`.
+- **Kiểm tra:** typecheck/lint 0 lỗi; 415 unit; **118 integration** (thêm `community.test.ts` 23 ca); **E2E 34 pass + 1 skip** (thêm `community.spec.ts`: chia sẻ cho khách, sao chép + báo cáo + admin ẩn, công khai được thưởng — ca live tự skip khi model kiểm duyệt bận).
+- **Deploy:** migration 0006–0009 trên Neon; cấp admin bằng `DATABASE_URL=<neon> pnpm admin:grant <email>`.
 
 ### 2026-10-05 15:40 +07: 🪙 Credit AI thay cho "5 lượt/ngày" (nhánh `feat/ai-credits`, merge vào `feat/ai-pipeline-speed`)
 
