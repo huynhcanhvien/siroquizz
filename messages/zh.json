@@ -1015,7 +1015,22 @@
     "teachers": "老师",
     "homeTitle": "布置给你的任务",
     "homeKnown": "已掌握 {known}/{total}",
-    "fromClass": "班级 {name}"
+    "fromClass": "班级 {name}",
+    "calendar": {
+      "title": "截止日期日历",
+      "previous": "上个月",
+      "next": "下个月",
+      "today": "今天",
+      "empty": "暂无截止日期。没有截止日期的学习集仍显示在下方列表中。",
+      "emptyDay": "当天没有截止日期。",
+      "count": "{count} 个截止事项",
+      "more": "+{count}",
+      "legend": "截止日期图例",
+      "past": "已过截止时间",
+      "soon": "未来48小时内",
+      "upcoming": "尚未到期",
+      "studySet": "学习 {title}"
+    }
   },
   "admin": {
     "title": "管理",

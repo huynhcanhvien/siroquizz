@@ -18,6 +18,7 @@ import { useErrorMessage } from "@/lib/use-messages";
 import { useClass, useClassAction } from "../hooks";
 import { isTeaching, type ClassDetail } from "../schemas";
 import { ClassProgress } from "./ClassProgress";
+import { DeadlineCalendar } from "./DeadlineCalendar";
 
 function Section({
   id,
@@ -340,6 +341,9 @@ export function ClassView({ id }: { id: string }) {
         <ExitClass klass={klass} />
       </header>
       {teaching ? <InviteCard klass={klass} /> : null}
+      <Section id="class-calendar" title={t("calendar.title")}>
+        <DeadlineCalendar sets={klass.sets} />
+      </Section>
       <Section id="class-sets" title={t("assignedTitle")}>
         {teaching ? <AssignForm klass={klass} /> : null}
         <AssignedList klass={klass} />
