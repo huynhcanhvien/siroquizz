@@ -1015,7 +1015,22 @@
     "teachers": "Giáo viên",
     "homeTitle": "Bài được giao",
     "homeKnown": "Đã thuộc {known}/{total}",
-    "fromClass": "Lớp {name}"
+    "fromClass": "Lớp {name}",
+    "calendar": {
+      "title": "Lịch deadline",
+      "previous": "Tháng trước",
+      "next": "Tháng sau",
+      "today": "Hôm nay",
+      "empty": "Chưa có deadline. Các bộ thẻ không có hạn vẫn nằm trong danh sách bên dưới.",
+      "emptyDay": "Không có deadline trong ngày này.",
+      "count": "{count} deadline",
+      "more": "+{count}",
+      "legend": "Chú thích deadline",
+      "past": "Đã qua hạn",
+      "soon": "Trong 48 giờ tới",
+      "upcoming": "Còn hạn",
+      "studySet": "Học bộ thẻ {title}"
+    }
   },
   "admin": {
     "title": "Quản trị",

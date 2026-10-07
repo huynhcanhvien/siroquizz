@@ -1015,7 +1015,22 @@
     "teachers": "Teachers",
     "homeTitle": "Assigned to you",
     "homeKnown": "Known {known}/{total}",
-    "fromClass": "Class {name}"
+    "fromClass": "Class {name}",
+    "calendar": {
+      "title": "Deadline calendar",
+      "previous": "Previous month",
+      "next": "Next month",
+      "today": "Today",
+      "empty": "No deadlines yet. Sets without a due date are still listed below.",
+      "emptyDay": "No deadlines on this day.",
+      "count": "{count} deadlines",
+      "more": "+{count}",
+      "legend": "Deadline legend",
+      "past": "Past due",
+      "soon": "Within 48 hours",
+      "upcoming": "Upcoming",
+      "studySet": "Study {title}"
+    }
   },
   "admin": {
     "title": "Administration",

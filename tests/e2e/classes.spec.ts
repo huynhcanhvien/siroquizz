@@ -45,8 +45,16 @@ test("teacher assigns a private set, the student studies it, progress shows up",
   await teacher.page
     .getByRole("combobox", { name: "Bộ thẻ", exact: true })
     .selectOption({ label: title });
+  const dueDate = new Date();
+  const due = `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, "0")}-${String(dueDate.getDate()).padStart(2, "0")}`;
+  await teacher.page.getByLabel("Hạn chót (không bắt buộc)").fill(due);
   await teacher.page.getByRole("button", { name: "Giao", exact: true }).click();
   await expect(teacher.page.getByText("Đã giao bộ thẻ.")).toBeVisible();
+  const teacherCalendar = teacher.page.getByRole("region", { name: "Lịch deadline" });
+  await expect(teacherCalendar.getByRole("link", { name: `Học bộ thẻ ${title}` })).toHaveAttribute(
+    "href",
+    `/sets/${setId}`,
+  );
 
   // The student joins through the invite link and sees the assignment on Home.
   const student = await person(browser, "Bé Na");
@@ -56,6 +64,11 @@ test("teacher assigns a private set, the student studies it, progress shows up",
     student.page.getByRole("heading", { level: 1, name: "Tiếng Anh 10A" }),
   ).toBeVisible();
   await expect(student.page.getByText("Học sinh · Giáo viên: Cô Hạnh")).toBeVisible();
+  await expect(
+    student.page
+      .getByRole("region", { name: "Lịch deadline" })
+      .getByRole("link", { name: `Học bộ thẻ ${title}` }),
+  ).toBeVisible();
   await student.page.goto("/home");
   const assignment = student.page.getByRole("link", { name: new RegExp(title) });
   await expect(assignment).toContainText("Đã thuộc 0/2");
