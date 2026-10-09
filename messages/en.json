@@ -186,7 +186,7 @@
     "sideCardPhonetic": "jiānchí",
     "sideCardBack": "perseverance",
     "verifyTitle": "Verify your email",
-    "verifyBody": "Check your inbox and open the verification link to finish creating your account.",
+    "verifyBody": "SiroQuizz has sent you a verification email. Please check your inbox and click the link in the email to finish signing up. If you cannot find it, check your Spam or Junk folder.",
     "invalidLink": "This link is invalid or expired. Please request a new one.",
     "verificationResent": "If this email needs verification, a new link has been sent.",
     "resendVerification": "Resend verification email",
