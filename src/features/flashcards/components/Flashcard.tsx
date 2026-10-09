@@ -8,6 +8,7 @@ import type { Card, LangCode, Side } from "@/lib/types";
 interface FlashcardProps {
   card: Card;
   frontSide: Side;
+  phoneticSide?: Side;
   flipped: boolean;
   onFlip: () => void;
   termLang: LangCode;
@@ -27,6 +28,7 @@ function textSize(text: string, size: "md" | "lg") {
 
 function Face({
   side,
+  phoneticSide,
   card,
   lang,
   size,
@@ -34,6 +36,7 @@ function Face({
   className,
 }: {
   side: Side;
+  phoneticSide: Side;
   card: Card;
   lang: LangCode;
   size: "md" | "lg";
@@ -55,11 +58,16 @@ function Face({
         <SpeakButton text={text} lang={lang} />
       </div>
       <div className="flex flex-1 flex-col items-center justify-center gap-3 overflow-y-auto px-2 text-center">
-        <p lang={lang} className={cn("font-bold break-words whitespace-pre-line", textSize(text, size))}>
+        <p
+          lang={lang}
+          className={cn("font-bold break-words whitespace-pre-line", textSize(text, size))}
+        >
           {text}
         </p>
-        {side==="definition" ? <CardImage card={card}/> : null}
-        {side === "term" && card.phonetic ? <p className="text-lg text-muted">{card.phonetic}</p> : null}
+        {side === phoneticSide && card.phonetic ? (
+          <p className="text-lg break-words text-muted">{card.phonetic}</p>
+        ) : null}
+        {side === "definition" ? <CardImage card={card} /> : null}
       </div>
     </div>
   );
@@ -73,6 +81,7 @@ function Face({
 export function Flashcard({
   card,
   frontSide,
+  phoneticSide = "term",
   flipped,
   onFlip,
   termLang,
@@ -84,10 +93,29 @@ export function Flashcard({
   const langOf = (side: Side) => (side === "term" ? termLang : definitionLang);
 
   return (
-    <div onClick={onFlip} className={cn("flip-scene relative w-full cursor-pointer rounded-xl", className)}>
+    <div
+      onClick={onFlip}
+      className={cn("relative w-full cursor-pointer rounded-xl flip-scene", className)}
+    >
       <div className={cn("flip-inner size-full", flipped && "is-flipped")}>
-        <Face side={frontSide} card={card} lang={langOf(frontSide)} size={size} hidden={flipped} className="flip-front" />
-        <Face side={backSide} card={card} lang={langOf(backSide)} size={size} hidden={!flipped} className="flip-back" />
+        <Face
+          side={frontSide}
+          phoneticSide={phoneticSide}
+          card={card}
+          lang={langOf(frontSide)}
+          size={size}
+          hidden={flipped}
+          className="flip-front"
+        />
+        <Face
+          side={backSide}
+          phoneticSide={phoneticSide}
+          card={card}
+          lang={langOf(backSide)}
+          size={size}
+          hidden={!flipped}
+          className="flip-back"
+        />
       </div>
     </div>
   );

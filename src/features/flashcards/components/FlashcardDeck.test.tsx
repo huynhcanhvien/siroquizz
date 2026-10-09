@@ -2,6 +2,7 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { StudySet } from "@/lib/types";
+import { storageKey } from "@/lib/storage";
 import { renderWithProviders } from "@/test/render";
 import { FlashcardDeck } from "./FlashcardDeck";
 
@@ -21,9 +22,41 @@ const set: StudySet = {
   ],
 };
 
-const visibleFace = () => document.querySelector(".flip-face:not([aria-hidden=true])")?.textContent ?? "";
+const visibleFace = () =>
+  document.querySelector(".flip-face:not([aria-hidden=true])")?.textContent ?? "";
 
 describe("FlashcardDeck", () => {
+  it("keeps saved phonetics on the definition side when flipping and changing the front side", async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem(storageKey(`phonetic-side:${set.id}`), '"definition"');
+    renderWithProviders(
+      <FlashcardDeck set={{ ...set, cards: [{ ...set.cards[0], phonetic: "/ˈæpəl/" }] }} />,
+    );
+    expect(visibleFace()).not.toContain("/ˈæpəl/");
+    await user.keyboard(" ");
+    expect(visibleFace()).toContain("/ˈæpəl/");
+    await user.keyboard(" ");
+    expect(visibleFace()).toContain("apple");
+    await user.click(screen.getByText("Tùy chọn"));
+    await user.click(screen.getByRole("radio", { name: "Định nghĩa" }));
+    expect(visibleFace()).toContain("quả táo");
+    expect(visibleFace()).toContain("/ˈæpəl/");
+    await user.click(screen.getByRole("button", { name: "Lật thẻ" }));
+    expect(visibleFace()).toContain("apple");
+    expect(visibleFace()).not.toContain("/ˈæpəl/");
+  });
+
+  it("keeps merged folder sessions on the default phonetic side", () => {
+    window.localStorage.setItem(storageKey(`phonetic-side:${set.id}`), '"definition"');
+    renderWithProviders(
+      <FlashcardDeck
+        set={{ ...set, cards: [{ ...set.cards[0], phonetic: "/ˈæpəl/" }] }}
+        practice
+      />,
+    );
+    expect(visibleFace()).toContain("/ˈæpəl/");
+  });
+
   it("flips with Space and hides the back face from assistive tech until then", async () => {
     const user = userEvent.setup();
     renderWithProviders(<FlashcardDeck set={set} />);
