@@ -9,6 +9,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Switch } from "@/components/ui/Switch";
 import { useToast } from "@/components/ui/Toast";
 import { useSaveCardStatus } from "@/features/progress/hooks";
+import { PhoneticSideButton } from "@/features/sets/components/PhoneticSideButton";
 import { useSetPhoneticSide } from "@/features/sets/use-set-phonetic-side";
 import { isActivatableTarget, isTextEntryTarget } from "@/lib/client-hooks";
 import { shuffle } from "@/lib/random";
@@ -174,7 +175,7 @@ export function FlashcardDeck({ set, practice = false }: { set: StudySet; practi
   const cardsById = useMemo(() => new Map(set.cards.map((card) => [card.id, card])), [set.cards]);
   const [state, dispatch] = useReducer(deckReducer, cardIds, createDeck);
   const [frontSide, setFrontSide] = useState<Side>("term");
-  const { phoneticSide } = useSetPhoneticSide(practice ? null : set.id);
+  const { phoneticSide, setPhoneticSide } = useSetPhoneticSide(practice ? null : set.id);
   const [trackProgress, setTrackProgress] = useState(true);
   const { mutate: saveCardStatus } = useSaveCardStatus(set.id);
   const card = cardsById.get(currentCardId(state) ?? "");
@@ -213,6 +214,11 @@ export function FlashcardDeck({ set, practice = false }: { set: StudySet; practi
         <span className="text-sm font-bold text-muted tabular-nums">{counter}</span>
       </div>
       {trackProgress ? <PileCounters learning={state.learning.length} known={state.known.length} /> : null}
+      {!practice && set.cards.some((card) => card.phonetic) ? (
+        <div className="flex justify-end">
+          <PhoneticSideButton side={phoneticSide} onSideChange={setPhoneticSide} />
+        </div>
+      ) : null}
       <Flashcard
         key={card.id}
         card={card}

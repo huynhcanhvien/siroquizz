@@ -1,8 +1,6 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { ArrowLeftRight } from "lucide-react";
-import { Button } from "@/components/ui/Button";
 import { SpeakButton } from "@/components/ui/SpeakButton";
 import { useSetProgress } from "@/features/progress/hooks";
 import { CardImage } from "@/features/srs/components/CardImage";
@@ -10,6 +8,7 @@ import { CardImageEditor } from "@/features/srs/components/CardImageEditor";
 import { StarButton } from "@/features/srs/components/StarButton";
 import { cn } from "@/lib/cn";
 import type { Side, StudySet } from "@/lib/types";
+import { PhoneticSideButton } from "./PhoneticSideButton";
 
 const STATUS_DOT = {
   known: "bg-success",
@@ -39,15 +38,7 @@ export function CardList({
           {t("cardsTitle", { count: set.cards.length })}
         </h2>
         {onPhoneticSideChange && set.cards.some((card) => card.phonetic) ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            className="h-auto min-h-9 max-w-full py-2 whitespace-normal"
-            onClick={() => onPhoneticSideChange(phoneticSide === "term" ? "definition" : "term")}
-          >
-            <ArrowLeftRight className="size-4" aria-hidden />
-            {t(phoneticSide === "term" ? "phoneticUnderTerm" : "phoneticUnderDefinition")}
-          </Button>
+          <PhoneticSideButton side={phoneticSide} onSideChange={onPhoneticSideChange} />
         ) : null}
       </div>
       <ul className="flex flex-col gap-2.5">
