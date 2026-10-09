@@ -1,5 +1,29 @@
 import { expect, test } from "@playwright/test";
-import { registerUser } from "./fixtures";
+import { findSet, registerUser } from "./fixtures";
+
+test("switches phonetic placement after opening a set from Continue studying", async ({ page }) => {
+  await registerUser(page);
+  const set = await findSet(page, "HSK");
+  await page.goto(`/study/${set.id}/flashcards`);
+  await expect(page.getByRole("button", { name: "Phiên âm: dưới thuật ngữ" })).toBeVisible();
+  await page.getByRole("link", { name: "Thoát" }).click();
+  await page.goto("/home");
+  await page.getByRole("region", { name: "Tiếp tục học" }).getByRole("link", { name: /HSK/ }).click();
+  await expect(page).toHaveURL(`/study/${set.id}/flashcards`);
+
+  const visibleText = page.locator(".flip-face:not([aria-hidden=true]) p");
+  await expect(visibleText).toHaveCount(2);
+  const phonetic = (await visibleText.nth(1).textContent()) ?? "";
+  expect(phonetic).not.toBe("");
+  await page.getByRole("button", { name: "Phiên âm: dưới thuật ngữ" }).click();
+  await expect(page.getByRole("button", { name: "Phiên âm: dưới nghĩa" })).toBeVisible();
+  await expect(visibleText).toHaveCount(1);
+  await page.getByRole("button", { name: "Lật thẻ" }).click();
+  await expect(visibleText.nth(1)).toHaveText(phonetic);
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Phiên âm: dưới nghĩa" })).toBeVisible();
+  await expect(visibleText).toHaveCount(1);
+});
 
 test("creates a set, flips through flashcards and records progress", async ({ page }) => {
   await registerUser(page);

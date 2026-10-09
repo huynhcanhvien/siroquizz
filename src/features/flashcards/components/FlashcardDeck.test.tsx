@@ -26,6 +26,35 @@ const visibleFace = () =>
   document.querySelector(".flip-face:not([aria-hidden=true])")?.textContent ?? "";
 
 describe("FlashcardDeck", () => {
+  it("shows a toggle immediately and lets Space change placement without flipping or advancing", async () => {
+    const user = userEvent.setup();
+    const studySet = { ...set, cards: [{ ...set.cards[0], phonetic: "/ˈæpəl/" }, set.cards[1]] };
+    const view = renderWithProviders(<FlashcardDeck set={studySet} />);
+    const toggle = screen.getByRole("button", { name: "Phiên âm: dưới thuật ngữ" });
+    expect(toggle).toBeVisible();
+    expect(visibleFace()).toContain("/ˈæpəl/");
+    toggle.focus();
+    await user.keyboard(" ");
+    expect(screen.getByRole("button", { name: "Phiên âm: dưới nghĩa" })).toHaveFocus();
+    expect(visibleFace()).toContain("apple");
+    expect(visibleFace()).not.toContain("/ˈæpəl/");
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    expect(window.localStorage.getItem(storageKey(`phonetic-side:${set.id}`))).toBe('"definition"');
+    await user.click(screen.getByRole("button", { name: "Lật thẻ" }));
+    expect(visibleFace()).toContain("quả táo");
+    expect(visibleFace()).toContain("/ˈæpəl/");
+    view.unmount();
+    renderWithProviders(<FlashcardDeck set={studySet} />);
+    expect(screen.getByRole("button", { name: "Phiên âm: dưới nghĩa" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Phiên âm: dưới nghĩa" }));
+    expect(visibleFace()).toContain("/ˈæpəl/");
+  });
+
+  it("hides the toggle for sets without phonetics", () => {
+    renderWithProviders(<FlashcardDeck set={set} />);
+    expect(screen.queryByRole("button", { name: /Phiên âm:/ })).not.toBeInTheDocument();
+  });
+
   it("keeps saved phonetics on the definition side when flipping and changing the front side", async () => {
     const user = userEvent.setup();
     window.localStorage.setItem(storageKey(`phonetic-side:${set.id}`), '"definition"');
@@ -55,6 +84,7 @@ describe("FlashcardDeck", () => {
       />,
     );
     expect(visibleFace()).toContain("/ˈæpəl/");
+    expect(screen.queryByRole("button", { name: /Phiên âm:/ })).not.toBeInTheDocument();
   });
 
   it("flips with Space and hides the back face from assistive tech until then", async () => {
