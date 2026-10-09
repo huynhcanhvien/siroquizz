@@ -186,7 +186,7 @@
     "sideCardPhonetic": "jiānchí",
     "sideCardBack": "kiên trì",
     "verifyTitle": "Xác minh email",
-    "verifyBody": "Kiểm tra hộp thư và mở liên kết xác minh để hoàn tất tạo tài khoản.",
+    "verifyBody": "SiroQuizz đã gửi email xác thực. Vui lòng kiểm tra hộp thư và nhấn vào liên kết trong email để hoàn tất đăng ký. Nếu chưa thấy email, hãy kiểm tra thư mục Thư rác / Spam.",
     "invalidLink": "Liên kết không hợp lệ hoặc đã hết hạn. Hãy yêu cầu liên kết mới.",
     "verificationResent": "Nếu email này cần xác minh, liên kết mới đã được gửi.",
     "resendVerification": "Gửi lại email xác minh",

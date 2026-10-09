@@ -186,7 +186,7 @@
     "sideCardPhonetic": "/ˌpɜːsɪˈvɪə/",
     "sideCardBack": "坚持",
     "verifyTitle": "验证邮箱",
-    "verifyBody": "请检查收件箱并打开验证链接以完成注册。",
+    "verifyBody": "SiroQuizz 已发送验证邮件。请检查收件箱并点击邮件中的链接以完成注册。如果没有找到邮件，请检查垃圾邮件文件夹。",
     "invalidLink": "链接无效或已过期。请重新申请。",
     "verificationResent": "如果此邮箱需要验证，新的链接已发送。",
     "resendVerification": "重新发送验证邮件",
