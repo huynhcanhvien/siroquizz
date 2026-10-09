@@ -329,6 +329,8 @@
     "progressReset": "Progress reset.",
     "lastTest": "Last test: {score}/{total}",
     "cardsTitle": "Terms in this set ({count})",
+    "phoneticUnderTerm": "Pronunciation: below term",
+    "phoneticUnderDefinition": "Pronunciation: below definition",
     "actions": "More options",
     "duplicate": "Duplicate",
     "deleteSet": "Delete set",

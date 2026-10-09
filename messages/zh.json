@@ -329,6 +329,8 @@
     "progressReset": "进度已重置。",
     "lastTest": "最近一次测验：{score}/{total}",
     "cardsTitle": "本学习集的词语（{count}）",
+    "phoneticUnderTerm": "音标：词语下方",
+    "phoneticUnderDefinition": "音标：释义下方",
     "actions": "更多选项",
     "duplicate": "复制",
     "deleteSet": "删除学习集",

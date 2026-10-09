@@ -1,13 +1,15 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { ArrowLeftRight } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import { SpeakButton } from "@/components/ui/SpeakButton";
 import { useSetProgress } from "@/features/progress/hooks";
 import { CardImage } from "@/features/srs/components/CardImage";
 import { CardImageEditor } from "@/features/srs/components/CardImageEditor";
 import { StarButton } from "@/features/srs/components/StarButton";
 import { cn } from "@/lib/cn";
-import type { StudySet } from "@/lib/types";
+import type { Side, StudySet } from "@/lib/types";
 
 const STATUS_DOT = {
   known: "bg-success",
@@ -15,16 +17,39 @@ const STATUS_DOT = {
   new: "bg-surface-3 ring-1 ring-border-strong",
 } as const;
 
-export function CardList({ set, editable = true }: { set: StudySet; editable?: boolean }) {
+export function CardList({
+  set,
+  editable = true,
+  phoneticSide = "term",
+  onPhoneticSideChange,
+}: {
+  set: StudySet;
+  editable?: boolean;
+  phoneticSide?: Side;
+  onPhoneticSideChange?: (side: Side) => void;
+}) {
   const t = useTranslations("set");
   const { data: progress = [] } = useSetProgress(set.id);
   const statusByCard = new Map(progress.map((item) => [item.cardId, item.status]));
 
   return (
     <section aria-labelledby="cards-title">
-      <h2 id="cards-title" className="mb-4 text-xl font-bold">
-        {t("cardsTitle", { count: set.cards.length })}
-      </h2>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 id="cards-title" className="text-xl font-bold">
+          {t("cardsTitle", { count: set.cards.length })}
+        </h2>
+        {onPhoneticSideChange && set.cards.some((card) => card.phonetic) ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-auto min-h-9 max-w-full py-2 whitespace-normal"
+            onClick={() => onPhoneticSideChange(phoneticSide === "term" ? "definition" : "term")}
+          >
+            <ArrowLeftRight className="size-4" aria-hidden />
+            {t(phoneticSide === "term" ? "phoneticUnderTerm" : "phoneticUnderDefinition")}
+          </Button>
+        ) : null}
+      </div>
       <ul className="flex flex-col gap-2.5">
         {set.cards.map((card) => {
           const status = statusByCard.get(card.id) ?? "new";
@@ -44,16 +69,25 @@ export function CardList({ set, editable = true }: { set: StudySet; editable?: b
                   <p lang={set.termLang} className="font-semibold break-words">
                     {card.term}
                   </p>
-                  {card.phonetic ? <p className="text-sm text-muted">{card.phonetic}</p> : null}
+                  {phoneticSide === "term" && card.phonetic ? (
+                    <p className="text-sm break-words text-muted">{card.phonetic}</p>
+                  ) : null}
                 </div>
                 <StarButton setId={set.id} cardId={card.id} />
                 <SpeakButton text={card.term} lang={set.termLang} className="-my-1" />
               </div>
               <div className="flex items-start gap-3 pl-5 sm:pl-0">
-                <p lang={set.definitionLang} className="flex-1 break-words whitespace-pre-line">
-                  {card.definition}
-                </p>
-                <CardImage card={card}/>{editable ? <CardImageEditor setId={set.id} cardId={card.id}/> : null}<SpeakButton text={card.definition} lang={set.definitionLang} className="-my-1" />
+                <div className="min-w-0 flex-1">
+                  <p lang={set.definitionLang} className="break-words whitespace-pre-line">
+                    {card.definition}
+                  </p>
+                  {phoneticSide === "definition" && card.phonetic ? (
+                    <p className="text-sm break-words text-muted">{card.phonetic}</p>
+                  ) : null}
+                </div>
+                <CardImage card={card} />
+                {editable ? <CardImageEditor setId={set.id} cardId={card.id} /> : null}
+                <SpeakButton text={card.definition} lang={set.definitionLang} className="-my-1" />
               </div>
             </li>
           );

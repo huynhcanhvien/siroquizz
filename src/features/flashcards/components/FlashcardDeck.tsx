@@ -9,6 +9,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Switch } from "@/components/ui/Switch";
 import { useToast } from "@/components/ui/Toast";
 import { useSaveCardStatus } from "@/features/progress/hooks";
+import { useSetPhoneticSide } from "@/features/sets/use-set-phonetic-side";
 import { isActivatableTarget, isTextEntryTarget } from "@/lib/client-hooks";
 import { shuffle } from "@/lib/random";
 import type { Side, StudySet } from "@/lib/types";
@@ -173,6 +174,7 @@ export function FlashcardDeck({ set, practice = false }: { set: StudySet; practi
   const cardsById = useMemo(() => new Map(set.cards.map((card) => [card.id, card])), [set.cards]);
   const [state, dispatch] = useReducer(deckReducer, cardIds, createDeck);
   const [frontSide, setFrontSide] = useState<Side>("term");
+  const { phoneticSide } = useSetPhoneticSide(practice ? null : set.id);
   const [trackProgress, setTrackProgress] = useState(true);
   const { mutate: saveCardStatus } = useSaveCardStatus(set.id);
   const card = cardsById.get(currentCardId(state) ?? "");
@@ -215,6 +217,7 @@ export function FlashcardDeck({ set, practice = false }: { set: StudySet; practi
         key={card.id}
         card={card}
         frontSide={frontSide}
+        phoneticSide={phoneticSide}
         flipped={state.flipped}
         onFlip={() => dispatch({ type: "flip" })}
         termLang={set.termLang}

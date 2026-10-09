@@ -329,6 +329,8 @@
     "progressReset": "Đã đặt lại tiến độ.",
     "lastTest": "Lần kiểm tra gần nhất: {score}/{total}",
     "cardsTitle": "Thuật ngữ trong bộ này ({count})",
+    "phoneticUnderTerm": "Phiên âm: dưới thuật ngữ",
+    "phoneticUnderDefinition": "Phiên âm: dưới nghĩa",
     "actions": "Tùy chọn khác",
     "duplicate": "Nhân bản",
     "deleteSet": "Xóa bộ thẻ",

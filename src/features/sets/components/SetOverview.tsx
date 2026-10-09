@@ -27,6 +27,7 @@ import { cn } from "@/lib/cn";
 import type { StudySet } from "@/lib/types";
 import { useErrorMessage } from "@/lib/use-messages";
 import { useDeleteSet, useDuplicateSet } from "../hooks";
+import { useSetPhoneticSide } from "../use-set-phonetic-side";
 import { AiSetTools } from "@/features/ai-generate/components/AiSetTools";
 import { ShareDialog } from "@/features/community/components/ShareDialog";
 import { AddToFolderDialog } from "@/features/folders/components/AddToFolderDialog";
@@ -164,6 +165,7 @@ export function SetOverview({ set }: { set: StudySet }) {
   const tLang = useTranslations("contentLanguages");
   const tCommunity = useTranslations("community");
   const { data: user } = useSession();
+  const { phoneticSide, setPhoneticSide } = useSetPhoneticSide(set.id);
   // A set assigned in a class can be studied by students but only changed by its owner.
   const isOwner = !user || user.id === set.ownerId;
 
@@ -243,13 +245,18 @@ export function SetOverview({ set }: { set: StudySet }) {
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <section aria-label={t("preview")}>
-          <SetPreview set={set} />
+          <SetPreview set={set} phoneticSide={phoneticSide} />
         </section>
         <ProgressPanel set={set} />
       </div>
 
       {process.env.NEXT_PUBLIC_DATA_SOURCE === "http" && isOwner ? <AiSetTools set={set} /> : null}
-      <CardList set={set} editable={isOwner} />
+      <CardList
+        set={set}
+        editable={isOwner}
+        phoneticSide={phoneticSide}
+        onPhoneticSideChange={setPhoneticSide}
+      />
     </div>
   );
 }

@@ -5,10 +5,10 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Flashcard } from "@/features/flashcards/components/Flashcard";
-import type { StudySet } from "@/lib/types";
+import type { Side, StudySet } from "@/lib/types";
 
 /** Inline flashcard carousel on the set page, like Quizlet's quick preview. */
-export function SetPreview({ set }: { set: StudySet }) {
+export function SetPreview({ set, phoneticSide = "term" }: { set: StudySet; phoneticSide?: Side }) {
   const t = useTranslations("flashcards");
   const tCommon = useTranslations("common");
   const [index, setIndex] = useState(0);
@@ -26,6 +26,7 @@ export function SetPreview({ set }: { set: StudySet }) {
       <Flashcard
         card={card}
         frontSide="term"
+        phoneticSide={phoneticSide}
         flipped={flipped}
         onFlip={() => setFlipped((value) => !value)}
         termLang={set.termLang}
