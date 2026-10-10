@@ -19,6 +19,7 @@ import {
   type StepResult,
 } from "@/server/ai/jobs";
 import { auxiliaryTask } from "@/server/ai/auxiliary";
+import { createSetInTransaction, getSet, updateSet } from "@/server/services/sets";
 import { RateLimitError } from "@/server/ai/groq";
 
 const terminal = new Set(["done", "error", "cancelled"]);
@@ -329,6 +330,92 @@ it("rejects blank auxiliary transcriptions and refunds their usage", async () =>
     ),
   ).rejects.toMatchObject({ code: "AI_INVALID_OUTPUT" });
   expect((await db.select().from(schema.aiAuxUsage))[0].count).toBe(0);
+});
+it("fills newly added Chinese cards after a previous fill without overwriting saved phonetics", async () => {
+  let set = await db.transaction((tx) =>
+    createSetInTransaction(tx, a, {
+      title: "Chinese additions",
+      description: "",
+      termLang: "zh",
+      definitionLang: "vi",
+      source: "manual",
+      cards: [
+        { term: "学习", definition: "học tập" },
+        { term: "谢谢", definition: "cảm ơn" },
+      ],
+    }),
+  );
+  provider.mockResolvedValueOnce({
+    data: { cards: set.cards.map((card, i) => ({ id: card.id, text: ["xué xí", "xiè xie"][i] })) },
+  });
+  const first = await auxiliaryTask(
+    db,
+    a,
+    "phonetics",
+    { setId: set.id },
+    new AbortController().signal,
+  );
+  const initial = (first as { cards: { id: string; text: string }[] }).cards;
+  set = await updateSet(db, a, set.id, {
+    ...set,
+    cards: set.cards.map((card) => ({
+      ...card,
+      phonetic: initial.find((c) => c.id === card.id)!.text,
+    })),
+  });
+  const saved = set.cards;
+  set = await updateSet(db, a, set.id, {
+    ...set,
+    cards: [...saved, { term: "朋友", definition: "bạn bè", phonetic: " " }],
+  });
+  const added = set.cards[2];
+  // The user can also compare new AI readings for every card, including saved ones.
+  provider.mockResolvedValueOnce({
+    data: {
+      cards: set.cards.map((card, i) => ({
+        id: card.id,
+        text: ["xué xí", "xiè xie", "péng you"][i],
+      })),
+    },
+  });
+  await auxiliaryTask(
+    db,
+    a,
+    "phonetics",
+    { setId: set.id, scope: "all" },
+    new AbortController().signal,
+  );
+  expect(JSON.parse(provider.mock.calls[1][1]).data.cards).toHaveLength(3);
+  expect((await getSet(db, a, set.id)).cards).toEqual(set.cards);
+  provider.mockResolvedValueOnce({ data: { cards: [{ id: added.id, text: "péng you" }] } });
+  const next = await auxiliaryTask(
+    db,
+    a,
+    "phonetics",
+    { setId: set.id },
+    new AbortController().signal,
+  );
+  expect(next).toEqual({ cards: [{ id: added.id, text: "péng you" }] });
+  expect(JSON.parse(provider.mock.calls[2][1]).data.cards).toEqual([
+    expect.objectContaining({ id: added.id, term: "朋友" }),
+  ]);
+  set = await updateSet(db, a, set.id, {
+    ...set,
+    cards: set.cards.map((card) => ({
+      ...card,
+      phonetic: card.id === added.id ? "péng you" : card.phonetic,
+    })),
+  });
+  expect((await getSet(db, a, set.id)).cards).toEqual([
+    ...saved,
+    { ...added, phonetic: "péng you" },
+  ]);
+  // Explicitly regenerating a complete set remains supported.
+  provider.mockResolvedValueOnce({
+    data: { cards: set.cards.map((card) => ({ id: card.id, text: card.phonetic })) },
+  });
+  await auxiliaryTask(db, a, "phonetics", { setId: set.id }, new AbortController().signal);
+  expect(JSON.parse(provider.mock.calls[3][1]).data.cards).toHaveLength(3);
 });
 it("corrects Chinese transcriptions before generated cards are finalized", async () => {
   provider.mockResolvedValue({

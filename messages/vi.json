@@ -658,7 +658,13 @@
       "pages": "{completed}/{total} trang"
     },
     "pageProgress": "Đã đọc {completed}/{total} trang — không tốn credit",
-    "reviewHint": "Kiểm tra từ, nghĩa, chính tả và phiên âm trước khi lưu. Ngôn ngữ giao diện không thay đổi ngôn ngữ bộ thẻ."
+    "reviewHint": "Kiểm tra từ, nghĩa, chính tả và phiên âm trước khi lưu. Ngôn ngữ giao diện không thay đổi ngôn ngữ bộ thẻ.",
+    "reviewPhonetics": "Kiểm tra lại toàn bộ phiên âm",
+    "comparePhonetics": "So sánh phiên âm hiện tại với đề xuất của AI. Chọn từng thẻ muốn thay đổi; phiên âm đã lưu sẽ được giữ nguyên nếu bạn không chọn.",
+    "currentPhonetic": "Phiên âm hiện tại",
+    "suggestedPhonetic": "AI đề xuất (có thể chỉnh sửa)",
+    "noPhonetic": "Chưa có",
+    "useSuggestedPhonetic": "Dùng phiên âm đề xuất"
   },
   "settings": {
     "title": "Cài đặt",

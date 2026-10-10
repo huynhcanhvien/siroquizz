@@ -31,6 +31,7 @@ export async function auxiliaryTask(
       : z
           .object({
             setId: z.uuid().optional(),
+            scope: z.enum(["missing", "all"]).optional(),
             lang: lang.optional(),
             cards: z
               .array(
@@ -50,13 +51,26 @@ export async function auxiliaryTask(
   let selected: { id: string; term: string; definition: string }[] = [];
   let termLanguage = "en";
   if (task !== "grade") {
-    const p = payload as { setId?: string; lang?: string; cards?: typeof selected };
+    const p = payload as {
+      setId?: string;
+      scope?: "missing" | "all";
+      lang?: string;
+      cards?: typeof selected;
+    };
     const set = p.setId ? await getSet(db, userId, p.setId) : null;
     selected = set?.cards ?? p.cards ?? [];
+    if (task === "phonetics" && set && p.scope !== "all") {
+      const missing = set.cards.filter((card) => !card.phonetic?.trim());
+      // Fill newly added cards without regenerating or overwriting existing transcriptions.
+      // A complete set can still be regenerated explicitly using the same action.
+      if (missing.length) selected = missing;
+    }
     termLanguage = set?.termLang ?? p.lang ?? "en";
     data = {
       cards: selected.map((card) => ({
-        ...card,
+        id: card.id,
+        term: card.term,
+        definition: card.definition,
         ...(task === "phonetics"
           ? { pronunciationReference: phoneticReference(card.term, termLanguage) }
           : {}),
