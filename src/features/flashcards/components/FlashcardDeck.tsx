@@ -273,6 +273,7 @@ export function FlashcardDeck({ set, practice = false }: { set: StudySet; practi
       <Flashcard
         key={card.id}
         card={card}
+        setId={practice ? undefined : set.id}
         frontSide={frontSide}
         phoneticSide={phoneticSide}
         flipped={state.flipped}
