@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { createRng } from "@/lib/random";
 import type { Card } from "@/lib/types";
-import { createScrambleRound, scrambleReducer, scrambleUnits, splitUnits, roundPoints } from "./scramble";
+import {
+  createScrambleRound,
+  scrambleReducer,
+  scrambleUnits,
+  splitUnits,
+  roundPoints,
+} from "./scramble";
 
 const card = (term: string): Card => ({ id: term, term, definition: `def of ${term}` });
 
@@ -27,7 +33,12 @@ describe("scrambleUnits", () => {
   });
 
   it("keeps the same units", () => {
-    expect([...scrambleUnits(["c", "a", "t", "s"], createRng(4))].sort()).toEqual(["a", "c", "s", "t"]);
+    expect([...scrambleUnits(["c", "a", "t", "s"], createRng(4))].sort()).toEqual([
+      "a",
+      "c",
+      "s",
+      "t",
+    ]);
   });
 
   it("returns identical units unchanged", () => {
@@ -39,7 +50,9 @@ describe("scramble round", () => {
   it("solves a word by picking tiles in order", () => {
     let round = createScrambleRound(card("cat"), createRng(2));
     for (const letter of ["c", "a", "t"]) {
-      const tile = round.pool.find((item) => item.text === letter && !round.answer.includes(item.id))!;
+      const tile = round.pool.find(
+        (item) => item.text === letter && !round.answer.includes(item.id),
+      )!;
       round = scrambleReducer(round, { type: "pick", tileId: tile.id });
     }
     expect(round.status).toBe("correct");
@@ -49,7 +62,9 @@ describe("scramble round", () => {
     let round = createScrambleRound(card("aab"), createRng(3));
     const order = ["a", "a", "b"];
     for (const letter of order) {
-      const tile = round.pool.find((item) => item.text === letter && !round.answer.includes(item.id))!;
+      const tile = round.pool.find(
+        (item) => item.text === letter && !round.answer.includes(item.id),
+      )!;
       round = scrambleReducer(round, { type: "pick", tileId: tile.id });
     }
     expect(round.status).toBe("correct");
@@ -72,7 +87,9 @@ describe("scramble round", () => {
     const g = round.pool.find((item) => item.text === "g")!;
     round = scrambleReducer(round, { type: "pick", tileId: g.id });
     round = scrambleReducer(round, { type: "hint" });
-    expect(round.answer.map((id) => round.pool.find((item) => item.id === id)!.text)).toEqual(["d"]);
+    expect(round.answer.map((id) => round.pool.find((item) => item.id === id)!.text)).toEqual([
+      "d",
+    ]);
     expect(round.hintsUsed).toBe(1);
   });
 
@@ -97,4 +114,15 @@ describe("scramble round", () => {
     expect(roundPoints(2)).toBe(4);
     expect(roundPoints(9)).toBe(1);
   });
+});
+
+it("accepts a full phrase or composed Chinese input without keyboard shortcuts", () => {
+  const phrase = createScrambleRound(card("book a room"));
+  expect(scrambleReducer(phrase, { type: "submit", text: "book a room" }).status).toBe("correct");
+  expect(
+    scrambleReducer(createScrambleRound(card("你好")), { type: "submit", text: "你好" }).status,
+  ).toBe("correct");
+  expect(
+    scrambleReducer(createScrambleRound(card("chào")), { type: "submit", text: "chao" }).status,
+  ).toBe("wrong");
 });

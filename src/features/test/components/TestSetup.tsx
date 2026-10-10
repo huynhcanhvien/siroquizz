@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
 import { Input, Label } from "@/components/ui/fields";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { StudyDirection } from "@/features/study/components/StudyDirection";
+import type { LangCode } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { QUESTION_TYPES, type AnswerWith, type QuestionType, type TestConfig } from "../lib/types";
 
@@ -21,12 +23,21 @@ const DEFAULT_COUNT = 10;
 
 interface TestSetupProps {
   setTitle: string;
+  termLang?: LangCode;
+  definitionLang?: LangCode;
   maxCount: number;
   initialConfig?: TestConfig;
   onStart: (config: TestConfig) => void;
 }
 
-export function TestSetup({ setTitle, maxCount, initialConfig, onStart }: TestSetupProps) {
+export function TestSetup({
+  setTitle,
+  termLang = "en",
+  definitionLang = "vi",
+  maxCount,
+  initialConfig,
+  onStart,
+}: TestSetupProps) {
   const t = useTranslations("test");
   const countId = useId();
   const [countText, setCountText] = useState(
@@ -83,6 +94,11 @@ export function TestSetup({ setTitle, maxCount, initialConfig, onStart }: TestSe
         />
       </div>
 
+      <StudyDirection
+        set={{ termLang, definitionLang }}
+        answerSide={answerWith === "term" ? "term" : "definition"}
+      />
+      {answerWith === "both" ? <p className="mt-2 text-sm text-muted">{t("bothHint")}</p> : null}
       <fieldset className="mt-8">
         <legend className="mb-3 text-sm font-semibold">{t("types")}</legend>
         <div className="grid gap-3 sm:grid-cols-2">

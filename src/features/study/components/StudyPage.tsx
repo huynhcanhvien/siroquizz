@@ -21,14 +21,15 @@ function StudyFrame({
   mode: StudyMode;
   children: (set: StudySet) => ReactNode;
 }) {
+  const [sessionSet] = useState(() => set);
   useRecordActivity(set.id, true);
   const t = useTranslations("learning"),
     [starred, setStarred] = useState(false),
     { data: stars = [] } = useStars(set.id);
   const count = useSessionRecording(set.id, mode);
   const filtered = starred
-    ? { ...set, cards: set.cards.filter((card) => stars.includes(card.id)) }
-    : set;
+    ? { ...sessionSet, cards: sessionSet.cards.filter((card) => stars.includes(card.id)) }
+    : sessionSet;
   return (
     <>
       <StudyTopBar setId={set.id} setTitle={set.title} mode={mode} />
@@ -67,7 +68,7 @@ export function StudyPage({
       }
     >
       {(set) => (
-        <StudyFrame set={set} mode={mode}>
+        <StudyFrame key={`${set.id}:${mode}`} set={set} mode={mode}>
           {children}
         </StudyFrame>
       )}

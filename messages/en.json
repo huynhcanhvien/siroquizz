@@ -8,7 +8,9 @@
     "speak": "Pronounce",
     "skipToContent": "Skip to main content",
     "counter": "{current} / {total}",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "voiceMissing": "Your device has no voice for this language. Install a voice in device settings or try another browser.",
+    "speechFailed": "Audio could not play. Press pronounce to try again."
   },
   "errors": {
     "AI_UNAVAILABLE": "AI is unavailable. Please contact the administrator to check the configuration.",
@@ -431,7 +433,8 @@
     "retake": "Retake",
     "retakeMistakes": "Retake mistakes",
     "newTest": "New test",
-    "notEnoughCards": "You need at least 2 cards to make a test."
+    "notEnoughCards": "You need at least 2 cards to make a test.",
+    "bothHint": "Both directions switches the question direction during the session. Each question shows the language to answer in."
   },
   "games": {
     "hubTitle": "Games",
@@ -452,7 +455,7 @@
     "newRecord": "New record!",
     "finished": "Done!",
     "gameOver": "Out of lives!",
-    "notEnoughCards": "This game needs at least {count} cards in the set.",
+    "notEnoughCards": "This game needs at least {count} suitable cards with content that can be distinguished without ambiguous duplicates.",
     "editSet": "Edit set",
     "pairs": "{found}/{total} pairs",
     "pairsLabel": "Pairs",
@@ -493,7 +496,9 @@
       "wrong": "Not quite, try again.",
       "round": "Word {current}/{total}",
       "answerArea": "Answer",
-      "pool": "Letter tiles"
+      "pool": "Letter tiles",
+      "typeWord": "Or type the whole word / phrase",
+      "check": "Check"
     },
     "ranked": {
       "verified": "Your result was verified and added to the leaderboard.",
@@ -514,6 +519,33 @@
       "player": "Player",
       "result": "Result",
       "starting": "Preparing the game…"
+    },
+    "dictation": {
+      "title": "Listen and spell",
+      "description": "Listen to a word or phrase and type its spelling, including accents. Review the answers and practice mistakes."
+    },
+    "quiz": {
+      "title": "Meaning quiz",
+      "description": "Choose the matching meaning or word in 15 seconds per question. Pick a study direction and review mistakes."
+    },
+    "practice": {
+      "timeLeft": "{seconds} seconds left",
+      "chooseMeaning": "Choose the matching answer",
+      "listenHint": "Press Listen again, then type the word or phrase you hear.",
+      "replay": "Listen again",
+      "typeHeard": "Type what you heard",
+      "check": "Check answer",
+      "skip": "Skip and show answer",
+      "correct": "Correct!",
+      "incorrect": "Incorrect — review the answer.",
+      "expected": "Correct answer",
+      "spellingHint": "Keep accents and punctuation. Capitalization is ignored; leading and trailing spaces are trimmed.",
+      "next": "Continue",
+      "round": "Question {current}/{total}",
+      "noQuestions": "There are not enough suitable cards for this direction. Change direction or edit the set.",
+      "reviewMistakes": "Words to review",
+      "retryMistakes": "Practice mistakes",
+      "allCorrect": "You answered everything correctly!"
     }
   },
   "ai": {
@@ -625,7 +657,8 @@
       "resumed": "Picking up your unfinished AI generation.",
       "pages": "{completed}/{total} pages"
     },
-    "pageProgress": "{completed}/{total} pages read — no credits used"
+    "pageProgress": "{completed}/{total} pages read — no credits used",
+    "reviewHint": "Check words, meanings, spelling and phonetics before saving. Interface language does not change the set languages."
   },
   "settings": {
     "title": "Settings",
@@ -677,7 +710,7 @@
   },
   "learning": {
     "title": "Learn",
-    "description": "Up to 7 cards per round. Multiple choice, then written answers; mistakes return.",
+    "description": "Learn vocabulary with flashcards, remember meanings and practice spelling. Choose a study direction; missed cards return for review.",
     "round": "Round {round}",
     "mastered": "Mastered {known}/{total}",
     "complete": "Study session complete!",
@@ -732,7 +765,10 @@
     "imageHint": "PNG/JPG/WebP, up to 5MB. Resized to at most 800px.",
     "imageSaved": "Image saved.",
     "dueHome": "Review today: {count} cards due",
-    "statsHome": "View statistics"
+    "statsHome": "View statistics",
+    "direction": "Study direction",
+    "expectedAnswer": "Card answer",
+    "spellingHint": "Compare your spelling and accents with the answer. Capitalization and leading/trailing spaces do not affect grading."
   },
   "stats": {
     "title": "Learning statistics",

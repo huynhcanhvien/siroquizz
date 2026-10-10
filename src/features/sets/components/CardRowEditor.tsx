@@ -7,6 +7,7 @@ import type { FieldErrors, UseFormRegister } from "react-hook-form";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { useValidationMessage } from "@/lib/use-messages";
+import type { LangCode } from "@/lib/types";
 import type { EditorValues } from "../schemas";
 
 interface CardRowEditorProps {
@@ -15,6 +16,8 @@ interface CardRowEditorProps {
   register: UseFormRegister<EditorValues>;
   errors?: FieldErrors<EditorValues["cards"][number]>;
   showPhonetic: boolean;
+  termLang?: LangCode;
+  definitionLang?: LangCode;
   isLast: boolean;
   onRemove: () => void;
   onMove: (offset: -1 | 1) => void;
@@ -34,7 +37,13 @@ function UnderlineField({
 }: React.ComponentProps<"textarea"> & { label: string; error?: string }) {
   return (
     <label className={cn("flex min-w-0 flex-1 flex-col gap-1", className)}>
-      <textarea rows={1} className={FIELD_CLASSES} aria-invalid={Boolean(error)} {...props} />
+      <textarea
+        translate="no"
+        rows={1}
+        className={FIELD_CLASSES}
+        aria-invalid={Boolean(error)}
+        {...props}
+      />
       <span className="text-[0.7rem] font-bold tracking-wider text-subtle uppercase peer-focus:text-primary-text">
         {label}
       </span>
@@ -49,6 +58,8 @@ export function CardRowEditor({
   register,
   errors,
   showPhonetic,
+  termLang = "en",
+  definitionLang = "vi",
   isLast,
   onRemove,
   onMove,
@@ -98,6 +109,7 @@ export function CardRowEditor({
       <div className="flex flex-col gap-5 px-4 pt-4 pb-5 md:flex-row md:gap-8">
         <div className="flex min-w-0 flex-1 flex-col gap-4">
           <UnderlineField
+            lang={termLang}
             label={t("term")}
             error={validationMessage(errors?.term?.message)}
             {...register(`cards.${index}.term`)}
@@ -113,6 +125,7 @@ export function CardRowEditor({
           ) : null}
         </div>
         <UnderlineField
+          lang={definitionLang}
           label={t("definition")}
           error={validationMessage(errors?.definition?.message)}
           onKeyDown={handleLastKeyDown}

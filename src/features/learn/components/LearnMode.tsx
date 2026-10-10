@@ -14,11 +14,12 @@ import { generateTest } from "@/features/test/lib/generate-test";
 import { gradeQuestion, isAnswered } from "@/features/test/lib/grade";
 import { QuestionBody, QuestionShell } from "@/features/test/components/QuestionViews";
 import type { Answer, AnswerWith } from "@/features/test/lib/types";
+import { StudyDirection } from "@/features/study/components/StudyDirection";
 import type { StudySet } from "@/lib/types";
 import { createLearn, learnReducer } from "../lib/learn-engine";
 
 function LearningSession({
-  set,
+  set: incomingSet,
   written,
   answerWith,
 }: {
@@ -26,6 +27,7 @@ function LearningSession({
   written: boolean;
   answerWith: AnswerWith;
 }) {
+  const [set] = useState(() => incomingSet);
   const t = useTranslations("learning"),
     [state, dispatch] = useReducer(learnReducer, undefined, () =>
       createLearn(
@@ -52,6 +54,8 @@ function LearningSession({
         : null,
     [card, item, answerWith, set.cards],
   );
+  const [mistakes, setMistakes] = useState<string[]>([]);
+  const tPractice = useTranslations("games.practice");
   const eventId = useRef("");
   const started = useRef(0);
   useEffect(() => {
@@ -74,6 +78,7 @@ function LearningSession({
         durationMs,
       },
       status = correct && (level === "written" || !written) ? "known" : "learning";
+    if (!correct) setMistakes((ids) => (ids.includes(cardId) ? ids : [...ids, cardId]));
     dispatch({ type: "answer", correct });
     persist(() =>
       process.env.NEXT_PUBLIC_DATA_SOURCE === "http"
@@ -89,6 +94,7 @@ function LearningSession({
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
       <h1 className="text-title font-extrabold">{t("title")}</h1>
+      <StudyDirection set={set} answerSide={answerWith === "term" ? "term" : "definition"} />
       <ProgressBar
         value={state.known.length}
         max={state.total}
@@ -102,6 +108,39 @@ function LearningSession({
         <section className="rounded-xl border border-border bg-surface p-6 text-center">
           <h2 className="text-xl font-bold">{t("complete")}</h2>
           <p>{t("accuracy", { correct: state.correct, total: state.correct + state.incorrect })}</p>
+          {mistakes.length > 0 ? (
+            <div className="mt-4 text-left">
+              <p className="font-bold">{tPractice("reviewMistakes")}</p>
+              <ul className="mt-2 space-y-2">
+                {set.cards
+                  .filter((card) => mistakes.includes(card.id))
+                  .map((card) => (
+                    <li key={card.id} className="rounded-lg bg-surface-2 p-3">
+                      <p translate="no" lang={set.termLang} className="[overflow-wrap:anywhere]">
+                        {card.term}
+                      </p>
+                      <p
+                        translate="no"
+                        lang={set.definitionLang}
+                        className="[overflow-wrap:anywhere]"
+                      >
+                        {card.definition}
+                      </p>
+                    </li>
+                  ))}
+              </ul>
+              <Button
+                className="mt-3"
+                onClick={() => {
+                  dispatch({ type: "restart", ids: mistakes });
+                  setAnswer(undefined);
+                  setMistakes([]);
+                }}
+              >
+                {tPractice("retryMistakes")}
+              </Button>
+            </div>
+          ) : null}
         </section>
       ) : state.phase === "round" ? (
         <section className="rounded-xl border border-border bg-surface p-6">
@@ -113,7 +152,9 @@ function LearningSession({
       ) : question && card ? (
         <>
           <div className="flex items-center justify-between">
-            <span className="font-bold">{t(item.level)}</span>
+            <span className="font-bold">
+              {t(question.type === "written" ? "written" : "multipleChoice")}
+            </span>
             <StarButton setId={set.id} cardId={card.id} />
           </div>
           <QuestionShell
@@ -135,7 +176,17 @@ function LearningSession({
               <p className={state.lastCorrect ? "font-bold text-success" : "font-bold text-danger"}>
                 {state.lastCorrect ? t("correct") : t("incorrect")}
               </p>
-              <p className="mt-2">{question.promptSide === "term" ? card.definition : card.term}</p>
+              <p className="mt-2 font-semibold">{t("expectedAnswer")}</p>
+              <p
+                translate="no"
+                lang={question.promptSide === "term" ? set.definitionLang : set.termLang}
+                className="break-words"
+              >
+                {question.promptSide === "term" ? card.definition : card.term}
+              </p>
+              {!state.lastCorrect && question.type === "written" ? (
+                <p className="mt-2 text-sm text-muted">{t("spellingHint")}</p>
+              ) : null}
               <Button className="mt-4" onClick={advance}>
                 {t("continue")}
               </Button>
@@ -160,6 +211,7 @@ export function LearnMode({ set }: { set: StudySet }) {
     <section className="mx-auto max-w-xl rounded-xl border border-border bg-surface p-6">
       <h1 className="text-title font-extrabold">{t("title")}</h1>
       <p className="mt-3 text-muted">{t("description")}</p>
+      <StudyDirection set={set} answerSide={answerWith === "term" ? "term" : "definition"} />
       <div className="mt-5 space-y-4">
         <Switch checked={written} onCheckedChange={setWritten} label={t("includeWritten")} />
         <div>
@@ -169,8 +221,12 @@ export function LearnMode({ set }: { set: StudySet }) {
             value={answerWith}
             onChange={(e) => setAnswerWith(e.target.value as AnswerWith)}
           >
-            <option value="term">{t("answerTerm")}</option>
-            <option value="definition">{t("answerDefinition")}</option>
+            <option value="term">
+              {t("answerTerm")} ({set.termLang})
+            </option>
+            <option value="definition">
+              {t("answerDefinition")} ({set.definitionLang})
+            </option>
           </Select>
         </div>
         <Button onClick={() => setStarted(true)}>{t("start")}</Button>

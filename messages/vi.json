@@ -8,7 +8,9 @@
     "speak": "Phát âm",
     "skipToContent": "Bỏ qua tới nội dung chính",
     "counter": "{current} / {total}",
-    "loading": "Đang tải…"
+    "loading": "Đang tải…",
+    "voiceMissing": "Thiết bị chưa có giọng đọc cho ngôn ngữ này. Hãy cài giọng đọc trong cài đặt thiết bị hoặc dùng trình duyệt khác.",
+    "speechFailed": "Không phát được âm thanh. Hãy nhấn phát âm để thử lại."
   },
   "errors": {
     "AI_UNAVAILABLE": "Tính năng AI chưa sẵn sàng. Vui lòng liên hệ quản trị viên để kiểm tra cấu hình.",
@@ -431,7 +433,8 @@
     "retake": "Làm lại",
     "retakeMistakes": "Làm lại câu sai",
     "newTest": "Bài mới",
-    "notEnoughCards": "Cần ít nhất 2 thẻ để tạo bài kiểm tra."
+    "notEnoughCards": "Cần ít nhất 2 thẻ để tạo bài kiểm tra.",
+    "bothHint": "Chế độ cả hai chiều đổi chiều câu hỏi trong phiên. Mỗi câu hiển thị rõ ngôn ngữ cần trả lời."
   },
   "games": {
     "hubTitle": "Trò chơi",
@@ -452,7 +455,7 @@
     "newRecord": "Kỷ lục mới!",
     "finished": "Hoàn thành!",
     "gameOver": "Hết mạng rồi!",
-    "notEnoughCards": "Bộ thẻ cần ít nhất {count} thẻ để chơi trò này.",
+    "notEnoughCards": "Cần ít nhất {count} thẻ phù hợp với trò chơi, có nội dung không gây trùng lặp hoặc mơ hồ.",
     "editSet": "Sửa bộ thẻ",
     "pairs": "{found}/{total} cặp",
     "pairsLabel": "Số cặp",
@@ -493,7 +496,9 @@
       "wrong": "Chưa đúng, thử lại nhé.",
       "round": "Từ {current}/{total}",
       "answerArea": "Ô trả lời",
-      "pool": "Các ô chữ"
+      "pool": "Các ô chữ",
+      "typeWord": "Hoặc gõ cả từ / cụm từ",
+      "check": "Kiểm tra"
     },
     "ranked": {
       "verified": "Kết quả đã được xác minh và ghi lên bảng xếp hạng.",
@@ -514,6 +519,33 @@
       "player": "Người chơi",
       "result": "Kết quả",
       "starting": "Đang chuẩn bị ván…"
+    },
+    "dictation": {
+      "title": "Nghe rồi gõ",
+      "description": "Nghe từ hoặc cụm từ và gõ đúng chính tả, kể cả dấu. Xem đáp án và ôn lại những từ sai."
+    },
+    "quiz": {
+      "title": "Quiz chọn nghĩa",
+      "description": "Chọn nghĩa hoặc từ tương ứng trong 15 giây mỗi câu. Chọn chiều học và ôn lại đáp án sai."
+    },
+    "practice": {
+      "timeLeft": "Còn {seconds} giây",
+      "chooseMeaning": "Chọn đáp án tương ứng",
+      "listenHint": "Nhấn Nghe lại, rồi gõ từ hoặc cụm từ bạn nghe được.",
+      "replay": "Nghe lại",
+      "typeHeard": "Nhập nội dung nghe được",
+      "check": "Kiểm tra đáp án",
+      "skip": "Bỏ qua và xem đáp án",
+      "correct": "Chính xác!",
+      "incorrect": "Chưa đúng — hãy xem lại đáp án.",
+      "expected": "Đáp án đúng",
+      "spellingHint": "Giữ đúng dấu và dấu câu. Không phân biệt viết hoa; khoảng trắng đầu/cuối được bỏ qua.",
+      "next": "Tiếp tục",
+      "round": "Câu {current}/{total}",
+      "noQuestions": "Bộ thẻ chưa có đủ nội dung phù hợp với chiều học này. Hãy đổi chiều học hoặc sửa bộ thẻ.",
+      "reviewMistakes": "Từ cần ôn lại",
+      "retryMistakes": "Luyện lại các từ sai",
+      "allCorrect": "Bạn đã trả lời đúng tất cả!"
     }
   },
   "ai": {
@@ -625,7 +657,8 @@
       "resumed": "Đang tiếp tục lần tạo thẻ bằng AI còn dở.",
       "pages": "{completed}/{total} trang"
     },
-    "pageProgress": "Đã đọc {completed}/{total} trang — không tốn credit"
+    "pageProgress": "Đã đọc {completed}/{total} trang — không tốn credit",
+    "reviewHint": "Kiểm tra từ, nghĩa, chính tả và phiên âm trước khi lưu. Ngôn ngữ giao diện không thay đổi ngôn ngữ bộ thẻ."
   },
   "settings": {
     "title": "Cài đặt",
@@ -677,7 +710,7 @@
   },
   "learning": {
     "title": "Học",
-    "description": "Mỗi vòng tối đa 7 thẻ. Trắc nghiệm trước, tự luận sau; thẻ sai sẽ quay lại.",
+    "description": "Học từ vựng bằng thẻ, luyện nhớ nghĩa và viết đúng. Chọn chiều học trước khi bắt đầu; thẻ sai sẽ được ôn lại.",
     "round": "Vòng {round}",
     "mastered": "Đã thuộc {known}/{total}",
     "complete": "Hoàn thành phiên học!",
@@ -732,7 +765,10 @@
     "imageHint": "PNG/JPG/WebP, tối đa 5MB. Ảnh được thu nhỏ tối đa 800px.",
     "imageSaved": "Đã lưu ảnh.",
     "dueHome": "Ôn hôm nay: {count} thẻ đến hạn",
-    "statsHome": "Xem thống kê"
+    "statsHome": "Xem thống kê",
+    "direction": "Chiều học",
+    "expectedAnswer": "Đáp án của thẻ",
+    "spellingHint": "Đối chiếu từ và dấu với đáp án. Cách viết hoa và khoảng trắng đầu/cuối không ảnh hưởng."
   },
   "stats": {
     "title": "Thống kê học tập",

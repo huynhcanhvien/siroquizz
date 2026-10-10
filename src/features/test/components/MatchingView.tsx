@@ -74,6 +74,7 @@ export function MatchingView({ question, answer, onAnswer, langs }: MatchingView
                   onClick={() => handlePrompt(pair.cardId)}
                   aria-pressed={activePrompt === pair.cardId}
                   aria-label={linked ? t("matchingUnlink", { item: pair.prompt }) : undefined}
+                  translate="no"
                   lang={langOf(question.promptSide)}
                   className={cn(
                     "flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-lg border-2 px-3 py-2 text-left font-semibold transition-colors",
@@ -103,6 +104,7 @@ export function MatchingView({ question, answer, onAnswer, langs }: MatchingView
                   onClick={() => handleAnswer(item.cardId)}
                   // aria-disabled (not disabled) keeps keyboard focus when the last pair is linked.
                   aria-disabled={!activePrompt}
+                  translate="no"
                   lang={langOf(answerSide)}
                   className={cn(
                     "flex min-h-12 w-full items-center gap-3 rounded-lg border-2 border-dashed px-3 py-2 text-left transition-colors",

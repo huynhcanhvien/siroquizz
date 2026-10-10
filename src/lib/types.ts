@@ -7,7 +7,7 @@ export type SetSource = (typeof SET_SOURCES)[number];
 export const CARD_STATUSES = ["new", "learning", "known"] as const;
 export type CardStatus = (typeof CARD_STATUSES)[number];
 
-export const GAME_KINDS = ["match", "gravity", "memory", "scramble"] as const;
+export const GAME_KINDS = ["match", "gravity", "memory", "scramble", "dictation", "quiz"] as const;
 export type GameKind = (typeof GAME_KINDS)[number];
 
 export type Side = "term" | "definition";

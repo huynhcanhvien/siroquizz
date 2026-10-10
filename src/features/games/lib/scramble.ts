@@ -1,5 +1,5 @@
 import { splitGraphemes } from "@/lib/graphemes";
-import { normalizeAnswer } from "@/lib/normalize";
+import { isSpellingMatch, normalizeAnswer } from "@/lib/normalize";
 import { defaultRng, shuffle, type Rng } from "@/lib/random";
 import type { Card } from "@/lib/types";
 
@@ -44,6 +44,7 @@ export interface ScrambleRound {
 export type ScrambleAction =
   | { type: "pick"; tileId: string }
   | { type: "unpick"; tileId: string }
+  | { type: "submit"; text: string }
   | { type: "clear" }
   | { type: "hint" };
 
@@ -53,7 +54,8 @@ export function createScrambleRound(card: Card, rng: Rng = defaultRng): Scramble
   return { card, units, pool, answer: [], hintsUsed: 0, status: "playing" };
 }
 
-const textOf = (round: ScrambleRound, tileId: string) => round.pool.find((tile) => tile.id === tileId)?.text ?? "";
+const textOf = (round: ScrambleRound, tileId: string) =>
+  round.pool.find((tile) => tile.id === tileId)?.text ?? "";
 
 function evaluate(round: ScrambleRound, answer: string[]): ScrambleRound {
   if (answer.length < round.units.length) return { ...round, answer, status: "playing" };
@@ -63,7 +65,9 @@ function evaluate(round: ScrambleRound, answer: string[]): ScrambleRound {
 }
 
 function correctPrefixLength(round: ScrambleRound): number {
-  const index = round.answer.findIndex((id, position) => textOf(round, id) !== round.units[position]);
+  const index = round.answer.findIndex(
+    (id, position) => textOf(round, id) !== round.units[position],
+  );
   return index === -1 ? round.answer.length : index;
 }
 
@@ -78,10 +82,20 @@ function hint(round: ScrambleRound): ScrambleRound {
 export function scrambleReducer(round: ScrambleRound, action: ScrambleAction): ScrambleRound {
   if (round.status === "correct") return round;
   switch (action.type) {
+    case "submit":
+      return {
+        ...round,
+        status: isSpellingMatch(action.text, round.card.term) ? "correct" : "wrong",
+      };
     case "pick":
-      return round.answer.includes(action.tileId) ? round : evaluate(round, [...round.answer, action.tileId]);
+      return round.answer.includes(action.tileId)
+        ? round
+        : evaluate(round, [...round.answer, action.tileId]);
     case "unpick":
-      return evaluate(round, round.answer.filter((id) => id !== action.tileId));
+      return evaluate(
+        round,
+        round.answer.filter((id) => id !== action.tileId),
+      );
     case "clear":
       return { ...round, answer: [], status: "playing" };
     case "hint":
@@ -91,4 +105,9 @@ export function scrambleReducer(round: ScrambleRound, action: ScrambleAction): S
 
 export function roundPoints(hintsUsed: number): number {
   return Math.max(MIN_POINTS, BASE_POINTS - hintsUsed * HINT_PENALTY);
+}
+
+export function assembledAnswer(round: ScrambleRound): string {
+  const separator = round.card.term.trim().split(/\s+/).length > 1 ? " " : "";
+  return round.answer.map((id) => textOf(round, id)).join(separator);
 }

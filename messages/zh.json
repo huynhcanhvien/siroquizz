@@ -8,7 +8,9 @@
     "speak": "发音",
     "skipToContent": "跳到主要内容",
     "counter": "{current} / {total}",
-    "loading": "加载中…"
+    "loading": "加载中…",
+    "voiceMissing": "设备没有此语言的语音。请在设备设置中安装语音或尝试其他浏览器。",
+    "speechFailed": "无法播放音频，请再次点击发音。"
   },
   "errors": {
     "AI_UNAVAILABLE": "AI 暂不可用。请联系管理员检查配置。",
@@ -431,7 +433,8 @@
     "retake": "重做",
     "retakeMistakes": "重做错题",
     "newTest": "新测验",
-    "notEnoughCards": "至少需要 2 张卡片才能生成测验。"
+    "notEnoughCards": "至少需要 2 张卡片才能生成测验。",
+    "bothHint": "双向模式会在学习过程中切换提问方向。每道题会显示回答语言。"
   },
   "games": {
     "hubTitle": "游戏",
@@ -452,7 +455,7 @@
     "newRecord": "新纪录！",
     "finished": "完成！",
     "gameOver": "生命用完了！",
-    "notEnoughCards": "这个游戏至少需要 {count} 张卡片。",
+    "notEnoughCards": "此游戏至少需要 {count} 张内容可区分且不会产生重复歧义的卡片。",
     "editSet": "编辑学习集",
     "pairs": "{found}/{total} 对",
     "pairsLabel": "配对数",
@@ -493,7 +496,9 @@
       "wrong": "不对哦，再试试。",
       "round": "第 {current}/{total} 个",
       "answerArea": "答案区",
-      "pool": "字块"
+      "pool": "字块",
+      "typeWord": "或输入完整的词语／短语",
+      "check": "检查"
     },
     "ranked": {
       "verified": "成绩已验证并加入排行榜。",
@@ -514,6 +519,33 @@
       "player": "玩家",
       "result": "成绩",
       "starting": "正在准备对局…"
+    },
+    "dictation": {
+      "title": "听音拼写",
+      "description": "听词语或短语并正确输入，包括重音符号。查看答案并复习错题。"
+    },
+    "quiz": {
+      "title": "释义测验",
+      "description": "每题在15秒内选择对应的词语或释义。选择学习方向并复习错题。"
+    },
+    "practice": {
+      "timeLeft": "剩余 {seconds} 秒",
+      "chooseMeaning": "选择对应的答案",
+      "listenHint": "点击再听一次，然后输入听到的词语或短语。",
+      "replay": "再听一次",
+      "typeHeard": "输入听到的内容",
+      "check": "检查答案",
+      "skip": "跳过并显示答案",
+      "correct": "正确！",
+      "incorrect": "回答不正确，请查看答案。",
+      "expected": "正确答案",
+      "spellingHint": "保留重音符号和标点。不区分大小写，忽略首尾空格。",
+      "next": "继续",
+      "round": "第 {current}/{total} 题",
+      "noQuestions": "此学习方向没有足够的合适卡片。请更换方向或编辑学习集。",
+      "reviewMistakes": "需要复习的词语",
+      "retryMistakes": "练习错题",
+      "allCorrect": "全部答对了！"
     }
   },
   "ai": {
@@ -625,7 +657,8 @@
       "resumed": "正在继续你未完成的 AI 生成。",
       "pages": "{completed}/{total} 页"
     },
-    "pageProgress": "已识别 {completed}/{total} 页——不消耗积分"
+    "pageProgress": "已识别 {completed}/{total} 页——不消耗积分",
+    "reviewHint": "保存前请检查词语、释义、拼写和音标。界面语言不会改变学习集的语言。"
   },
   "settings": {
     "title": "设置",
@@ -677,7 +710,7 @@
   },
   "learning": {
     "title": "学习",
-    "description": "每轮最多7张卡片。先选择题，再书面回答；错误的卡片会再次出现。",
+    "description": "用卡片学习词汇、记忆释义并练习拼写。先选择学习方向，答错的卡片会再次出现。",
     "round": "第{round}轮",
     "mastered": "已掌握{known}/{total}",
     "complete": "学习完成！",
@@ -732,7 +765,10 @@
     "imageHint": "PNG/JPG/WebP，最大5MB，缩小至不超过800像素。",
     "imageSaved": "图片已保存。",
     "dueHome": "今日复习：{count}张到期卡片",
-    "statsHome": "查看统计"
+    "statsHome": "查看统计",
+    "direction": "学习方向",
+    "expectedAnswer": "卡片答案",
+    "spellingHint": "请对照答案检查拼写和重音符号。大小写和首尾空格不影响评分。"
   },
   "stats": {
     "title": "学习统计",

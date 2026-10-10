@@ -5,7 +5,7 @@ import { ArrowLeftRight, ClipboardPaste, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState, type KeyboardEvent } from "react";
-import { useFieldArray, useForm, type UseFormReturn } from "react-hook-form";
+import { useFieldArray, useForm, useWatch, type UseFormReturn } from "react-hook-form";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Select, Textarea } from "@/components/ui/fields";
 import { Switch } from "@/components/ui/Switch";
@@ -126,6 +126,8 @@ export function SetEditor({ set, openImportOnMount = false }: SetEditorProps) {
     name: "cards",
     keyName: "fieldKey",
   });
+  const termLang = useWatch({ control, name: "termLang" });
+  const definitionLang = useWatch({ control, name: "definitionLang" });
   const cardsError = formState.errors.cards?.message ?? formState.errors.cards?.root?.message;
 
   const handleImport = (pairs: ParsedPair[]) => {
@@ -224,6 +226,8 @@ export function SetEditor({ set, openImportOnMount = false }: SetEditorProps) {
             total={fields.length}
             register={form.register}
             errors={formState.errors.cards?.[index]}
+            termLang={termLang}
+            definitionLang={definitionLang}
             showPhonetic={showPhonetic}
             isLast={index === fields.length - 1}
             onRemove={() => remove(index)}

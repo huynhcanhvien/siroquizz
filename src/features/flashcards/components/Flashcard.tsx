@@ -59,13 +59,16 @@ function Face({
       </div>
       <div className="flex flex-1 flex-col items-center justify-center gap-3 overflow-y-auto px-2 text-center">
         <p
+          translate="no"
           lang={lang}
           className={cn("font-bold break-words whitespace-pre-line", textSize(text, size))}
         >
           {text}
         </p>
         {side === phoneticSide && card.phonetic ? (
-          <p className="text-lg break-words text-muted">{card.phonetic}</p>
+          <p translate="no" className="text-lg break-words text-muted">
+            {card.phonetic}
+          </p>
         ) : null}
         {side === "definition" ? <CardImage card={card} /> : null}
       </div>

@@ -3,6 +3,7 @@
 import { Brain, ChevronDown, Gamepad2, Layers, ListChecks, X } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/Menu";
@@ -59,17 +60,20 @@ export function StudyTopBar({ setId, setTitle, mode, center }: StudyTopBarProps)
         <div className="min-w-0 text-center">
           {center ?? <p className="truncate font-bold">{setTitle}</p>}
         </div>
-        <Button
-          asChild
-          variant="ghost"
-          size="icon"
-          className="justify-self-end"
-          aria-label={t("exit")}
-        >
-          <Link href={`/sets/${setId}`}>
-            <X className="size-5" aria-hidden />
-          </Link>
-        </Button>
+        <div className="flex items-center gap-1 justify-self-end">
+          <LanguageSwitcher compact />
+          <Button
+            asChild
+            variant="ghost"
+            size="icon"
+            className="justify-self-end"
+            aria-label={t("exit")}
+          >
+            <Link href={`/sets/${setId}`}>
+              <X className="size-5" aria-hidden />
+            </Link>
+          </Button>
+        </div>
       </div>
     </header>
   );

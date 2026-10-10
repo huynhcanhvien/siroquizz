@@ -277,6 +277,82 @@ it("validates auxiliary card IDs and cleans plain-text output", async () => {
     ),
   ).rejects.toMatchObject({ status: 502 });
 });
+it("checks Chinese auxiliary tones against the dictionary and preserves returned card IDs", async () => {
+  provider.mockResolvedValue({
+    data: {
+      cards: [
+        { id: "second", text: "xié xié" },
+        { id: "first", text: "xuè xǐ" },
+      ],
+    },
+  });
+  const result = await auxiliaryTask(
+    db,
+    a,
+    "phonetics",
+    {
+      lang: "zh",
+      cards: [
+        { id: "first", term: "学习", definition: "học tập" },
+        { id: "second", term: "谢谢", definition: "cảm ơn" },
+      ],
+    },
+    new AbortController().signal,
+  );
+  expect(result).toEqual({
+    cards: [
+      { id: "second", text: "xiè xie" },
+      { id: "first", text: "xué xí" },
+    ],
+  });
+  const request = JSON.parse(provider.mock.calls[0][1]);
+  expect(request.data.language).toBe("zh");
+  expect(request.data.cards[0].pronunciationReference.citation).toBe("xué xí");
+  expect(provider.mock.calls[0][4]).toBe("openai/gpt-oss-120b");
+});
+it("rejects blank auxiliary transcriptions and refunds their usage", async () => {
+  provider.mockResolvedValue({ data: { cards: [{ id: "a", text: "<b></b>" }] } });
+  await expect(
+    auxiliaryTask(
+      db,
+      a,
+      "phonetics",
+      {
+        lang: "en",
+        cards: [{ id: "a", term: "cat", definition: "mèo" }],
+      },
+      new AbortController().signal,
+    ),
+  ).rejects.toMatchObject({ code: "AI_INVALID_OUTPUT" });
+  expect((await db.select().from(schema.aiAuxUsage))[0].count).toBe(0);
+});
+it("corrects Chinese transcriptions before generated cards are finalized", async () => {
+  provider.mockResolvedValue({
+    ...output,
+    data: {
+      cards: [
+        { term: "学习", definition: "học tập", phonetic: "xuè xǐ" },
+        { term: "谢谢", definition: "cảm ơn", phonetic: "xié xié" },
+      ],
+    },
+  });
+  const job = await createJob(db, a, {
+    ...input,
+    options: {
+      ...input.options,
+      termLang: "zh",
+      includePhonetic: true,
+    },
+  });
+  const result = await runToEnd(db, a, job.jobId);
+  expect(result.status).toBe("done");
+  expect((await requireJob(db, a, job.jobId)).result).toMatchObject({
+    cards: [
+      { term: "学习", phonetic: "xué xí" },
+      { term: "谢谢", phonetic: "xiè xie" },
+    ],
+  });
+});
 it("queues jobs beyond the shared provider slots in creation order", async () => {
   queue.slots = 1;
   const first = await createJob(db, a, input);

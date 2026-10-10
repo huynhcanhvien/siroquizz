@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { z } from "zod";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/fields";
 import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/Toast";
 import { useUpdateSet } from "@/features/sets/hooks";
@@ -13,6 +14,7 @@ const client = createHttpClient(),
   schema = z.object({ cards: z.array(z.object({ id: z.string(), text: z.string() })) });
 export function AiSetTools({ set }: { set: StudySet }) {
   const t = useTranslations("ai"),
+    tEditor = useTranslations("editor"),
     { toast } = useToast(),
     errorMessage = useErrorMessage(),
     update = useUpdateSet(set.id);
@@ -82,8 +84,31 @@ export function AiSetTools({ set }: { set: StudySet }) {
         <ul className="space-y-3">
           {result?.cards.map((card) => (
             <li key={card.id}>
-              <strong>{set.cards.find((c) => c.id === card.id)?.term}</strong>
-              <p>{card.text}</p>
+              <strong translate="no" lang={set.termLang}>
+                {set.cards.find((c) => c.id === card.id)?.term}
+              </strong>
+              {result.kind === "phonetics" ? (
+                <Input
+                  translate="no"
+                  aria-label={`${tEditor("phonetic")}: ${set.cards.find((c) => c.id === card.id)?.term}`}
+                  value={card.text}
+                  maxLength={1000}
+                  onChange={(event) => {
+                    const text = event.target.value;
+                    setResult(
+                      (current) =>
+                        current && {
+                          ...current,
+                          cards: current.cards.map((entry) =>
+                            entry.id === card.id ? { ...entry, text } : entry,
+                          ),
+                        },
+                    );
+                  }}
+                />
+              ) : (
+                <p translate="no">{card.text}</p>
+              )}
             </li>
           ))}
         </ul>

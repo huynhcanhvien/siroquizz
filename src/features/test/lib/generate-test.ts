@@ -1,4 +1,4 @@
-import { normalizeAnswer } from "@/lib/normalize";
+import { answersOverlap, normalizeAnswer } from "@/lib/normalize";
 import { defaultRng, shuffle, type Rng } from "@/lib/random";
 import type { Card, Side } from "@/lib/types";
 import type {
@@ -49,10 +49,20 @@ function pickPromptSide(answerWith: AnswerWith, rng: Rng): Side {
 /** Texts from other cards that differ from the correct answer (compared after normalization). */
 function distractors(card: Card, answerSide: Side, pool: readonly Card[], rng: Rng): string[] {
   const seen = new Set([normalizeAnswer(textOf(card, answerSide))]);
+  const promptSide = otherSide(answerSide);
+  const validAnswers = pool.filter(
+    (entry) =>
+      normalizeAnswer(textOf(entry, promptSide)) === normalizeAnswer(textOf(card, promptSide)),
+  );
   return shuffle(pool, rng).flatMap((other) => {
     const text = textOf(other, answerSide);
     const key = normalizeAnswer(text);
-    if (other.id === card.id || seen.has(key)) return [];
+    if (
+      other.id === card.id ||
+      seen.has(key) ||
+      validAnswers.some((entry) => answersOverlap(text, textOf(entry, answerSide)))
+    )
+      return [];
     seen.add(key);
     return [text];
   });
@@ -155,16 +165,32 @@ function buildQuestions(
 ): Question[] {
   if (type === "matching") {
     let offset = 0;
-    return chunkSizes(chunk.length).map((size) => {
+    return chunkSizes(chunk.length).flatMap((size) => {
       const group = chunk.slice(offset, offset + size);
       offset += size;
-      return buildMatching(nextId(), group, pickPromptSide(config.answerWith, rng), rng);
+      const batches: Card[][] = [];
+      for (const card of group) {
+        const batch = batches.find((items) =>
+          items.every(
+            (other) =>
+              !answersOverlap(card.term, other.term) &&
+              !answersOverlap(card.definition, other.definition),
+          ),
+        );
+        if (batch) batch.push(card);
+        else batches.push([card]);
+      }
+      return batches.map((items) =>
+        buildMatching(nextId(), items, pickPromptSide(config.answerWith, rng), rng),
+      );
     });
   }
   return chunk.map((card) => {
     const promptSide = pickPromptSide(config.answerWith, rng);
-    if (type === "multipleChoice")
-      return buildMultipleChoice(nextId(), card, pool, promptSide, rng);
+    if (type === "multipleChoice") {
+      const question = buildMultipleChoice(nextId(), card, pool, promptSide, rng);
+      return question.options.length > 1 ? question : buildWritten(question.id, card, promptSide);
+    }
     if (type === "trueFalse") return buildTrueFalse(nextId(), card, pool, promptSide, rng);
     return buildWritten(nextId(), card, promptSide);
   });

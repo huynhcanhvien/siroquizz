@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
 import { GAME_KINDS, type StudySet } from "@/lib/types";
 import { bestScore } from "../lib/best-score";
 import { formatRecord } from "./GameChrome";
-import { GAME_META } from "./game-meta";
+import { GAME_META, eligibleCardCount } from "./game-meta";
 
 export function GamesHub({ set }: { set: StudySet }) {
   const t = useTranslations("games");
@@ -24,12 +24,16 @@ export function GamesHub({ set }: { set: StudySet }) {
         {GAME_KINDS.map((game, index) => {
           const { icon: Icon, tone, minCards } = GAME_META[game];
           const best = bestScore(scores, game);
-          const playable = set.cards.length >= minCards;
+          const playable = eligibleCardCount(set, game) >= (game === "quiz" ? 1 : minCards);
           return (
             <li key={game} className="animate-rise" style={{ animationDelay: `${index * 60}ms` }}>
               <Link
                 href={`/study/${set.id}/games/${game}`}
                 aria-disabled={!playable}
+                tabIndex={playable ? undefined : -1}
+                onClick={(event) => {
+                  if (!playable) event.preventDefault();
+                }}
                 className={cn(
                   "group flex h-full flex-col gap-4 rounded-xl border border-border bg-surface p-6 shadow-sm transition-[transform,box-shadow,border-color]",
                   "hover:-translate-y-1 hover:border-primary/40 hover:shadow-md",
@@ -37,7 +41,12 @@ export function GamesHub({ set }: { set: StudySet }) {
                 )}
               >
                 <div className="flex items-start justify-between">
-                  <span className={cn("grid size-14 place-items-center rounded-2xl transition-transform group-hover:rotate-[-8deg]", tone)}>
+                  <span
+                    className={cn(
+                      "grid size-14 place-items-center rounded-2xl transition-transform group-hover:rotate-[-8deg]",
+                      tone,
+                    )}
+                  >
                     <Icon className="size-7" aria-hidden />
                   </span>
                   <span className="grid size-10 place-items-center rounded-full bg-primary text-on-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
@@ -50,7 +59,11 @@ export function GamesHub({ set }: { set: StudySet }) {
                 </div>
                 <p className="mt-auto flex items-center gap-2 text-sm font-semibold text-muted">
                   <Trophy className="size-4 text-accent-strong" aria-hidden />
-                  {playable ? (best ? t("best", { value: formatRecord(best, game) }) : t("noBest")) : t("notEnoughCards", { count: minCards })}
+                  {playable
+                    ? best
+                      ? t("best", { value: formatRecord(best, game) })
+                      : t("noBest")
+                    : t("notEnoughCards", { count: minCards })}
                 </p>
               </Link>
             </li>

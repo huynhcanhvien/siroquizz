@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -72,4 +73,28 @@ describe("LearnMode answer checking", () => {
     expect(await screen.findByText("Dữ liệu chưa hợp lệ.")).toBeInTheDocument();
     expect(save).toHaveBeenCalledTimes(1);
   });
+});
+
+it("keeps the active question and selected answer when query data is refreshed", async () => {
+  function Harness() {
+    const [cards, setCards] = useState(set.cards);
+    return (
+      <>
+        <button onClick={() => setCards((items) => items.map((card) => ({ ...card })))}>
+          Refresh data
+        </button>
+        <LearnMode set={{ ...set, cards }} />
+      </>
+    );
+  }
+  const user = userEvent.setup();
+  renderWithProviders(<Harness />);
+  await user.click(screen.getByRole("button", { name: "Bắt đầu học" }));
+  await user.click(screen.getAllByRole("radio")[0]);
+  const shell = document.querySelector('section[id^="question-"]')!;
+  const before = shell.textContent;
+  const selected = screen.getAllByRole("radio")[0];
+  await user.click(screen.getByRole("button", { name: "Refresh data" }));
+  expect(shell.textContent).toBe(before);
+  expect(selected).toBeChecked();
 });

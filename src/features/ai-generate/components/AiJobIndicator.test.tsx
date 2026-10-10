@@ -44,7 +44,15 @@ describe("AiJobIndicator", () => {
     expect(link()).toHaveTextContent("Cần bạn xác nhận");
     view.unmount();
     renderWithProviders(
-      <AiJobIndicator phase={{ name: "review", cards: [], title: "x", notice: null }} />,
+      <AiJobIndicator
+        phase={{
+          name: "review",
+          cards: [],
+          title: "x",
+          notice: null,
+          options: { termLang: "zh", definitionLang: "vi", cardCount: 5, includePhonetic: true },
+        }}
+      />,
     );
     expect(link()).toHaveTextContent("Bộ thẻ AI đã sẵn sàng");
     expect(link()).toHaveTextContent("Xem lại và lưu");
