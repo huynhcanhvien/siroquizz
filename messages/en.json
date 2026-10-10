@@ -658,7 +658,13 @@
       "pages": "{completed}/{total} pages"
     },
     "pageProgress": "{completed}/{total} pages read — no credits used",
-    "reviewHint": "Check words, meanings, spelling and phonetics before saving. Interface language does not change the set languages."
+    "reviewHint": "Check words, meanings, spelling and phonetics before saving. Interface language does not change the set languages.",
+    "reviewPhonetics": "Review all phonetics",
+    "comparePhonetics": "Compare saved phonetics with AI suggestions. Select the cards you want to change; unselected cards keep their saved phonetics.",
+    "currentPhonetic": "Current phonetic",
+    "suggestedPhonetic": "AI suggestion (editable)",
+    "noPhonetic": "None yet",
+    "useSuggestedPhonetic": "Use suggested phonetic"
   },
   "settings": {
     "title": "Settings",

@@ -658,7 +658,13 @@
       "pages": "{completed}/{total} 页"
     },
     "pageProgress": "已识别 {completed}/{total} 页——不消耗积分",
-    "reviewHint": "保存前请检查词语、释义、拼写和音标。界面语言不会改变学习集的语言。"
+    "reviewHint": "保存前请检查词语、释义、拼写和音标。界面语言不会改变学习集的语言。",
+    "reviewPhonetics": "重新检查所有音标",
+    "comparePhonetics": "比较现有音标与AI建议。选择要修改的卡片；未选择的卡片保留原有音标。",
+    "currentPhonetic": "当前音标",
+    "suggestedPhonetic": "AI建议（可编辑）",
+    "noPhonetic": "尚未填写",
+    "useSuggestedPhonetic": "使用建议音标"
   },
   "settings": {
     "title": "设置",
