@@ -56,22 +56,30 @@ function MatchBoard({
     refocusWithin(gridRef.current);
   };
 
-  const langOf = (side: "term" | "definition") => (side === "term" ? set.termLang : set.definitionLang);
+  const langOf = (side: "term" | "definition") =>
+    side === "term" ? set.termLang : set.definitionLang;
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
       <div className="flex flex-wrap items-center justify-center gap-3">
-        <StatChip icon={Timer} label={t("time")} value={formatDuration(elapsed + state.penaltyMs)} />
+        <StatChip
+          icon={Timer}
+          label={t("time")}
+          value={formatDuration(elapsed + state.penaltyMs)}
+        />
         <div aria-live="polite">
           <StatChip value={t("pairs", { found: state.matchedIds.length / 2, total: pairs })} />
         </div>
         {state.penaltyMs > 0 ? (
-          <span key={state.penaltyMs} className="animate-pop rounded-full bg-danger-soft px-3 py-1 text-sm font-bold text-danger">
+          <span
+            key={state.penaltyMs}
+            className="animate-pop rounded-full bg-danger-soft px-3 py-1 text-sm font-bold text-danger"
+          >
             {t("match.penalty")}
           </span>
         ) : null}
       </div>
-      <ul ref={gridRef} className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+      <ul ref={gridRef} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {state.tiles.map((tile) => {
           const matched = state.matchedIds.includes(tile.id);
           const selected = state.selectedId === tile.id;
@@ -86,7 +94,7 @@ function MatchBoard({
                 lang={langOf(tile.side)}
                 onClick={() => select(tile.id)}
                 className={cn(
-                  "flex h-28 w-full cursor-pointer items-center justify-center rounded-lg border-2 bg-surface p-3 text-center font-semibold break-words shadow-sm transition-[transform,opacity,border-color,background-color] duration-200 sm:h-32",
+                  "flex h-full min-h-28 w-full cursor-pointer items-center justify-center rounded-lg border-2 bg-surface p-3 text-center font-semibold break-words shadow-sm transition-[transform,opacity,border-color,background-color] duration-200 sm:min-h-32",
                   "hover:-translate-y-0.5 hover:shadow-md",
                   selected && "border-primary bg-primary-soft",
                   wrong && "animate-shake border-danger bg-danger-soft",
@@ -94,7 +102,9 @@ function MatchBoard({
                   matched && "pointer-events-none scale-90 opacity-0",
                 )}
               >
-                <span className="line-clamp-4">{tile.text}</span>
+                <span translate="no" className="min-w-0 [overflow-wrap:anywhere]">
+                  {tile.text}
+                </span>
               </button>
             </li>
           );
@@ -107,7 +117,11 @@ function MatchBoard({
 export function MatchGame({ set }: { set: StudySet }) {
   const t = useTranslations("games");
   const { best, record } = useGameRecord(set.id, "match");
-  const { phase, start, finish } = useGameFlow<{ pairs: number; events: GameEvent[]; sessionId: string | null }>();
+  const { phase, start, finish } = useGameFlow<{
+    pairs: number;
+    events: GameEvent[];
+    sessionId: string | null;
+  }>();
   const [session, setSession] = useState<RankedSession | null>(null);
   const [starting, setStarting] = useState(false);
   const begin = async () => {
@@ -119,7 +133,15 @@ export function MatchGame({ set }: { set: StudySet }) {
   };
 
   if (phase.name === "intro")
-    return <GameIntro game="match" icon={GAME_META.match.icon} best={best} onStart={begin} starting={starting} />;
+    return (
+      <GameIntro
+        game="match"
+        icon={GAME_META.match.icon}
+        best={best}
+        onStart={begin}
+        starting={starting}
+      />
+    );
 
   if (phase.name === "done") {
     const { outcome, details } = phase;
@@ -135,7 +157,12 @@ export function MatchGame({ set }: { set: StudySet }) {
           { label: t("pairsLabel"), value: details.pairs },
         ]}
       >
-        <RankedSummary setId={set.id} game="match" sessionId={details.sessionId} events={details.events} />
+        <RankedSummary
+          setId={set.id}
+          game="match"
+          sessionId={details.sessionId}
+          events={details.events}
+        />
       </GameResult>
     );
   }

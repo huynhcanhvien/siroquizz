@@ -73,6 +73,7 @@ export const aiJobStateSchema = z.object({
   ocrPages: z.number().int().min(0).optional(),
   /** Set when the result came from the cache, so nothing is charged. */
   cached: z.boolean().optional(),
+  imported: z.boolean().optional(),
   /** Estimated tokens of each chunk, used to price the generation for any card count. */
   chunkTokens: z.array(z.number().int().min(0)).optional(),
 });

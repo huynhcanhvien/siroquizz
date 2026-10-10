@@ -14,10 +14,30 @@ export function formatRecord(best: Pick<GameScore, "score" | "timeMs">, game: Ga
   return isTimedGame(game) ? formatDuration(best.timeMs) : String(best.score);
 }
 
-export function StatChip({ label, value, icon: Icon, tone = "neutral" }: { label?: string; value: ReactNode; icon?: LucideIcon; tone?: "neutral" | "danger" }) {
+export function StatChip({
+  label,
+  value,
+  icon: Icon,
+  tone = "neutral",
+}: {
+  label?: string;
+  value: ReactNode;
+  icon?: LucideIcon;
+  tone?: "neutral" | "danger";
+}) {
   return (
-    <div className={cn("flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 shadow-sm", tone === "danger" && "border-danger/40")}>
-      {Icon ? <Icon className={cn("size-4", tone === "danger" ? "text-danger" : "text-primary")} aria-hidden /> : null}
+    <div
+      className={cn(
+        "flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 shadow-sm",
+        tone === "danger" && "border-danger/40",
+      )}
+    >
+      {Icon ? (
+        <Icon
+          className={cn("size-4", tone === "danger" ? "text-danger" : "text-primary")}
+          aria-hidden
+        />
+      ) : null}
       {label ? <span className="text-xs font-semibold text-muted">{label}</span> : null}
       <span className="font-extrabold tabular-nums">{value}</span>
     </div>
@@ -31,10 +51,19 @@ interface GameIntroProps {
   onStart: () => void;
   /** A ranked game is being prepared with the server. */
   starting?: boolean;
+  disabled?: boolean;
   children?: ReactNode;
 }
 
-export function GameIntro({ game, icon: Icon, best, onStart, starting = false, children }: GameIntroProps) {
+export function GameIntro({
+  game,
+  icon: Icon,
+  best,
+  onStart,
+  starting = false,
+  disabled = false,
+  children,
+}: GameIntroProps) {
   const t = useTranslations("games");
   return (
     <div className="mx-auto flex w-full max-w-lg animate-pop flex-col items-center gap-5 rounded-xl border border-border bg-surface p-8 text-center shadow-lg">
@@ -50,7 +79,13 @@ export function GameIntro({ game, icon: Icon, best, onStart, starting = false, c
         {best ? t("best", { value: formatRecord(best, game) }) : t("noBest")}
       </p>
       {children}
-      <Button size="lg" className="w-full" onClick={onStart} disabled={starting} autoFocus>
+      <Button
+        size="lg"
+        className="w-full"
+        onClick={onStart}
+        disabled={starting || disabled}
+        autoFocus
+      >
         <Play className="size-5" aria-hidden />
         {starting ? t("ranked.starting") : t("start")}
       </Button>
@@ -68,7 +103,15 @@ interface GameResultProps {
   children?: ReactNode;
 }
 
-export function GameResult({ title, game, setId, stats, isRecord, onPlayAgain, children }: GameResultProps) {
+export function GameResult({
+  title,
+  game,
+  setId,
+  stats,
+  isRecord,
+  onPlayAgain,
+  children,
+}: GameResultProps) {
   const t = useTranslations("games");
   return (
     <div className="mx-auto flex w-full max-w-lg animate-pop flex-col items-center gap-6 rounded-xl border border-border bg-surface p-8 text-center shadow-lg">

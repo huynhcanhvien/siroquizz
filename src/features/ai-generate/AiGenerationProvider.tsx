@@ -35,7 +35,13 @@ export type AiPhase =
       /** Resolves the pending confirmation: a card count to go ahead, or null to cancel. */
       decide: (cardCount: number | null) => void;
     }
-  | { name: "review"; cards: ReviewCard[]; title: string; notice: string | null };
+  | {
+      name: "review";
+      cards: ReviewCard[];
+      title: string;
+      notice: string | null;
+      options: GenerationOptions;
+    };
 
 /** What the saved set takes from the request: its description and languages. */
 type SetSource = Pick<GenerateRequest, "prompt" | "options">;
@@ -123,8 +129,13 @@ export function AiGenerationProvider({ children }: { children: ReactNode }) {
       .filter(Boolean)
       .join(" ") || null;
 
-  const reviewPhase = (result: GenerateResult, title: string): AiPhase => ({
+  const reviewPhase = (
+    result: GenerateResult,
+    title: string,
+    options: GenerationOptions,
+  ): AiPhase => ({
     name: "review",
+    options,
     cards: result.cards.map((card) => ({ ...card, included: true })),
     title,
     notice: generationNotice(result),
@@ -150,7 +161,7 @@ export function AiGenerationProvider({ children }: { children: ReactNode }) {
         onStage: (stage, progress) => setPhase({ name: "generating", stage, progress }),
         onConfirm: confirm,
       });
-      setPhase(reviewPhase(result, title));
+      setPhase(reviewPhase(result, title, setSourceTo.options));
       if (awayFromGenerator()) toast(t("background.readyToast"));
     } catch (error) {
       setPhase({ name: "compose" });
@@ -194,7 +205,7 @@ export function AiGenerationProvider({ children }: { children: ReactNode }) {
 
   const openResult = (result: GenerateResult, prompt: string, options: GenerationOptions) => {
     setSource({ prompt, options });
-    setPhase(reviewPhase(result, titleFrom(prompt)));
+    setPhase(reviewPhase(result, titleFrom(prompt), options));
   };
 
   const save = (title: string, cards: ReviewCard[]) => {

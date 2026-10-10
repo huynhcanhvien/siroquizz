@@ -181,3 +181,21 @@ describe("generateTest", () => {
     expect(questions).toHaveLength(3);
   });
 });
+
+it("separates matching pairs with repeated visible meanings without losing cards", () => {
+  const twins = [
+    { id: "a", term: "hello", definition: "xin chào" },
+    { id: "b", term: "hi", definition: "xin chào" },
+    { id: "c", term: "bye", definition: "tạm biệt" },
+  ];
+  const questions = generateTest(
+    twins,
+    { questionCount: 3, answerWith: "definition", types: ["matching"] },
+    createRng(3),
+  ) as MatchingQuestion[];
+  expect(questions.flatMap((question) => question.pairs)).toHaveLength(3);
+  for (const question of questions)
+    expect(new Set(question.answers.map((answer) => answer.text)).size).toBe(
+      question.answers.length,
+    );
+});

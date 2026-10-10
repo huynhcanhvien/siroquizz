@@ -1,12 +1,14 @@
 "use client";
 
 import { CardImage } from "@/features/srs/components/CardImage";
+import { StarButton } from "@/features/srs/components/StarButton";
 import { SpeakButton } from "@/components/ui/SpeakButton";
 import { cn } from "@/lib/cn";
 import type { Card, LangCode, Side } from "@/lib/types";
 
 interface FlashcardProps {
   card: Card;
+  setId?: string;
   frontSide: Side;
   phoneticSide?: Side;
   flipped: boolean;
@@ -59,13 +61,16 @@ function Face({
       </div>
       <div className="flex flex-1 flex-col items-center justify-center gap-3 overflow-y-auto px-2 text-center">
         <p
+          translate="no"
           lang={lang}
           className={cn("font-bold break-words whitespace-pre-line", textSize(text, size))}
         >
           {text}
         </p>
         {side === phoneticSide && card.phonetic ? (
-          <p className="text-lg break-words text-muted">{card.phonetic}</p>
+          <p translate="no" className="text-lg break-words text-muted">
+            {card.phonetic}
+          </p>
         ) : null}
         {side === "definition" ? <CardImage card={card} /> : null}
       </div>
@@ -80,6 +85,7 @@ function Face({
  */
 export function Flashcard({
   card,
+  setId,
   frontSide,
   phoneticSide = "term",
   flipped,
@@ -97,6 +103,11 @@ export function Flashcard({
       onClick={onFlip}
       className={cn("relative w-full cursor-pointer rounded-xl flip-scene", className)}
     >
+      {setId ? (
+        <div className="absolute top-5 right-16 z-10 sm:top-8 sm:right-19">
+          <StarButton setId={setId} cardId={card.id} />
+        </div>
+      ) : null}
       <div className={cn("flip-inner size-full", flipped && "is-flipped")}>
         <Face
           side={frontSide}

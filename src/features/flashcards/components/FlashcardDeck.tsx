@@ -17,7 +17,6 @@ import type { Side, StudySet } from "@/lib/types";
 import { useErrorMessage } from "@/lib/use-messages";
 import { createDeck, currentCardId, deckReducer, type DeckAction } from "../lib/deck";
 import { DeckSummary } from "./DeckSummary";
-import { StarButton } from "@/features/srs/components/StarButton";
 import { Flashcard } from "./Flashcard";
 
 type Mark = "known" | "learning";
@@ -40,7 +39,14 @@ function useDeckKeyboard(handlers: DeckKeyHandlers) {
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || isTextEntryTarget(event.target)) return;
+      if (
+        event.defaultPrevented ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        isTextEntryTarget(event.target)
+      )
+        return;
       if ((event.key === " " || event.key === "Enter") && isActivatableTarget(event.target)) return;
       const { dispatch, mark, trackProgress } = handlersRef.current;
       const actions: Record<string, () => void> = {
@@ -63,7 +69,13 @@ function useDeckKeyboard(handlers: DeckKeyHandlers) {
   }, []);
 }
 
-function TrackedControls({ onMark, onFlip }: { onMark: (status: Mark) => void; onFlip: () => void }) {
+function TrackedControls({
+  onMark,
+  onFlip,
+}: {
+  onMark: (status: Mark) => void;
+  onFlip: () => void;
+}) {
   const t = useTranslations("flashcards");
   const markClasses = "min-w-0 px-3 whitespace-normal sm:px-6";
   return (
@@ -93,18 +105,35 @@ function TrackedControls({ onMark, onFlip }: { onMark: (status: Mark) => void; o
   );
 }
 
-function BrowseControls({ dispatch, isFirst }: { dispatch: (action: DeckAction) => void; isFirst: boolean }) {
+function BrowseControls({
+  dispatch,
+  isFirst,
+}: {
+  dispatch: (action: DeckAction) => void;
+  isFirst: boolean;
+}) {
   const t = useTranslations("flashcards");
   return (
     <div className="flex items-center justify-center gap-4">
-      <Button variant="secondary" size="icon" onClick={() => dispatch({ type: "prev" })} disabled={isFirst} aria-label={t("prev")}>
+      <Button
+        variant="secondary"
+        size="icon"
+        onClick={() => dispatch({ type: "prev" })}
+        disabled={isFirst}
+        aria-label={t("prev")}
+      >
         <ChevronLeft className="size-5" aria-hidden />
       </Button>
       <Button variant="soft" onClick={() => dispatch({ type: "flip" })}>
         <RefreshCw className="size-4" aria-hidden />
         {t("flip")}
       </Button>
-      <Button variant="secondary" size="icon" onClick={() => dispatch({ type: "next" })} aria-label={t("next")}>
+      <Button
+        variant="secondary"
+        size="icon"
+        onClick={() => dispatch({ type: "next" })}
+        aria-label={t("next")}
+      >
         <ChevronRight className="size-5" aria-hidden />
       </Button>
     </div>
@@ -119,7 +148,13 @@ interface DeckOptionsProps {
   onShuffle: () => void;
 }
 
-function DeckOptions({ frontSide, onFrontSideChange, trackProgress, onTrackProgressChange, onShuffle }: DeckOptionsProps) {
+function DeckOptions({
+  frontSide,
+  onFrontSideChange,
+  trackProgress,
+  onTrackProgressChange,
+  onShuffle,
+}: DeckOptionsProps) {
   const t = useTranslations("flashcards");
   return (
     <details className="group rounded-xl border border-border bg-surface p-4 shadow-sm">
@@ -134,7 +169,12 @@ function DeckOptions({ frontSide, onFrontSideChange, trackProgress, onTrackProgr
             { value: "definition", label: t("frontDefinition") },
           ]}
         />
-        <Switch checked={trackProgress} onCheckedChange={onTrackProgressChange} label={t("trackProgress")} className="sm:pb-2" />
+        <Switch
+          checked={trackProgress}
+          onCheckedChange={onTrackProgressChange}
+          label={t("trackProgress")}
+          className="sm:pb-2"
+        />
         <Button variant="secondary" size="sm" className="sm:mb-1" onClick={onShuffle}>
           <Shuffle className="size-4" aria-hidden />
           {t("shuffle")}
@@ -184,7 +224,10 @@ export function FlashcardDeck({ set, practice = false }: { set: StudySet; practi
     const id = currentCardId(state);
     if (!id || state.finished) return;
     if (!practice)
-      saveCardStatus({ cardId: id, status }, { onError: (error) => toast(errorMessage(error), "error") });
+      saveCardStatus(
+        { cardId: id, status },
+        { onError: (error) => toast(errorMessage(error), "error") },
+      );
     dispatch({ type: "mark", status });
   };
 
@@ -200,6 +243,7 @@ export function FlashcardDeck({ set, practice = false }: { set: StudySet; practi
         setId={set.id}
         onRestudy={(ids) => dispatch({ type: "restart", cardIds: ids })}
         onRestart={() => dispatch({ type: "restart", cardIds })}
+        onPrevious={() => dispatch({ type: "prev" })}
       />
     );
   }
@@ -210,10 +254,17 @@ export function FlashcardDeck({ set, practice = false }: { set: StudySet; practi
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
       <div className="flex items-center gap-4">
-        <ProgressBar value={state.index + 1} max={state.order.length} label={counter} className="flex-1" />
+        <ProgressBar
+          value={state.index + 1}
+          max={state.order.length}
+          label={counter}
+          className="flex-1"
+        />
         <span className="text-sm font-bold text-muted tabular-nums">{counter}</span>
       </div>
-      {trackProgress ? <PileCounters learning={state.learning.length} known={state.known.length} /> : null}
+      {trackProgress ? (
+        <PileCounters learning={state.learning.length} known={state.known.length} />
+      ) : null}
       {!practice && set.cards.some((card) => card.phonetic) ? (
         <div className="flex justify-end">
           <PhoneticSideButton side={phoneticSide} onSideChange={setPhoneticSide} />
@@ -222,6 +273,7 @@ export function FlashcardDeck({ set, practice = false }: { set: StudySet; practi
       <Flashcard
         key={card.id}
         card={card}
+        setId={practice ? undefined : set.id}
         frontSide={frontSide}
         phoneticSide={phoneticSide}
         flipped={state.flipped}
@@ -232,7 +284,18 @@ export function FlashcardDeck({ set, practice = false }: { set: StudySet; practi
       />
       <p className="text-center text-sm text-muted">{t("hint")}</p>
       {trackProgress ? (
-        <TrackedControls onMark={mark} onFlip={() => dispatch({ type: "flip" })} />
+        <div className="flex flex-col gap-3">
+          <TrackedControls onMark={mark} onFlip={() => dispatch({ type: "flip" })} />
+          <Button
+            variant="ghost"
+            className="self-center"
+            disabled={state.index === 0}
+            onClick={() => dispatch({ type: "prev" })}
+          >
+            <ChevronLeft className="size-4" aria-hidden />
+            {t("prev")}
+          </Button>
+        </div>
       ) : (
         <BrowseControls dispatch={dispatch} isFirst={state.index === 0} />
       )}

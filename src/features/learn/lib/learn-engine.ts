@@ -34,8 +34,12 @@ export function createLearn(ids: readonly string[], written = true): LearnState 
   };
 }
 export type LearnAction =
-  { type: "answer"; correct: boolean } | { type: "continue" } | { type: "nextRound" };
+  | { type: "restart"; ids: string[] }
+  | { type: "answer"; correct: boolean }
+  | { type: "continue" }
+  | { type: "nextRound" };
 export function learnReducer(state: LearnState, action: LearnAction): LearnState {
+  if (action.type === "restart") return createLearn(action.ids, state.written);
   const item = state.round[0];
   if (action.type === "answer" && state.phase === "question" && item) {
     const known = action.correct && (item.level === "written" || !state.written);

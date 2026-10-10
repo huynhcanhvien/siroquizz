@@ -105,7 +105,14 @@ export const moderationStatus = pgEnum("moderation_status", [
   "rejected",
 ]);
 export const cardStatus = pgEnum("card_status", ["new", "learning", "known"]);
-export const gameKind = pgEnum("game_kind", ["match", "gravity", "memory", "scramble"]);
+export const gameKind = pgEnum("game_kind", [
+  "match",
+  "gravity",
+  "memory",
+  "scramble",
+  "dictation",
+  "quiz",
+]);
 export const studySets = pgTable(
   "study_sets",
   {

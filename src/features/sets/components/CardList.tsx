@@ -8,6 +8,7 @@ import { CardImageEditor } from "@/features/srs/components/CardImageEditor";
 import { StarButton } from "@/features/srs/components/StarButton";
 import { cn } from "@/lib/cn";
 import type { Side, StudySet } from "@/lib/types";
+import { StudyDirection } from "@/features/study/components/StudyDirection";
 import { PhoneticSideButton } from "./PhoneticSideButton";
 
 const STATUS_DOT = {
@@ -41,6 +42,7 @@ export function CardList({
           <PhoneticSideButton side={phoneticSide} onSideChange={onPhoneticSideChange} />
         ) : null}
       </div>
+      <StudyDirection set={set} />
       <ul className="flex flex-col gap-2.5">
         {set.cards.map((card) => {
           const status = statusByCard.get(card.id) ?? "new";
@@ -57,11 +59,13 @@ export function CardList({
                   role="img"
                 />
                 <div className="min-w-0 flex-1">
-                  <p lang={set.termLang} className="font-semibold break-words">
+                  <p translate="no" lang={set.termLang} className="font-semibold break-words">
                     {card.term}
                   </p>
                   {phoneticSide === "term" && card.phonetic ? (
-                    <p className="text-sm break-words text-muted">{card.phonetic}</p>
+                    <p translate="no" className="text-sm break-words text-muted">
+                      {card.phonetic}
+                    </p>
                   ) : null}
                 </div>
                 <StarButton setId={set.id} cardId={card.id} />
@@ -69,11 +73,17 @@ export function CardList({
               </div>
               <div className="flex items-start gap-3 pl-5 sm:pl-0">
                 <div className="min-w-0 flex-1">
-                  <p lang={set.definitionLang} className="break-words whitespace-pre-line">
+                  <p
+                    translate="no"
+                    lang={set.definitionLang}
+                    className="break-words whitespace-pre-line"
+                  >
                     {card.definition}
                   </p>
                   {phoneticSide === "definition" && card.phonetic ? (
-                    <p className="text-sm break-words text-muted">{card.phonetic}</p>
+                    <p translate="no" className="text-sm break-words text-muted">
+                      {card.phonetic}
+                    </p>
                   ) : null}
                 </div>
                 <CardImage card={card} />

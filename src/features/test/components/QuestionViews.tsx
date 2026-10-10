@@ -13,6 +13,7 @@ import type {
   TrueFalseQuestion,
   WrittenQuestion,
 } from "../lib/types";
+import { languageName } from "@/lib/languages";
 import { MatchingView } from "./MatchingView";
 
 export interface LangPair {
@@ -32,6 +33,7 @@ interface QuestionShellProps {
 
 export function QuestionShell({ number, question, langs, children }: QuestionShellProps) {
   const t = useTranslations("test");
+  const tLang = useTranslations("contentLanguages");
   const promptLabel = question.promptSide === "term" ? t("promptTerm") : t("promptDefinition");
   return (
     <section
@@ -39,17 +41,24 @@ export function QuestionShell({ number, question, langs, children }: QuestionShe
       aria-labelledby={`question-${question.id}-title`}
       className="scroll-mt-24 rounded-xl border border-border bg-surface p-5 shadow-sm sm:p-8"
     >
-      <header className="flex items-center justify-between gap-3 text-sm font-semibold text-muted">
+      <header className="flex flex-wrap items-center justify-between gap-3 text-sm font-semibold text-muted">
         <h2 id={`question-${question.id}-title`}>
           {t("question", { number })} · {t(`type.${question.type}`)}
         </h2>
-        <span>{promptLabel}</span>
+        <span>
+          {promptLabel} · {languageName(tLang, langForSide(question.promptSide, langs))} →{" "}
+          {languageName(
+            tLang,
+            langForSide(question.promptSide === "term" ? "definition" : "term", langs),
+          )}
+        </span>
       </header>
       {question.type !== "matching" ? (
         <div className="mt-4 flex items-start gap-2">
           <p
+            translate="no"
             lang={langForSide(question.promptSide, langs)}
-            className="flex-1 text-2xl font-bold break-words whitespace-pre-line"
+            className="min-w-0 flex-1 text-2xl font-bold break-words whitespace-pre-line"
           >
             {question.prompt}
           </p>
@@ -107,7 +116,7 @@ function MultipleChoiceView({
             <span className="grid size-7 shrink-0 place-items-center rounded-full bg-surface-3 text-sm font-bold text-muted">
               {index + 1}
             </span>
-            <span lang={answerLang} className="break-words">
+            <span translate="no" lang={answerLang} className="min-w-0 [overflow-wrap:anywhere]">
               {option.text}
             </span>
           </label>
@@ -125,6 +134,7 @@ function TrueFalseView({ question, answer, onAnswer, langs }: ViewProps<TrueFals
   return (
     <div className="flex flex-col gap-5">
       <p
+        translate="no"
         lang={answerLang}
         className="rounded-lg bg-surface-2 px-4 py-3 text-lg font-semibold break-words"
       >
@@ -171,11 +181,14 @@ function WrittenView({ question, answer, onAnswer, langs }: ViewProps<WrittenQue
       </label>
       <input
         id={id}
+        translate="no"
         lang={answerLang}
         value={text}
         onChange={(event) => onAnswer({ type: "written", text: event.target.value })}
         placeholder={t("writtenPlaceholder")}
         autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="none"
         spellCheck={false}
         className="h-13 w-full rounded-lg border-2 border-border bg-surface-2 px-4 text-lg focus:border-primary focus:bg-surface focus:outline-none"
       />

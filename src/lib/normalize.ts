@@ -8,7 +8,11 @@ const COMBINING_MARKS = /\p{M}/gu;
 
 /** Normalizes a typed answer for lenient comparison while keeping diacritics and inner symbols. */
 export function normalizeAnswer(value: string): string {
-  return value.normalize("NFC").toLocaleLowerCase().replace(WHITESPACE, " ").replace(EDGE_PUNCTUATION, "");
+  return value
+    .normalize("NFC")
+    .toLocaleLowerCase()
+    .replace(WHITESPACE, " ")
+    .replace(EDGE_PUNCTUATION, "");
 }
 
 export function isAnswerMatch(input: string, expected: string): boolean {
@@ -31,4 +35,19 @@ export function foldForSearch(value: string): string {
     .toLocaleLowerCase()
     .replace(WHITESPACE, " ")
     .trim();
+}
+
+/** Literal spelling practice keeps punctuation and accents significant. */
+export function isSpellingMatch(input: string, expected: string): boolean {
+  const normalize = (text: string) =>
+    text.normalize("NFC").trim().toLowerCase().replace(/\s+/g, " ");
+  return normalize(input).length > 0 && normalize(input) === normalize(expected);
+}
+
+/** Detects overlapping explicit alternatives without guessing semantic synonyms. */
+export function answersOverlap(a: string, b: string): boolean {
+  const variants = (text: string) =>
+    [text, ...text.split(ALTERNATIVE_SEPARATOR)].map(normalizeAnswer).filter(Boolean);
+  const keys = new Set(variants(a));
+  return variants(b).some((key) => keys.has(key));
 }

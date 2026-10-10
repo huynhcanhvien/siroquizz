@@ -106,6 +106,8 @@ export function TestMode({ set, practice = false }: { set: StudySet; practice?: 
     return (
       <TestSetup
         setTitle={set.title}
+        termLang={set.termLang}
+        definitionLang={set.definitionLang}
         maxCount={maxQuestionCount(set.cards)}
         initialConfig={session.config}
         onStart={session.start}

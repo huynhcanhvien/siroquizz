@@ -6,6 +6,8 @@ import { useId, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/fields";
 import { cn } from "@/lib/cn";
+import { StudyDirection } from "@/features/study/components/StudyDirection";
+import type { LangCode } from "@/lib/types";
 import type { GeneratedCard } from "../lib/generator";
 
 export interface ReviewCard extends GeneratedCard {
@@ -14,6 +16,8 @@ export interface ReviewCard extends GeneratedCard {
 
 interface ReviewGeneratedCardsProps {
   initialTitle: string;
+  termLang?: LangCode;
+  definitionLang?: LangCode;
   cards: ReviewCard[];
   onCardsChange: (cards: ReviewCard[]) => void;
   notice: string | null;
@@ -27,6 +31,8 @@ const CELL = "h-10 bg-surface text-[0.95rem]";
 
 export function ReviewGeneratedCards({
   initialTitle,
+  termLang = "en",
+  definitionLang = "vi",
   cards,
   onCardsChange,
   notice,
@@ -51,6 +57,8 @@ export function ReviewGeneratedCards({
       <div>
         <h1 className="text-title font-extrabold">{t("reviewTitle")}</h1>
         <p className="mt-1 text-muted">{t("reviewSubtitle")}</p>
+        <StudyDirection set={{ termLang, definitionLang }} />
+        <p className="mt-2 text-sm text-muted">{t("reviewHint")}</p>
       </div>
 
       {notice ? (
@@ -105,18 +113,23 @@ export function ReviewGeneratedCards({
               className="size-4.5 cursor-pointer accent-[var(--primary)] sm:row-span-1"
             />
             <Input
+              translate="no"
+              lang={termLang}
               aria-label={`${tEditor("term")} ${index + 1}`}
               value={card.term}
               onChange={(event) => update(card.id, { term: event.target.value })}
               className={cn(CELL, "font-semibold")}
             />
             <Input
+              translate="no"
+              lang={definitionLang}
               aria-label={`${tEditor("definition")} ${index + 1}`}
               value={card.definition}
               onChange={(event) => update(card.id, { definition: event.target.value })}
               className={cn(CELL, "col-start-2 sm:col-start-auto")}
             />
             <Input
+              translate="no"
               aria-label={`${tEditor("phonetic")} ${index + 1}`}
               placeholder={tEditor("phonetic")}
               value={card.phonetic ?? ""}

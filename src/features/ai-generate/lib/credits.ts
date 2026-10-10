@@ -42,11 +42,17 @@ export const creditsForCards = (cards: number): number =>
   Math.ceil(Math.max(0, cards) / CARDS_PER_CREDIT);
 
 /**
- * What a job costs: pages the server OCR'd plus the cards it produced. A result served from the
- * cache cost the service nothing, so it is free.
+ * What a job costs: pages the server OCR'd plus generated cards. Cached results and imported
+ * term/definition pairs require no generation, so only any server OCR pages are charged.
  */
-export const jobCredits = (job: { ocrPages?: number; cards: number; cached?: boolean }): number =>
-  (job.ocrPages ?? 0) * OCR_CREDITS_PER_PAGE + (job.cached ? 0 : creditsForCards(job.cards));
+export const jobCredits = (job: {
+  ocrPages?: number;
+  cards: number;
+  cached?: boolean;
+  imported?: boolean;
+}): number =>
+  (job.ocrPages ?? 0) * OCR_CREDITS_PER_PAGE +
+  (job.cached || job.imported ? 0 : creditsForCards(job.cards));
 
 /**
  * Chooses which chunks to read for `cardCount` cards: about one chunk per CARDS_PER_CHUNK cards,

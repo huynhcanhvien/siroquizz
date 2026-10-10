@@ -4,12 +4,19 @@ import { Heart, Pause, Play, Star, Zap } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useReducer, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
+import { StudyDirection } from "@/features/study/components/StudyDirection";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useOnceWhen } from "@/lib/client-hooks";
 import { cn } from "@/lib/cn";
 import type { Card, Side, StudySet } from "@/lib/types";
 import { useGameFlow, useGameRecord, useStopwatch } from "../hooks";
-import { createGravityGame, gravityReducer, START_LIVES, type GravityAction, type GravityState } from "../lib/gravity";
+import {
+  createGravityGame,
+  gravityReducer,
+  START_LIVES,
+  type GravityAction,
+  type GravityState,
+} from "../lib/gravity";
 import { createRng } from "@/lib/random";
 import type { GameEvent } from "../lib/replay";
 import { RankedSummary, startRankedSession, type RankedSession } from "../ranked";
@@ -39,10 +46,14 @@ function useAnimationFrame(active: boolean, onFrame: (dtMs: number) => void) {
   }, [active]);
 }
 
-function usePauseShortcut(status: GravityState["status"], dispatch: (action: GravityAction) => void) {
+function usePauseShortcut(
+  status: GravityState["status"],
+  dispatch: (action: GravityAction) => void,
+) {
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.repeat) dispatch({ type: status === "paused" ? "resume" : "pause" });
+      if (event.key === "Escape" && !event.repeat)
+        dispatch({ type: status === "paused" ? "resume" : "pause" });
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -62,28 +73,51 @@ function GravityHud({ state, onTogglePause }: { state: GravityState; onTogglePau
         value={
           <span role="img" aria-label={`${state.lives}/${START_LIVES}`} className="flex gap-0.5">
             {Array.from({ length: START_LIVES }, (_, index) => (
-              <Heart key={index} aria-hidden className={cn("size-4", index < state.lives ? "fill-danger text-danger" : "text-border-strong")} />
+              <Heart
+                key={index}
+                aria-hidden
+                className={cn(
+                  "size-4",
+                  index < state.lives ? "fill-danger text-danger" : "text-border-strong",
+                )}
+              />
             ))}
           </span>
         }
       />
       <Button variant="secondary" size="sm" onClick={onTogglePause}>
-        {playing ? <Pause className="size-4" aria-hidden /> : <Play className="size-4" aria-hidden />}
+        {playing ? (
+          <Pause className="size-4" aria-hidden />
+        ) : (
+          <Play className="size-4" aria-hidden />
+        )}
         {playing ? t("pause") : t("resume")}
       </Button>
     </div>
   );
 }
 
-function GravityField({ state, set, onResume }: { state: GravityState; set: StudySet; onResume: () => void }) {
+function GravityField({
+  state,
+  set,
+  onResume,
+}: {
+  state: GravityState;
+  set: StudySet;
+  onResume: () => void;
+}) {
   const t = useTranslations("games");
   const word = state.current;
-  const promptText = word ? (state.answerSide === "term" ? word.card.definition : word.card.term) : "";
+  const promptText = word
+    ? state.answerSide === "term"
+      ? word.card.definition
+      : word.card.term
+    : "";
   const promptLang = state.answerSide === "term" ? set.definitionLang : set.termLang;
   const danger = (word?.progress ?? 0) > DANGER_PROGRESS;
 
   return (
-    <div className="relative h-[min(58vh,30rem)] overflow-hidden rounded-xl border border-border bg-[linear-gradient(to_bottom,var(--surface),color-mix(in_oklch,var(--primary-soft)_70%,var(--surface)))] shadow-inner [container-type:size]">
+    <div className="[container-type:size] relative h-[min(58vh,30rem)] overflow-hidden rounded-xl border border-border bg-[linear-gradient(to_bottom,var(--surface),color-mix(in_oklch,var(--primary-soft)_70%,var(--surface)))] shadow-inner">
       {word ? (
         <div
           key={word.id}
@@ -91,9 +125,10 @@ function GravityField({ state, set, onResume }: { state: GravityState; set: Stud
           style={{ transform: `translateY(calc(${word.progress} * (100cqh - 100%)))` }}
         >
           <p
+            translate="no"
             lang={promptLang}
             className={cn(
-              "max-w-md rounded-lg border-2 bg-surface px-5 py-3 text-center text-lg font-bold shadow-md transition-colors",
+              "max-w-md rounded-lg border-2 bg-surface px-5 py-3 text-center text-lg font-bold [overflow-wrap:anywhere] shadow-md transition-colors",
               danger ? "border-danger text-danger" : "border-primary/40",
             )}
           >
@@ -101,7 +136,13 @@ function GravityField({ state, set, onResume }: { state: GravityState; set: Stud
           </p>
         </div>
       ) : null}
-      <div aria-hidden className={cn("absolute inset-x-0 bottom-0 h-2 transition-colors", danger ? "bg-danger" : "bg-primary/30")} />
+      <div
+        aria-hidden
+        className={cn(
+          "absolute inset-x-0 bottom-0 h-2 transition-colors",
+          danger ? "bg-danger" : "bg-primary/30",
+        )}
+      />
       {state.status === "paused" ? (
         <div className="absolute inset-0 grid place-items-center bg-overlay backdrop-blur-sm">
           <Button size="lg" onClick={onResume}>
@@ -117,7 +158,11 @@ function GravityField({ state, set, onResume }: { state: GravityState; set: Stud
 /** Announces each outcome and the next prompt for screen-reader users; the falling word is visual only. */
 function GravityAnnouncer({ state }: { state: GravityState }) {
   const t = useTranslations("games.gravity");
-  const prompt = state.current ? (state.answerSide === "term" ? state.current.card.definition : state.current.card.term) : "";
+  const prompt = state.current
+    ? state.answerSide === "term"
+      ? state.current.card.definition
+      : state.current.card.term
+    : "";
   const feedback = {
     correct: t("feedbackCorrect", { score: state.score }),
     wrong: t("feedbackWrong"),
@@ -181,13 +226,16 @@ function GravityBoard({ set, answerSide, session, onFinish }: GravityBoardProps)
     if (next.lastResult === "correct") {
       events.current.push({ t: clock.current(), text: input });
       setInput("");
-    }
-    else setShaking(true);
+    } else setShaking(true);
   };
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-      <GravityHud state={state} onTogglePause={() => dispatch({ type: playing ? "pause" : "resume" })} />
+      <StudyDirection set={set} answerSide={answerSide} />
+      <GravityHud
+        state={state}
+        onTogglePause={() => dispatch({ type: playing ? "pause" : "resume" })}
+      />
       <GravityField state={state} set={set} onResume={() => dispatch({ type: "resume" })} />
       <GravityAnnouncer state={state} />
       <form onSubmit={handleSubmit} className="flex gap-3">
@@ -226,7 +274,10 @@ function MissedList({ cards }: { cards: Card[] }) {
       <h2 className="mb-2 font-bold">{t("missedTitle")}</h2>
       <ul className="flex max-h-48 flex-col gap-1.5 overflow-y-auto">
         {cards.map((card) => (
-          <li key={card.id} className="grid grid-cols-2 gap-3 rounded-md bg-surface-2 px-3 py-2 text-sm">
+          <li
+            key={card.id}
+            className="grid grid-cols-2 gap-3 rounded-md bg-surface-2 px-3 py-2 text-sm"
+          >
             <span className="font-semibold">{card.term}</span>
             <span className="text-muted">{card.definition}</span>
           </li>

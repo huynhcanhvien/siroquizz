@@ -60,6 +60,8 @@ export function AiGenerator() {
   if (phase.name === "review") {
     return (
       <ReviewGeneratedCards
+        termLang={phase.options.termLang}
+        definitionLang={phase.options.definitionLang}
         initialTitle={phase.title}
         cards={phase.cards}
         notice={phase.notice}

@@ -228,3 +228,12 @@ describe("Postgres ownership and transactional updates", () => {
     });
   });
 });
+
+it("persists scores for listen-and-spell and meaning quizzes after the enum migration", async () => {
+  const set = await create();
+  for (const game of ["dictation", "quiz"] as const) {
+    const result = await saveGame(db, a, set.id, { setId: set.id, game, score: 90, timeMs: 30000 });
+    expect(result.game).toBe(game);
+    expect(result.score).toBe(90);
+  }
+});

@@ -40,7 +40,11 @@ describe("speech", () => {
   });
 
   it("speaks with the language's voice tag", () => {
-    const synth = { cancel: vi.fn(), speak: vi.fn() };
+    const synth = {
+      cancel: vi.fn(),
+      speak: vi.fn(),
+      getVoices: () => [{ lang: "zh-CN", name: "Mandarin", default: false }],
+    };
     Object.defineProperty(window, "speechSynthesis", { value: synth, configurable: true });
     vi.stubGlobal(
       "SpeechSynthesisUtterance",
@@ -51,7 +55,9 @@ describe("speech", () => {
       },
     );
     speak("你好", "zh");
-    expect(synth.speak).toHaveBeenCalledWith(expect.objectContaining({ text: "你好", lang: "zh-CN" }));
+    expect(synth.speak).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "你好", lang: "zh-CN" }),
+    );
     speak("   ", "zh");
     expect(synth.speak).toHaveBeenCalledTimes(1);
   });

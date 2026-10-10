@@ -16,3 +16,8 @@ export const CONTENT_LANGUAGE_OPTIONS: readonly LangCode[] = CONTENT_LANGUAGES;
 export function isLangCode(value: unknown): value is LangCode {
   return typeof value === "string" && (CONTENT_LANGUAGES as readonly string[]).includes(value);
 }
+
+/** Names follow UI locale; content language codes remain unchanged. */
+export function languageName(t: (key: LangCode) => string, lang: LangCode): string {
+  return t(lang);
+}
