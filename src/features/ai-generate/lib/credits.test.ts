@@ -30,6 +30,8 @@ describe("AI credits", () => {
     // Partial results cost less; a result served from the cache is free.
     expect(jobCredits({ cards: 13 })).toBe(4);
     expect(jobCredits({ cards: 20, cached: true })).toBe(0);
+    expect(jobCredits({ cards: 20, imported: true })).toBe(0);
+    expect(jobCredits({ cards: 20, imported: true, ocrPages: 3 })).toBe(3);
   });
 
   it("reads about eight cards per chunk and spreads them over the document", () => {

@@ -236,7 +236,11 @@ it("imports clear pairs without a provider call and validates upload ownership",
     status: 400,
   });
   const job = await createJob(db, a, { ...input, prompt: "", uploadIds: [id] });
-  await runToEnd(db, a, job.jobId);
+  await expect(runToEnd(db, a, job.jobId)).resolves.toMatchObject({
+    status: "done",
+    creditsCharged: 0,
+  });
+  expect(await daily(a)).toBe(20);
   expect(provider).not.toHaveBeenCalled();
   expect((await requireJob(db, a, job.jobId)).status).toBe("done");
 });

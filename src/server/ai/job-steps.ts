@@ -253,6 +253,7 @@ async function planGeneration(ctx: StepContext, hasFiles: boolean): Promise<Step
   if (text.length > MAX_TEXT) throw new ApiError(400, "DOCUMENT_TOO_LONG");
   const parsed = parseAutoDetected(text);
   if (!job.prompt && hasFiles && parsed.cards.length >= 2 && parsed.invalidLines.length === 0) {
+    state.imported = true;
     state.rawCards = parsed.cards.map((card) => ({
       term: card.term,
       definition: card.definition,
@@ -396,6 +397,7 @@ export async function finalizeStep({
         ocrPages: state.ocrPages,
         cards: cards.length,
         cached: state.cached,
+        imported: state.imported,
       });
       const charge = await chargeJob(tx, userId, job.id, cost, false);
       // Conditional completion ensures a concurrent cancellation is never charged twice.
