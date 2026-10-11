@@ -168,6 +168,7 @@ export interface PublicSet {
     term: string;
     definition: string;
     phonetic?: string;
+    example?: string;
     imageUrl?: string;
     imageAlt?: string;
   }[];
@@ -208,6 +209,7 @@ export async function getPublicSet(
       term: card.term,
       definition: card.definition,
       ...(card.phonetic ? { phonetic: card.phonetic } : {}),
+      ...(card.example ? { example: card.example } : {}),
       ...(image ? { imageUrl: `/api/v1/images/${image.id}`, imageAlt: image.alt } : {}),
     })),
     author: {
@@ -234,10 +236,11 @@ export async function copyPublicSet(db: Database, viewerId: string, slug: string
       termLang: source.termLang,
       definitionLang: source.definitionLang,
       source: source.source,
-      cards: source.cards.map(({ term, definition, phonetic }) => ({
+      cards: source.cards.map(({ term, definition, phonetic, example }) => ({
         term,
         definition,
         ...(phonetic ? { phonetic } : {}),
+        ...(example ? { example } : {}),
       })),
     });
     await tx.update(studySets).set({ copiedFromId: source.id }).where(eq(studySets.id, created.id));

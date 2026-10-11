@@ -9,10 +9,17 @@ export const SET_LIMITS = {
   descriptionMax: 500,
   fieldMax: 1000,
   phoneticMax: 200,
+  exampleMax: 1000,
 } as const;
 
 export const cardInputSchema = z.object({
   id: z.string().min(1).optional(),
+  example: z
+    .string()
+    .trim()
+    .max(SET_LIMITS.exampleMax, { error: "fieldTooLong" })
+    .optional()
+    .transform((value) => (value ? value : undefined)),
   term: z
     .string()
     .trim()
@@ -53,6 +60,7 @@ export const cardSchema = z.object({
   term: z.string(),
   definition: z.string(),
   phonetic: z.string().optional(),
+  example: z.string().optional(),
   imageUrl: z
     .string()
     .regex(/^\/api\/v1\/images\/[0-9a-f-]{36}$/)
@@ -107,6 +115,7 @@ export const editorCardSchema = z
     term: z.string(),
     definition: z.string(),
     phonetic: z.string(),
+    example: z.string().max(SET_LIMITS.exampleMax, { error: "fieldTooLong" }).optional(),
   })
   .superRefine((row, ctx) => {
     if (isBlankRow(row)) return;

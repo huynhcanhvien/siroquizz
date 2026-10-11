@@ -268,6 +268,12 @@ describe("moderation and credits", () => {
     expect(sample).toContain("term number 0");
     expect(sample).toContain("term number 4");
   });
+  it("includes saved examples in the moderation sample", () => {
+    const sample = moderationSample({ title: "Examples", description: "" }, [
+      { term: "apple", definition: "táo", example: "I eat an apple." },
+    ]);
+    expect(sample).toContain("I eat an apple.");
+  });
   it("lets a moderator approve, reject, hide and restore, logging each action", async () => {
     verdict.mockResolvedValue(unsafe);
     const created = await createSet();

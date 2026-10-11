@@ -47,7 +47,7 @@ export function scanForContactDetails(text: string): string | null {
 /** Title, description and evenly spaced cards, up to SAMPLE_TOKENS. */
 export function moderationSample(
   set: { title: string; description: string; tags?: readonly string[] },
-  setCards: { term: string; definition: string }[],
+  setCards: { term: string; definition: string; example?: string | null }[],
 ) {
   // Delimited as data so text in the set ("answer safe") reads as content, not an instruction.
   const head = {
@@ -57,7 +57,9 @@ export function moderationSample(
   };
   let budget = SAMPLE_TOKENS - estimateTokens(JSON.stringify(head));
   const sampled: string[] = [];
-  const lines = setCards.map((card) => `${card.term} - ${card.definition}`);
+  const lines = setCards.map(
+    (card) => `${card.term} - ${card.definition}${card.example ? `\n${card.example}` : ""}`,
+  );
   const step = Math.max(1, Math.ceil(estimateTokens(lines.join("\n")) / Math.max(1, budget)));
   for (let i = 0; i < lines.length; i += step) {
     const cost = estimateTokens(lines[i]) + 2;
@@ -116,7 +118,7 @@ export async function moderateSet(db: Database, setId: string) {
   if (!set || set.deletedAt || set.visibility !== "public" || set.moderationStatus !== "pending")
     return set?.moderationStatus ?? "none";
   const setCards = await db
-    .select({ term: cards.term, definition: cards.definition })
+    .select({ term: cards.term, definition: cards.definition, example: cards.example })
     .from(cards)
     .where(eq(cards.setId, setId))
     .orderBy(asc(cards.position));
@@ -124,7 +126,7 @@ export async function moderateSet(db: Database, setId: string) {
     set.title,
     set.description,
     ...set.tags,
-    ...setCards.map((c) => `${c.term} ${c.definition}`),
+    ...setCards.map((c) => `${c.term} ${c.definition}${c.example ? `\n${c.example}` : ""}`),
   ].join("\n");
   const decision = await decide(text, moderationSample(set, setCards));
   if (decision.status === "pending") return "pending";

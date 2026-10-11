@@ -28,6 +28,7 @@ export interface Card {
   term: string;
   definition: string;
   phonetic?: string;
+  example?: string;
   imageUrl?: string;
   imageAlt?: string;
 }
@@ -67,7 +68,13 @@ export interface SetInput {
   termLang: LangCode;
   definitionLang: LangCode;
   source: SetSource;
-  cards: Array<{ id?: string; term: string; definition: string; phonetic?: string }>;
+  cards: Array<{
+    id?: string;
+    term: string;
+    definition: string;
+    phonetic?: string;
+    example?: string;
+  }>;
 }
 
 export interface CardProgress {

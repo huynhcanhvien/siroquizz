@@ -80,6 +80,14 @@ export function CardList({
                   >
                     {card.definition}
                   </p>
+                  {card.example ? (
+                    <p
+                      translate="no"
+                      className="mt-2 text-sm break-words whitespace-pre-line text-muted"
+                    >
+                      {card.example}
+                    </p>
+                  ) : null}
                   {phoneticSide === "definition" && card.phonetic ? (
                     <p translate="no" className="text-sm break-words text-muted">
                       {card.phonetic}
