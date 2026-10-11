@@ -143,6 +143,7 @@ export async function readScansLocally(
     try {
       let text: string;
       if (IMAGE_MIMES.has(mime)) {
+        onProgress({ completed, total });
         text = await ocrImage(await imagePixels(file), signal);
         onProgress({ completed: ++completed, total });
       } else if (mime === "application/pdf") {
