@@ -4,11 +4,14 @@ import yauzl from "yauzl";
 import sharp from "sharp";
 import { z } from "zod";
 import { ApiError } from "../api-error";
-import { mapConcurrent } from "@/features/ai-generate/lib/output";
+import { MAX_DOCUMENT_TOKENS } from "@/features/ai-generate/lib/document-limits";
+import { estimateTokens, mapConcurrent } from "@/features/ai-generate/lib/output";
 import { groqJson, RateLimitError, type Usage } from "./groq";
 import { getServerEnv } from "../env";
 
-const MAX_TEXT = 180_000;
+export function assertDocumentBudget(text: string) {
+  if (estimateTokens(text) > MAX_DOCUMENT_TOKENS) throw new ApiError(400, "DOCUMENT_TOO_LONG");
+}
 // Vision tokens grow with pixel count and share an 8,000 tokens/minute free-tier quota, so images
 // are kept just large enough for printed text.
 const OCR_MAX_SIDE = 1400;
@@ -165,14 +168,14 @@ export async function extractDocument(
     pages = range.totalPages;
     ocrPages = range.ocrPages;
     add(range.usage);
-    if (text.length > MAX_TEXT) throw new ApiError(400, "DOCUMENT_TOO_LONG");
+    assertDocumentBudget(text);
   } else {
     const result = await ocr(bytes, signal, deadline);
     text = result.data.text;
     ocrPages = 1;
     add(result.usage);
   }
-  if (text.length > MAX_TEXT) throw new ApiError(400, "DOCUMENT_TOO_LONG");
+  assertDocumentBudget(text);
   if (!text.trim()) throw new ApiError(400, "EMPTY_DOCUMENT");
   return { text, pages, ocrPages, usage };
 }
@@ -208,7 +211,6 @@ export async function extractPdfPages(
   const pdf = await loading.promise;
   try {
     const totalPages = pdf.numPages;
-    if (totalPages > 30) throw new ApiError(400, "PDF_PAGE_LIMIT");
     const end = Math.min(totalPages, fromPage + maxPages - 1);
     // Text layers are read inline; scanned pages are rendered now and OCR'd together below.
     const pages: (string | Buffer)[] = [];
@@ -259,7 +261,7 @@ export async function extractPdfPages(
       }
       if (outcome.usage) ocrPages++;
       text += outcome.text + "\n";
-      if (text.length > MAX_TEXT) throw new ApiError(400, "DOCUMENT_TOO_LONG");
+      assertDocumentBudget(text);
     }
     return { text, nextPage: end >= totalPages ? 0 : end + 1, totalPages, usage, ocrPages };
   } finally {
@@ -297,13 +299,12 @@ export async function inspectPdf(bytes: Buffer) {
   try {
     const pdf = await loading.promise;
     let scannedPages = 0;
-    if (pdf.numPages <= 30)
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        if (pageTextOf(content).trim().length < MIN_PAGE_TEXT) scannedPages++;
-        page.cleanup();
-      }
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      if (pageTextOf(content).trim().length < MIN_PAGE_TEXT) scannedPages++;
+      page.cleanup();
+    }
     return { pages: pdf.numPages, scannedPages };
   } finally {
     await loading.destroy();

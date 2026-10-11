@@ -48,7 +48,7 @@ async function handle(request: Request, context: Context) {
     if (domain === "quota" && path.length === 1 && request.method === "GET")
       return { data: await getQuota(db, current.id) };
     if (domain === "uploads" && path.length === 1 && request.method === "POST") {
-      await enforceLimit(`ai-upload:${current.id}`, 25, 3600);
+      await enforceLimit(`ai-upload:${current.id}`, 200, 3600);
       const data = uploadSchema.parse(await readJson(request));
       const uploadId = v7(),
         key = `uploads/${uploadId}`;
@@ -108,7 +108,13 @@ async function handle(request: Request, context: Context) {
           ),
         };
     }
-    if (domain === "jobs" && id && sub === "step" && path.length === 3 && request.method === "POST") {
+    if (
+      domain === "jobs" &&
+      id &&
+      sub === "step" &&
+      path.length === 3 &&
+      request.method === "POST"
+    ) {
       await enforceLimit(`ai-step:${current.id}`, 300, 60);
       return { data: await stepJob(db, current.id, id, request.signal) };
     }

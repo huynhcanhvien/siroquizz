@@ -28,7 +28,14 @@ import type { Database } from "../db/client";
 import { aiJobs, aiResultCache, aiUploads } from "../db/schema";
 import { getServerEnv } from "../env";
 import { getUpload } from "./storage";
-import { addUsage, extractDocument, extractPdfPages, inspectPdf, validateMagic } from "./extract";
+import {
+  addUsage,
+  assertDocumentBudget,
+  extractDocument,
+  extractPdfPages,
+  inspectPdf,
+  validateMagic,
+} from "./extract";
 import { advanceGeneration, planTasks } from "./generate";
 import { RateLimitError } from "./groq";
 import { verifyPhonetic } from "./phonetics";
@@ -41,9 +48,7 @@ import {
   reserveCredits,
 } from "./credits";
 
-const MAX_TEXT = 180_000;
 const PDF_PAGE_BATCH = 6;
-const MAX_PDF_PAGES = 30;
 const IMAGE_TYPES = new Set(["png", "jpg", "jpeg", "webp"]);
 // Steps in a row whose OCR timed out without progress before the job gives up.
 const MAX_STALLS = 5;
@@ -51,7 +56,7 @@ const MAX_STALLS = 5;
 // shared key's daily quota is spent).
 const MAX_THROTTLE_MS = 600_000;
 // Bump when generation changes enough that cached results should no longer be reused.
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 
 export type StepResult = {
   status: string;
@@ -133,8 +138,7 @@ async function inspectUploads(
   bytesOf: (upload: Upload) => Promise<Buffer>,
 ) {
   const { db, userId, job, state } = ctx;
-  let totalPages = 0,
-    ocrPages = 0;
+  let ocrPages = 0;
   const hashes: string[] = [];
   for (const upload of uploads) {
     const bytes = await bytesOf(upload);
@@ -142,11 +146,9 @@ async function inspectUploads(
     hashes.push(createHash("sha256").update(bytes).digest("hex"));
     if (ext === "pdf") {
       const pdf = await inspectPdf(bytes);
-      totalPages += pdf.pages;
       ocrPages += pdf.scannedPages;
     } else if (IMAGE_TYPES.has(ext)) ocrPages++;
   }
-  if (totalPages > MAX_PDF_PAGES) throw new ApiError(400, "PDF_PAGE_LIMIT");
   if (ocrPages > MAX_OCR_PAGES) throw new ApiError(400, "OCR_PAGE_LIMIT");
   const ocrCredits = ocrPages * OCR_CREDITS_PER_PAGE;
   if (ocrCredits) {
@@ -207,6 +209,7 @@ export async function extractStep(ctx: StepContext): Promise<StepResult> {
         const from = state.pdfPageCursor || 1;
         const range = await extractPdfPages(bytes, from, PDF_PAGE_BATCH, signal, ctx.deadline);
         state.texts[state.extractIndex] = (state.texts[state.extractIndex] ?? "") + range.text;
+        assertDocumentBudget(state.texts.join("\n\n"));
         addUsage(state.usage, range.usage);
         state.ocrPages = (state.ocrPages ?? 0) + range.ocrPages;
         if (range.nextPage !== from) state.throttledMs = 0;
@@ -231,6 +234,7 @@ export async function extractStep(ctx: StepContext): Promise<StepResult> {
         state.pdfPageCursor = 0;
         state.throttledMs = 0;
       }
+      assertDocumentBudget(state.texts.join("\n\n"));
       state.stalls = 0;
     } catch (error) {
       if (error instanceof RateLimitError) {
@@ -250,7 +254,7 @@ export async function extractStep(ctx: StepContext): Promise<StepResult> {
 async function planGeneration(ctx: StepContext, hasFiles: boolean): Promise<StepResult> {
   const { db, userId, job, state } = ctx;
   const text = state.texts.join("\n\n");
-  if (text.length > MAX_TEXT) throw new ApiError(400, "DOCUMENT_TOO_LONG");
+  assertDocumentBudget(text);
   const parsed = parseAutoDetected(text);
   if (!job.prompt && hasFiles && parsed.cards.length >= 2 && parsed.invalidLines.length === 0) {
     state.imported = true;

@@ -10,9 +10,9 @@ export function normalizeCards(
   limit: number,
   makeId: () => string,
 ): GeneratedCard[] {
-  const parsed = generatedCardsSchema.parse(input);
+  const parsed = generatedCardsSchema.element.array().min(2).parse(input);
   const seen = new Set<string>();
-  return parsed
+  const cards = parsed
     .map((card) => ({
       id: makeId(),
       term: plainText(card.term),
@@ -24,8 +24,12 @@ export function normalizeCards(
       if (!card.term || !card.definition || seen.has(key)) return false;
       seen.add(key);
       return true;
-    })
-    .slice(0, Math.min(limit, 200));
+    });
+  const count = Math.min(limit, 200, cards.length);
+  return Array.from(
+    { length: count },
+    (_, index) => cards[Math.floor((index * cards.length) / count)],
+  );
 }
 const CJK = /[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\uf900-\ufaff]/;
 const LATIN_CHARS_PER_TOKEN = 2.5;

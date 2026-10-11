@@ -21,8 +21,6 @@ const REASONING_TOKENS = 150;
 const OUTPUT_TOKENS_PER_CARD = 50;
 const AVOID_TERM_TOKENS = 4;
 export const MAX_CARDS_PER_CALL = 40;
-/** A chunk (~2,500 tokens) comfortably yields this many distinct cards. */
-const CARDS_PER_CHUNK = 8;
 
 /** Failures that are the service's fault; their credits are refunded. */
 export const SYSTEM_ERROR_CODES: ReadonlySet<string> = new Set([
@@ -54,14 +52,9 @@ export const jobCredits = (job: {
   (job.ocrPages ?? 0) * OCR_CREDITS_PER_PAGE +
   (job.cached || job.imported ? 0 : creditsForCards(job.cards));
 
-/**
- * Chooses which chunks to read for `cardCount` cards: about one chunk per CARDS_PER_CHUNK cards,
- * evenly spaced so the set covers the whole document. Cost then follows the cards requested
- * rather than the document's length.
- */
-export function planChunkSample(chunkCount: number, cardCount: number): number[] {
-  const used = Math.max(1, Math.min(chunkCount, Math.ceil(cardCount / CARDS_PER_CHUNK)));
-  return Array.from({ length: used }, (_, i) => Math.floor((i * chunkCount) / used));
+/** Every chunk is read, regardless of the requested output size. */
+export function planDocumentChunks(chunkCount: number): number[] {
+  return Array.from({ length: chunkCount }, (_, index) => index);
 }
 
 export interface PlannedRequest {
@@ -69,18 +62,20 @@ export interface PlannedRequest {
   part: number;
   count: number;
 }
-/** Splits the cards over the sampled chunks, at most MAX_CARDS_PER_CALL per request. */
+/** Distributes candidates across every chunk, at most MAX_CARDS_PER_CALL per request. */
 export function planRequests(chunkCount: number, cardCount: number): PlannedRequest[] {
-  const chunks = planChunkSample(chunkCount, cardCount);
-  const perChunk = Math.ceil(cardCount / chunks.length);
-  const parts = Math.ceil(perChunk / MAX_CARDS_PER_CALL);
-  return chunks.flatMap((chunk) =>
-    Array.from({ length: parts }, (_, part) => ({
+  return planDocumentChunks(chunkCount).flatMap((chunk) => {
+    const count = Math.max(
+      1,
+      Math.floor(cardCount / chunkCount) + (chunk < cardCount % chunkCount ? 1 : 0),
+    );
+    const parts = Math.ceil(count / MAX_CARDS_PER_CALL);
+    return Array.from({ length: parts }, (_, part) => ({
       chunk,
       part,
-      count: Math.ceil(perChunk / parts),
-    })),
-  );
+      count: Math.floor(count / parts) + (part < count % parts ? 1 : 0),
+    }));
+  });
 }
 
 /**

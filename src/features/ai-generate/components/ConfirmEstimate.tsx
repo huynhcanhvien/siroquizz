@@ -46,6 +46,13 @@ export function ConfirmEstimate({
         {t("estimateTitle")}
       </h1>
       <p aria-live="polite">{t("estimateIntro", { count: cardCount, credits })}</p>
+      {estimate.chunkTokens ? (
+        <p className="text-sm text-muted">
+          {t("estimateSource", {
+            tokens: estimate.chunkTokens.reduce((sum, count) => sum + count, 0),
+          })}
+        </p>
+      ) : null}
       {estimate.usedCredits > 0 ? (
         <p className="text-sm text-muted">{t("estimateUsed", { credits: estimate.usedCredits })}</p>
       ) : null}

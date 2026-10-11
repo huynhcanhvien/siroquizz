@@ -6,7 +6,7 @@ import {
   creditsForCards,
   estimateGenerationTokens,
   jobCredits,
-  planChunkSample,
+  planDocumentChunks,
 } from "./credits";
 import { CARD_COUNT_MAX } from "./generator";
 
@@ -34,18 +34,18 @@ describe("AI credits", () => {
     expect(jobCredits({ cards: 20, imported: true, ocrPages: 3 })).toBe(3);
   });
 
-  it("reads about eight cards per chunk and spreads them over the document", () => {
-    expect(planChunkSample(12, 20)).toEqual([0, 4, 8]);
-    expect(planChunkSample(2, 200)).toEqual([0, 1]);
-    expect(planChunkSample(1, 5)).toEqual([0]);
+  it("reads every chunk even when requesting few cards", () => {
+    expect(planDocumentChunks(12)).toEqual(Array.from({ length: 12 }, (_, i) => i));
+    expect(planDocumentChunks(2)).toEqual([0, 1]);
+    expect(planDocumentChunks(1)).toEqual([0]);
   });
 
-  it("makes provider tokens follow the requested card count, not the document length", () => {
+  it("accounts for the full document in the provider token estimate", () => {
     const longDocument = Array.from({ length: 40 }, () => 2500);
     const few = estimateGenerationTokens(longDocument, 10);
     const many = estimateGenerationTokens(longDocument, 80);
-    expect(few).toBeLessThan(10_000);
-    expect(many).toBeGreaterThan(few * 4);
+    expect(few).toBeGreaterThan(100_000);
+    expect(many).toBeGreaterThan(few);
   });
 
   it("counts every request that re-reads a chunk for more cards", () => {
