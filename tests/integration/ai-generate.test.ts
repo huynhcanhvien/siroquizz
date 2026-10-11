@@ -65,13 +65,11 @@ it("plans at most 40 cards per request and spreads cards over chunks", () => {
     [0, 3, 40],
     [0, 4, 40],
   ]);
-  // About eight cards per chunk, spread over the document.
   const spread = planTasks(10, 20);
-  expect(spread.map((t) => [t.chunk, t.count])).toEqual([
-    [0, 7],
-    [3, 7],
-    [6, 7],
-  ]);
+  expect(spread.map((t) => [t.chunk, t.count])).toEqual(
+    Array.from({ length: 10 }, (_, i) => [i, 2]),
+  );
+  expect(planTasks(3, 200).reduce((sum, task) => sum + task.count, 0)).toBe(200);
 });
 
 it("runs every task, collects cards and usage, and tells later parts what exists", async () => {
@@ -174,9 +172,11 @@ it("starts nothing once the step's launch budget is spent", async () => {
   expect(result).toEqual({ done: false, completed: 0, total: 1 });
   expect(provider).not.toHaveBeenCalled();
 });
-it("reads only as many chunks as the requested cards need", () => {
-  expect(planTasks(12, 5).map((t) => [t.chunk, t.count])).toEqual([[0, 5]]);
-  expect(planTasks(12, 40).map((t) => t.chunk)).toEqual([0, 2, 4, 7, 9]);
+it("reads every chunk even when the final card count is smaller", () => {
+  expect(planTasks(12, 5).map((t) => [t.chunk, t.count])).toEqual(
+    Array.from({ length: 12 }, (_, i) => [i, 1]),
+  );
+  expect(planTasks(12, 40).map((t) => t.chunk)).toEqual(Array.from({ length: 12 }, (_, i) => i));
 });
 it("splits the text first when the request itself is too large", async () => {
   provider

@@ -20,8 +20,8 @@
     "AI_CANCELLED": "已取消文档处理。",
     "AI_TIMEOUT": "AI 响应过慢，请求已停止。请几分钟后重试。",
     "INVALID_FILE": "文件无效或内容与格式不匹配。",
-    "PDF_PAGE_LIMIT": "PDF 总页数最多为 30 页。",
-    "DOCUMENT_TOO_LONG": "文档过长。请拆分为较小的文件。",
+    "PDF_PAGE_LIMIT": "无法处理此PDF，请重新上传。",
+    "DOCUMENT_TOO_LONG": "提取文本超过约100,000 token。请减少文档内容。",
     "EMPTY_DOCUMENT": "文档中未找到文本。",
     "UPLOAD_MISSING": "上传的文件已不可用。请重新上传。",
     "STORAGE_UNAVAILABLE": "文档存储暂不可用。请稍后重试。",
@@ -41,7 +41,7 @@
     "AI_GLOBAL_LIMIT": "今天的系统 AI 总额度已用完，请零点后再试。",
     "AI_JOB_TOO_LARGE": "单次生成最多使用 50 积分（200 张卡片）。请减少卡片数量。",
     "AI_BUSY": "你已有 2 个未完成的生成任务。请等待完成或取消后再试。",
-    "OCR_PAGE_LIMIT": "每次最多识别 10 页图片或扫描页，请拆分文档。",
+    "OCR_PAGE_LIMIT": "服务器备用OCR最多支持10个扫描页。大型中文/英文扫描文档请使用支持PaddleOCR的浏览器，或上传包含文本层的PDF。",
     "USERNAME_TAKEN": "该用户名已被占用。",
     "USERNAME_COOLDOWN": "用户名每 30 天只能修改一次。",
     "CLASS_NOT_FOUND": "没有使用该代码的班级，请向老师核对。",
@@ -555,13 +555,14 @@
     "documentsTitle": "资料",
     "dropTitle": "将资料拖到这里",
     "browse": "选择文件",
-    "dropHint": "PDF、DOCX、TXT、MD、CSV、PNG/JPG/WEBP 图片 · 每个文件不超过 10MB · 最多 5 个文件 · PDF 总页数最多 30 页；扫描版 PDF 识别文字需要更长时间",
+    "dropHint": "PDF、DOCX、TXT、MD、CSV、PNG/JPG/WEBP · 阅读完整文档，最多生成200张卡片 · 提取文本最多约100,000 token · 每个文件50MB，最多100个文件，总计200MB",
     "removeFile": "移除 {name}",
     "fileError": {
       "unsupported": "{name}：不支持的文件类型。",
-      "tooLarge": "{name}：超过 10MB。",
+      "tooLarge": "{name}：超过50MB。",
       "empty": "{name}：文件为空。",
-      "tooMany": "最多只能上传 5 个文件。"
+      "tooMany": "最多上传100个文件。",
+      "totalTooLarge": "文件总大小超过200MB。"
     },
     "promptTitle": "给 AI 的要求",
     "promptPlaceholder": "例如：提取 20 个最重要的词，并附上简短的越南语释义。",
@@ -667,7 +668,8 @@
     "currentPhonetic": "当前音标",
     "suggestedPhonetic": "AI建议（可编辑）",
     "noPhonetic": "尚未填写",
-    "useSuggestedPhonetic": "使用建议音标"
+    "useSuggestedPhonetic": "使用建议音标",
+    "estimateSource": "已读取约{tokens}个文本token；AI处理全部内容来选择卡片。"
   },
   "settings": {
     "title": "设置",

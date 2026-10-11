@@ -2,6 +2,7 @@ import { z } from "zod";
 import { CONTENT_LANGUAGES } from "@/lib/types";
 import { cardInputSchema } from "@/features/sets/schemas";
 import { GENERATION_STAGES } from "./lib/generator";
+import { MAX_DOCUMENT_FILES } from "./lib/document-limits";
 export const generationOptionsSchema = z.object({
   cardCount: z.number().int().min(5).max(200),
   termLang: z.enum(CONTENT_LANGUAGES),
@@ -11,7 +12,7 @@ export const generationOptionsSchema = z.object({
 export type GenerationOptions = z.infer<typeof generationOptionsSchema>;
 export const jobInputSchema = z
   .object({
-    uploadIds: z.array(z.uuid()).max(5),
+    uploadIds: z.array(z.uuid()).max(MAX_DOCUMENT_FILES),
     prompt: z.string().trim().max(1000),
     options: generationOptionsSchema,
   })

@@ -18,6 +18,16 @@ describe("AI output validation", () => {
       { id: "3", term: "Dog", definition: "xchó" },
     ]);
   });
+  it("selects at most 200 cards across a pool of 2,000 vocabulary entries", () => {
+    const pool = Array.from({ length: 2000 }, (_, i) => ({
+      term: `word${i}`,
+      definition: `meaning${i}`,
+    }));
+    const result = normalizeCards(pool, 200, () => "id");
+    expect(result).toHaveLength(200);
+    expect(result[0].term).toBe("word0");
+    expect(result.at(-1)?.term).toBe("word1990");
+  });
   it("rejects oversized/invalid fields rather than silently truncating", () => {
     expect(() =>
       normalizeCards(

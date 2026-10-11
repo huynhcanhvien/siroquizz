@@ -1,5 +1,10 @@
-export const MAX_FILES = 5;
-export const MAX_FILE_BYTES = 10 * 1024 * 1024;
+import {
+  MAX_DOCUMENT_FILES,
+  MAX_DOCUMENT_FILE_BYTES,
+  MAX_DOCUMENT_UPLOAD_BYTES,
+} from "./document-limits";
+export const MAX_FILES = MAX_DOCUMENT_FILES;
+export const MAX_FILE_BYTES = MAX_DOCUMENT_FILE_BYTES;
 
 /**
  * Extension → MIME types we accept. An empty MIME (common for .md) is tolerated.
@@ -23,7 +28,7 @@ const TEXT_EXTENSIONS = new Set(["txt", "md", "csv"]);
 
 export const ACCEPT_ATTRIBUTE = [...ACCEPTED.keys()].map((extension) => `.${extension}`).join(",");
 
-export type FileErrorCode = "unsupported" | "tooLarge" | "empty" | "tooMany";
+export type FileErrorCode = "unsupported" | "tooLarge" | "empty" | "tooMany" | "totalTooLarge";
 
 export interface FileError {
   code: FileErrorCode;
@@ -67,7 +72,13 @@ export function validateFiles(
       if (seen.has(fileKey(file))) return result;
       const code =
         checkFile(file) ??
-        (existing.length + result.accepted.length >= MAX_FILES ? "tooMany" : null);
+        (existing.length + result.accepted.length >= MAX_FILES ? "tooMany" : null) ??
+        (existing.reduce((sum, item) => sum + item.size, 0) +
+          result.accepted.reduce((sum, item) => sum + item.size, 0) +
+          file.size >
+        MAX_DOCUMENT_UPLOAD_BYTES
+          ? "totalTooLarge"
+          : null);
       if (code) return { ...result, errors: [...result.errors, { code, name: file.name }] };
       seen.add(fileKey(file));
       return { ...result, accepted: [...result.accepted, file] };

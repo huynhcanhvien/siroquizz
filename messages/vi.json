@@ -20,8 +20,8 @@
     "AI_CANCELLED": "Đã hủy xử lý tài liệu.",
     "AI_TIMEOUT": "AI phản hồi quá chậm nên yêu cầu đã dừng. Vui lòng thử lại sau ít phút.",
     "INVALID_FILE": "File không hợp lệ hoặc nội dung không khớp định dạng.",
-    "PDF_PAGE_LIMIT": "Tổng số trang PDF tối đa là 30.",
-    "DOCUMENT_TOO_LONG": "Tài liệu quá dài. Vui lòng chia thành các file nhỏ hơn.",
+    "PDF_PAGE_LIMIT": "Không thể xử lý PDF này. Hãy thử tải lại tài liệu.",
+    "DOCUMENT_TOO_LONG": "Văn bản trích xuất vượt quá 100.000 token ước tính. Hãy giảm nội dung tài liệu.",
     "EMPTY_DOCUMENT": "Không tìm thấy văn bản trong tài liệu.",
     "UPLOAD_MISSING": "File đã tải lên không còn tồn tại. Vui lòng tải lại.",
     "STORAGE_UNAVAILABLE": "Không thể lưu tài liệu. Vui lòng thử lại sau.",
@@ -41,7 +41,7 @@
     "AI_GLOBAL_LIMIT": "Hệ thống đã dùng hết hạn mức AI chung của hôm nay. Vui lòng quay lại sau 0h.",
     "AI_JOB_TOO_LARGE": "Một lần tạo dùng tối đa 50 credit (200 thẻ). Hãy giảm số thẻ.",
     "AI_BUSY": "Bạn đang có 2 lần tạo chưa xong. Hãy chờ chúng hoàn tất hoặc hủy bớt rồi thử lại.",
-    "OCR_PAGE_LIMIT": "Mỗi lần tạo chỉ đọc được tối đa 10 trang ảnh hoặc trang scan. Hãy tách tài liệu thành nhiều phần.",
+    "OCR_PAGE_LIMIT": "Máy chủ dự phòng chỉ đọc tối đa 10 trang scan. Với tài liệu tiếng Trung/Anh lớn, hãy dùng trình duyệt hỗ trợ PaddleOCR; hoặc tải bản PDF có lớp văn bản.",
     "USERNAME_TAKEN": "Tên người dùng này đã có người dùng.",
     "USERNAME_COOLDOWN": "Bạn chỉ được đổi tên người dùng 30 ngày một lần.",
     "CLASS_NOT_FOUND": "Không có lớp nào dùng mã này. Hãy kiểm tra lại mã với giáo viên.",
@@ -555,13 +555,14 @@
     "documentsTitle": "Tài liệu",
     "dropTitle": "Kéo thả tài liệu vào đây",
     "browse": "Chọn tệp",
-    "dropHint": "PDF, DOCX, TXT, MD, CSV, ảnh PNG/JPG/WEBP · tối đa 10MB mỗi tệp · tối đa 5 tệp · PDF tối đa 30 trang tổng cộng; PDF scan cần thêm thời gian nhận dạng chữ",
+    "dropHint": "PDF, DOCX, TXT, MD, CSV, PNG/JPG/WEBP · đọc toàn bộ tài liệu, tối đa 200 thẻ · tối đa 100.000 token văn bản ước tính · 50MB/tệp, 100 tệp, tổng 200MB",
     "removeFile": "Gỡ {name}",
     "fileError": {
       "unsupported": "{name}: định dạng không được hỗ trợ.",
-      "tooLarge": "{name}: vượt quá 10MB.",
+      "tooLarge": "{name}: vượt quá 50MB.",
       "empty": "{name}: tệp rỗng.",
-      "tooMany": "Chỉ được tải tối đa 5 tệp."
+      "tooMany": "Chỉ được tải tối đa 100 tệp.",
+      "totalTooLarge": "Tổng dung lượng tệp vượt quá 200MB."
     },
     "promptTitle": "Yêu cầu cho AI",
     "promptPlaceholder": "Ví dụ: Trích 20 từ vựng quan trọng nhất, kèm nghĩa tiếng Việt ngắn gọn.",
@@ -667,7 +668,8 @@
     "currentPhonetic": "Phiên âm hiện tại",
     "suggestedPhonetic": "AI đề xuất (có thể chỉnh sửa)",
     "noPhonetic": "Chưa có",
-    "useSuggestedPhonetic": "Dùng phiên âm đề xuất"
+    "useSuggestedPhonetic": "Dùng phiên âm đề xuất",
+    "estimateSource": "Đã đọc khoảng {tokens} token văn bản; AI xử lý toàn bộ nội dung để chọn thẻ."
   },
   "settings": {
     "title": "Cài đặt",

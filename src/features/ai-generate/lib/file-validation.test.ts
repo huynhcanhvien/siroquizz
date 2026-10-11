@@ -71,6 +71,14 @@ describe("validateFiles", () => {
     expect(result.errors).toEqual([{ code: "tooMany", name: "y.txt" }]);
   });
 
+  it("limits combined upload size including already selected files", () => {
+    const existing = Array.from({ length: 4 }, (_, i) =>
+      makeFile(`large${i}.pdf`, "application/pdf", MAX_FILE_BYTES),
+    );
+    expect(validateFiles(existing, [makeFile("extra.pdf", "application/pdf")]).errors).toEqual([
+      { code: "totalTooLarge", name: "extra.pdf" },
+    ]);
+  });
   it("skips duplicates of already selected files", () => {
     const existing = [makeFile("a.txt", "text/plain")];
     expect(validateFiles(existing, [makeFile("a.txt", "text/plain")]).accepted).toEqual([]);

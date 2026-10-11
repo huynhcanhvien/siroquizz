@@ -97,24 +97,34 @@ it("rejects empty and excessively long documents", async () => {
   ).rejects.toMatchObject({ code: "EMPTY_DOCUMENT" });
   await expect(
     extractDocument(
-      Buffer.from("x".repeat(180001)),
+      Buffer.from("x".repeat(250001)),
       "a.txt",
       "text/plain",
       new AbortController().signal,
     ),
   ).rejects.toMatchObject({ code: "DOCUMENT_TOO_LONG" });
 });
-it("rejects PDFs above the free 30-page limit before extraction", async () => {
+it("reads all 100 PDF pages with 20 vocabulary entries per page", async () => {
   const pdf = await PDFDocument.create();
-  for (let i = 0; i < 31; i++) pdf.addPage();
-  await expect(
-    extractDocument(
-      Buffer.from(await pdf.save()),
-      "a.pdf",
-      "application/pdf",
-      new AbortController().signal,
-    ),
-  ).rejects.toMatchObject({ code: "PDF_PAGE_LIMIT" });
+  for (let i = 0; i < 100; i++) {
+    const page = pdf.addPage();
+    for (let row = 0; row < 20; row++)
+      page.drawText(`word${i * 20 + row} definition of vocabulary`, {
+        x: 40,
+        y: 800 - row * 30,
+        size: 12,
+      });
+  }
+  const result = await extractDocument(
+    Buffer.from(await pdf.save()),
+    "a.pdf",
+    "application/pdf",
+    new AbortController().signal,
+  );
+  expect(result.pages).toBe(100);
+  expect(result.ocrPages).toBe(0);
+  expect(result.text).toContain("word0 ");
+  expect(result.text).toContain("word1999 ");
 });
 it("signs local uploads, prevents tampering, expiry, replay and path traversal", async () => {
   const id = v7(),

@@ -20,8 +20,8 @@
     "AI_CANCELLED": "Document processing was cancelled.",
     "AI_TIMEOUT": "The AI responded too slowly, so the request stopped. Please try again in a few minutes.",
     "INVALID_FILE": "The file is invalid or its contents do not match its format.",
-    "PDF_PAGE_LIMIT": "PDFs may contain at most 30 pages in total.",
-    "DOCUMENT_TOO_LONG": "The document is too long. Please split it into smaller files.",
+    "PDF_PAGE_LIMIT": "This PDF could not be processed. Please upload it again.",
+    "DOCUMENT_TOO_LONG": "Extracted text exceeds 100,000 estimated tokens. Please reduce the document content.",
     "EMPTY_DOCUMENT": "No text was found in the document.",
     "UPLOAD_MISSING": "The uploaded file is no longer available. Please upload it again.",
     "STORAGE_UNAVAILABLE": "Document storage is unavailable. Please try again later.",
@@ -41,7 +41,7 @@
     "AI_GLOBAL_LIMIT": "The app has used today's shared AI allowance. Please come back after midnight.",
     "AI_JOB_TOO_LARGE": "One generation can use at most 50 credits (200 cards). Ask for fewer cards.",
     "AI_BUSY": "You already have 2 generations in progress. Wait for them to finish or cancel one, then try again.",
-    "OCR_PAGE_LIMIT": "One generation can read at most 10 image or scanned pages. Split the document into parts.",
+    "OCR_PAGE_LIMIT": "Server OCR fallback supports up to 10 scanned pages. For large Chinese/English scans, use a browser supporting PaddleOCR, or upload a PDF with a text layer.",
     "USERNAME_TAKEN": "That username is taken.",
     "USERNAME_COOLDOWN": "You can change your username once every 30 days.",
     "CLASS_NOT_FOUND": "No class uses that code. Check it with your teacher.",
@@ -555,13 +555,14 @@
     "documentsTitle": "Documents",
     "dropTitle": "Drop your documents here",
     "browse": "Choose files",
-    "dropHint": "PDF, DOCX, TXT, MD, CSV, PNG/JPG/WEBP images · up to 10MB each · up to 5 files · PDFs: up to 30 pages total; scanned PDFs take longer to recognize text",
+    "dropHint": "PDF, DOCX, TXT, MD, CSV, PNG/JPG/WEBP · reads the full document, up to 200 cards · up to 100,000 estimated text tokens · 50MB/file, 100 files, 200MB total",
     "removeFile": "Remove {name}",
     "fileError": {
       "unsupported": "{name}: file type not supported.",
-      "tooLarge": "{name}: larger than 10MB.",
+      "tooLarge": "{name}: larger than 50MB.",
       "empty": "{name}: file is empty.",
-      "tooMany": "You can upload at most 5 files."
+      "tooMany": "You can upload at most 100 files.",
+      "totalTooLarge": "Total upload size exceeds 200MB."
     },
     "promptTitle": "Instructions for AI",
     "promptPlaceholder": "e.g. Extract the 20 most important words with short Vietnamese meanings.",
@@ -667,7 +668,8 @@
     "currentPhonetic": "Current phonetic",
     "suggestedPhonetic": "AI suggestion (editable)",
     "noPhonetic": "None yet",
-    "useSuggestedPhonetic": "Use suggested phonetic"
+    "useSuggestedPhonetic": "Use suggested phonetic",
+    "estimateSource": "Read approximately {tokens} text tokens; AI processes all content to select cards."
   },
   "settings": {
     "title": "Settings",

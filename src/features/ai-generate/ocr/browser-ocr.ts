@@ -1,3 +1,6 @@
+import { RepositoryError } from "@/lib/repository-error";
+import { MAX_DOCUMENT_TOKENS } from "../lib/document-limits";
+import { estimateTokens } from "../lib/output";
 import type * as PdfJs from "pdfjs-dist";
 import type { LangCode } from "@/lib/types";
 import { getFileMime } from "../lib/file-validation";
@@ -18,8 +21,6 @@ const IMAGE_MIMES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const PDF_RENDER_SCALE = 2;
 /** Photos are scaled down to this longest side; more pixels only slow OCR down. */
 const IMAGE_MAX_SIDE = 2000;
-/** The server's page limit; longer PDFs are sent as they are and refused there. */
-const MAX_PDF_PAGES = 30;
 /** A page with less text than this in its text layer is a scan. */
 const MIN_PAGE_TEXT = 4;
 
@@ -49,6 +50,7 @@ function loadPdfJs() {
 let worker: Worker | null = null;
 let nextRequest = 0;
 function ocrImage(image: RgbaImage, signal: AbortSignal) {
+  signal.throwIfAborted();
   worker ??= new Worker(new URL("./ocr.worker.ts", import.meta.url), { type: "module" });
   const id = ++nextRequest;
   const current = worker;
@@ -80,6 +82,8 @@ function pixelsOf(canvas: HTMLCanvasElement): RgbaImage {
   const context = canvas.getContext("2d", { willReadFrequently: true });
   if (!context) throw new Error("Canvas unavailable");
   const { data, width, height } = context.getImageData(0, 0, canvas.width, canvas.height);
+  canvas.width = 0;
+  canvas.height = 0;
   return { data, width, height };
 }
 
@@ -116,88 +120,78 @@ async function renderPage(page: PdfJs.PDFPageProxy): Promise<RgbaImage> {
   return pixelsOf(canvas);
 }
 
-/** A PDF's pages, with the scans that need OCR; null when the server should read it instead. */
-async function openPdf(file: File) {
-  const task = (await loadPdfJs()).getDocument({ data: await file.arrayBuffer() });
-  const pdf = await task.promise;
-  if (pdf.numPages > MAX_PDF_PAGES) {
-    await task.destroy();
-    return null;
-  }
-  const texts: string[] = [];
-  for (let number = 1; number <= pdf.numPages; number++)
-    texts.push(await textLayerOf(await pdf.getPage(number)));
-  const scans = texts.flatMap((text, index) => (text.trim().length < MIN_PAGE_TEXT ? [index] : []));
-  // Fully digital PDFs go to the server, which reads their text for free.
-  if (!scans.length) {
-    await task.destroy();
-    return null;
-  }
-  return { pdf, texts, scans, close: () => task.destroy() };
-}
-
 const textFile = (source: File, text: string) =>
   new File([text], `${source.name.replace(/\.[^.]+$/, "")}.txt`, { type: "text/plain" });
 
-/**
- * Replaces scanned PDFs and photos with the text read from them on this device. Files it cannot
- * read (other types, digital PDFs, failures) are returned unchanged for the server.
- */
+/** Reads files sequentially so only one PDF and one rendered page occupy memory. */
 export async function readScansLocally(
   files: readonly File[],
   onProgress: (progress: LocalReadProgress) => void,
   signal: AbortSignal,
 ): Promise<File[]> {
-  type Plan =
-    | { kind: "keep"; file: File }
-    | { kind: "image"; file: File }
-    | { kind: "pdf"; file: File; doc: NonNullable<Awaited<ReturnType<typeof openPdf>>> };
-  const plans: Plan[] = [];
-  for (const file of files) {
-    const mime = getFileMime(file);
-    if (IMAGE_MIMES.has(mime)) plans.push({ kind: "image", file });
-    else if (mime === "application/pdf") {
-      const doc = await openPdf(file).catch(() => null);
-      plans.push(doc ? { kind: "pdf", file, doc } : { kind: "keep", file });
-    } else plans.push({ kind: "keep", file });
-  }
-  const total = plans.reduce(
-    (sum, plan) =>
-      sum + (plan.kind === "image" ? 1 : plan.kind === "pdf" ? plan.doc.scans.length : 0),
-    0,
-  );
-  let completed = 0;
-  if (total) onProgress({ completed, total });
-  const read = async (image: RgbaImage) => {
-    signal.throwIfAborted();
-    const text = await ocrImage(image, signal);
-    onProgress({ completed: ++completed, total });
-    return text;
-  };
   const result: File[] = [];
-  for (const plan of plans) {
-    if (plan.kind === "keep") {
-      result.push(plan.file);
-      continue;
-    }
+  let usedTokens = 0;
+  let completed = 0;
+  let total = files.length;
+  const check = (text: string) => {
+    if (usedTokens + estimateTokens(text) > MAX_DOCUMENT_TOKENS)
+      throw new RepositoryError("DOCUMENT_TOO_LONG");
+  };
+  for (const file of files) {
+    signal.throwIfAborted();
+    const mime = getFileMime(file);
     try {
       let text: string;
-      if (plan.kind === "image") text = await read(await imagePixels(plan.file));
-      else {
-        const { pdf, texts, scans, close } = plan.doc;
+      if (IMAGE_MIMES.has(mime)) {
+        onProgress({ completed, total });
+        text = await ocrImage(await imagePixels(file), signal);
+        onProgress({ completed: ++completed, total });
+      } else if (mime === "application/pdf") {
+        const task = (await loadPdfJs()).getDocument({ data: await file.arrayBuffer() });
         try {
-          for (const index of scans)
-            texts[index] = await read(await renderPage(await pdf.getPage(index + 1)));
+          const pdf = await task.promise;
+          total += pdf.numPages - 1;
+          onProgress({ completed, total });
+          const texts: string[] = [];
+          for (let number = 1; number <= pdf.numPages; number++) {
+            signal.throwIfAborted();
+            const page = await pdf.getPage(number);
+            try {
+              const layer = await textLayerOf(page);
+              texts.push(
+                layer.trim().length >= MIN_PAGE_TEXT
+                  ? layer
+                  : await ocrImage(await renderPage(page), signal),
+              );
+              check(texts.join("\n\n"));
+              onProgress({ completed: ++completed, total });
+            } finally {
+              page.cleanup();
+            }
+          }
+          text = texts.join("\n\n");
         } finally {
-          await close();
+          await task.destroy();
         }
-        text = texts.join("\n\n");
+      } else if (["text/plain", "text/markdown", "text/x-markdown", "text/csv"].includes(mime)) {
+        // Encoding is detected by the server; preserve original bytes.
+        result.push(file);
+        continue;
+      } else {
+        result.push(file);
+        continue;
       }
-      result.push(text.trim() ? textFile(plan.file, text) : plan.file);
+      check(text);
+      usedTokens += estimateTokens(text);
+      result.push(text.trim() ? textFile(file, text) : file);
     } catch (error) {
-      if (signal.aborted) throw error;
-      // The device could not read it (old browser, out of memory): the server reads it instead.
-      result.push(plan.file);
+      if (
+        signal.aborted ||
+        (error instanceof RepositoryError && error.code === "DOCUMENT_TOO_LONG")
+      )
+        throw error;
+      // Unsupported devices may still use the bounded server OCR fallback.
+      result.push(file);
     }
   }
   return result;

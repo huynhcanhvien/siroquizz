@@ -2,6 +2,8 @@
 
 Web app học từ vựng kiểu Quizlet: flashcard, bài kiểm tra với dạng câu hỏi tự chọn, 4 trò chơi, và tạo bộ thẻ bằng AI từ tài liệu tải lên. Giao diện có 3 ngôn ngữ: Tiếng Việt, 中文, English.
 
+Tạo thẻ AI đọc toàn bộ tài liệu trong ngân sách văn bản trích xuất và giữ tối đa 200 thẻ. Xem [giới hạn tài liệu hiện tại](specs/ai-document-limits.md).
+
 > **Phase 2–3 đã triển khai và nghiệm thu local HTTP/Groq thật.** App dùng Postgres, Better Auth và AI generation qua Groq. Phase4 đang được triển khai. Xem [`specs/state.md`](specs/state.md) để tiếp tục.
 
 ## Chạy dự án

@@ -1,4 +1,5 @@
 import "server-only";
+import { MAX_DOCUMENT_UPLOAD_BYTES } from "@/features/ai-generate/lib/document-limits";
 import { and, desc, eq, gt, inArray, lt, or, sql } from "drizzle-orm";
 import { v7 } from "uuid";
 import { z } from "zod";
@@ -122,6 +123,8 @@ export async function createJob(db: Database, userId: string, input: unknown) {
           )
       : [];
     if (uploads.length !== data.uploadIds.length) throw new ApiError(404, "NOT_FOUND");
+    if (uploads.reduce((sum, upload) => sum + upload.size, 0) > MAX_DOCUMENT_UPLOAD_BYTES)
+      throw new ApiError(413, "INVALID_FILE");
     const id = v7();
     await tx.insert(aiJobs).values({
       id,
