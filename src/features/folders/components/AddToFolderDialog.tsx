@@ -45,6 +45,7 @@ export function AddToFolderDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title={t("addTitle")}>
       <div className="flex flex-col gap-4">
+        <p className="text-sm text-muted">{t("multipleFoldersHint")}</p>
         {folders.data?.length ? (
           <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto">
             {folders.data.map((folder) => (

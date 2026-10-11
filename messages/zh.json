@@ -957,6 +957,8 @@
     "title": "文件夹",
     "subtitle": "把同一主题的卡组放在一起学习。",
     "newFolder": "新建文件夹",
+    "createFolder": "创建文件夹",
+    "multipleFoldersHint": "一个学习集可以加入多个文件夹。",
     "namePlaceholder": "文件夹名称",
     "create": "创建",
     "created": "文件夹已创建。",

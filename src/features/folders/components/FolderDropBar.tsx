@@ -30,8 +30,12 @@ export function FolderDropBar() {
   if (!folders.data?.length) return null;
   const accepts = (event: DragEvent) => event.dataTransfer.types.includes(SET_DRAG_TYPE);
   return (
-    <nav aria-label={t("title")} className="flex flex-col gap-2">
-      <ul className="flex flex-wrap gap-2">
+    <nav
+      aria-label={t("title")}
+      className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4"
+    >
+      <h2 className="text-lg font-bold">{t("title")}</h2>
+      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {folders.data.map((folder) => (
           <li key={folder.id}>
             <Link
@@ -61,18 +65,24 @@ export function FolderDropBar() {
               }}
               aria-label={over === folder.id ? t("dropHere", { name: folder.name }) : undefined}
               className={cn(
-                "inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-sm font-semibold transition-[transform,background-color,border-color] hover:border-primary",
+                "flex h-full min-h-16 items-center gap-3 rounded-xl border border-border bg-surface-2 px-4 py-3 font-semibold transition-[transform,background-color,border-color] hover:border-primary",
                 over === folder.id && "scale-105 border-primary bg-primary-soft text-primary-text",
               )}
             >
-              <Folder className="size-4" aria-hidden />
-              {folder.name}
-              <span className="text-muted">{folder.setCount}</span>
+              <Folder className="size-5 shrink-0 text-primary" aria-hidden />
+              <span className="min-w-0">
+                <span className="block break-words">{folder.name}</span>
+                <span className="block text-sm font-normal text-muted">
+                  {t("sets", { count: folder.setCount })}
+                </span>
+              </span>
             </Link>
           </li>
         ))}
       </ul>
-      <p className="text-xs text-muted">{t("dragHint")}</p>
+      <p className="text-sm text-muted">
+        {t("dragHint")} {t("multipleFoldersHint")}
+      </p>
     </nav>
   );
 }

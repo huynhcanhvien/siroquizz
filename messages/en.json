@@ -957,6 +957,8 @@
     "title": "Folders",
     "subtitle": "Group sets on the same topic and study them together.",
     "newFolder": "New folder",
+    "createFolder": "Create folder",
+    "multipleFoldersHint": "A set can belong to multiple folders.",
     "namePlaceholder": "Folder name",
     "create": "Create",
     "created": "Folder created.",

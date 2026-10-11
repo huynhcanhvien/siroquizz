@@ -957,6 +957,8 @@
     "title": "Thư mục",
     "subtitle": "Gom các bộ thẻ cùng chủ đề để học chung một lượt.",
     "newFolder": "Thư mục mới",
+    "createFolder": "Tạo thư mục",
+    "multipleFoldersHint": "Một bộ thẻ có thể nằm trong nhiều thư mục.",
     "namePlaceholder": "Tên thư mục",
     "create": "Tạo",
     "created": "Đã tạo thư mục.",
