@@ -24,11 +24,12 @@ function validate(input: SetInput): ValidSetInput {
 
 /** Keeps ids of cards that already belong to the set so their progress survives edits. */
 function toCards(cards: ValidSetInput["cards"], existingIds: ReadonlySet<string>): Card[] {
-  return cards.map(({ id, term, definition, phonetic }) => ({
+  return cards.map(({ id, term, definition, phonetic, example }) => ({
     id: id && existingIds.has(id) ? id : createId(),
     term,
     definition,
     ...(phonetic ? { phonetic } : {}),
+    ...(example ? { example } : {}),
   }));
 }
 
@@ -111,7 +112,12 @@ export function createLocalSetRepository({ storage, getUserId }: LocalSetDeps): 
         validate({
           ...source,
           title: title.slice(0, SET_LIMITS.titleMax),
-          cards: source.cards.map(({ term, definition, phonetic }) => ({ term, definition, phonetic })),
+          cards: source.cards.map(({ term, definition, phonetic, example }) => ({
+            term,
+            definition,
+            phonetic,
+            example,
+          })),
         }),
       );
     },

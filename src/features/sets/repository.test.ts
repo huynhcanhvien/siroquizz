@@ -46,6 +46,25 @@ describe("local SetRepository", () => {
     expect((await repo.findAll()).map((s) => s.id)).toEqual([second.id, first.id]);
   });
 
+  it("persists examples through reload, phonetic updates and duplication", async () => {
+    const set = await repo.create(input);
+    const saved = await repo.update(set.id, {
+      ...set,
+      cards: set.cards.map((card, index) => ({
+        ...card,
+        example: index === 0 ? "I eat an apple." : undefined,
+      })),
+    });
+    const reloaded = await repo.findById(saved.id);
+    expect(reloaded.cards[0].example).toBe("I eat an apple.");
+    await repo.update(set.id, {
+      ...reloaded,
+      cards: reloaded.cards.map((card) => ({ ...card, phonetic: "/test/" })),
+    });
+    expect((await repo.findById(set.id)).cards[0].example).toBe("I eat an apple.");
+    expect((await repo.duplicate(set.id, "Copy")).cards[0].example).toBe("I eat an apple.");
+  });
+
   it("hides other users' sets as NOT_FOUND", async () => {
     const set = await repo.create(input);
     userId = "intruder";

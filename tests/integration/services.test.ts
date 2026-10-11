@@ -59,6 +59,26 @@ afterAll(async () => {
 });
 
 describe("Postgres ownership and transactional updates", () => {
+  it("persists examples through reads, listing and phonetic edits", async () => {
+    const set = await create();
+    const saved = await updateSet(db, a, set.id, {
+      ...set,
+      cards: set.cards.map((card, index) => ({
+        ...card,
+        example: index === 0 ? "你好！ Xin chào!" : undefined,
+      })),
+    });
+    expect(saved.cards[0].example).toBe("你好！ Xin chào!");
+    expect((await getSet(db, a, set.id)).cards[0].example).toBe("你好！ Xin chào!");
+    expect((await listSets(db, a, new URLSearchParams())).data[0].cards[0].example).toBe(
+      "你好！ Xin chào!",
+    );
+    await updateSet(db, a, set.id, {
+      ...saved,
+      cards: saved.cards.map((card) => ({ ...card, phonetic: "test" })),
+    });
+    expect((await getSet(db, a, set.id)).cards[0].example).toBe("你好！ Xin chào!");
+  });
   it("denies another user's reads, writes, deletes, progress, scores and corrections", async () => {
     const set = await create();
     await expect(getSet(db, b, set.id)).rejects.toMatchObject({ status: 404 });

@@ -4,16 +4,23 @@ import { findSet, registerUser } from "./fixtures";
 test.skip(process.env.NEXT_PUBLIC_DATA_SOURCE !== "http", "Folders need the server backend");
 
 test("files sets into a folder and studies the whole folder", async ({ page }) => {
+  test.setTimeout(60_000);
   await registerUser(page);
   const hsk = await findSet(page, "HSK");
   const sets = await page.request.get("/api/v1/sets?limit=50").then((r) => r.json());
   const other = (sets.data as { id: string; title: string }[]).find((set) => set.id !== hsk.id)!;
 
-  await page.goto("/folders");
+  await page.goto("/library");
+  await page.getByRole("button", { name: "Tạo thư mục", exact: true }).click();
   await page.getByRole("textbox", { name: "Tên thư mục" }).fill("Ôn thi");
   await page.getByRole("button", { name: "Tạo", exact: true }).click();
   await expect(page.getByText("Đã tạo thư mục.")).toBeVisible();
   await expect(page.getByRole("link", { name: /Ôn thi/ })).toContainText("0 bộ thẻ");
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  await page.getByRole("button", { name: "Tạo thư mục", exact: true }).click();
+  await page.getByRole("textbox", { name: "Tên thư mục" }).fill("Từ vựng");
+  await page.getByRole("button", { name: "Tạo", exact: true }).click();
+  await expect(page.getByRole("link", { name: /Từ vựng/ })).toContainText("0 bộ thẻ");
 
   // Add from the set page menu…
   await page.goto(`/sets/${hsk.id}`);
@@ -21,6 +28,14 @@ test("files sets into a folder and studies the whole folder", async ({ page }) =
   await page.getByRole("menuitem", { name: "Thêm vào thư mục" }).click();
   await page.getByLabel("Ôn thi").check();
   await expect(page.getByText("Đã cập nhật thư mục.")).toBeVisible();
+  await page.getByLabel("Từ vựng", { exact: true }).check();
+  await expect(page.getByLabel("Ôn thi", { exact: true })).toBeChecked();
+  await expect
+    .poll(async () => {
+      const response = await page.request.get(`/api/v1/sets/${hsk.id}/folders`);
+      return (await response.json()).data.length;
+    })
+    .toBe(2);
   await page.keyboard.press("Escape");
 
   // …and by dragging a card onto the folder chip in the library.
@@ -32,6 +47,12 @@ test("files sets into a folder and studies the whole folder", async ({ page }) =
   await page.getByRole("listitem").filter({ hasText: other.title }).first().dragTo(chip);
   await expect(page.getByText("Đã cập nhật thư mục.")).toBeVisible();
   await expect(chip).toContainText("2");
+  const second = page
+    .getByRole("navigation", { name: "Thư mục" })
+    .getByRole("link", { name: /Từ vựng/ });
+  await expect(second).toContainText("1 bộ thẻ");
+  await page.setViewportSize({ width: 320, height: 740 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 
   await chip.click();
   await expect(page.getByRole("heading", { level: 1, name: "Ôn thi" })).toBeVisible();
@@ -61,4 +82,6 @@ test("files sets into a folder and studies the whole folder", async ({ page }) =
   await expect(page).toHaveURL(/\/folders$/);
   await page.goto(`/sets/${hsk.id}`);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("HSK");
+  const remaining = await page.request.get(`/api/v1/sets/${hsk.id}/folders`);
+  expect((await remaining.json()).data).toHaveLength(1);
 });

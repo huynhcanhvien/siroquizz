@@ -13,6 +13,7 @@ import { SET_SOURCES } from "@/lib/types";
 import { useSets } from "../hooks";
 import { filterAndSortSets, type LibrarySort, type LibrarySourceFilter } from "../lib/set-utils";
 import { FolderDropBar, dragSet } from "@/features/folders/components/FolderDropBar";
+import { NewFolderButton } from "@/features/folders/components/FoldersView";
 import { SetCard } from "./SetCard";
 
 const SORTS: readonly LibrarySort[] = ["recent", "title", "cards"];
@@ -72,12 +73,15 @@ export function LibraryView() {
           <h1 className="text-title font-extrabold">{t("title")}</h1>
           {sets ? <p className="mt-1 text-muted">{t("count", { count: sets.length })}</p> : null}
         </div>
-        <Button asChild>
-          <Link href="/sets/new">
-            <Plus className="size-4" aria-hidden />
-            {tNav("createSet")}
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          {isHttp ? <NewFolderButton /> : null}
+          <Button asChild>
+            <Link href="/sets/new">
+              <Plus className="size-4" aria-hidden />
+              {tNav("createSet")}
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3 shadow-sm sm:flex-row sm:items-center">

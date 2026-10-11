@@ -70,6 +70,7 @@ export async function getSet(db: Db, viewerId: string, id: string): Promise<Stud
       term: c.term,
       definition: c.definition,
       ...(c.phonetic ? { phonetic: c.phonetic } : {}),
+      ...(c.example ? { example: c.example } : {}),
       ...(image ? { imageUrl: `/api/v1/images/${image.id}`, imageAlt: image.alt } : {}),
     })),
     createdAt: set.createdAt.toISOString(),
@@ -125,13 +126,20 @@ export async function updateSet(db: Database, ownerId: string, id: string, input
     // from this set's own cards (checked above); position uniqueness is deferred to commit.
     await tx
       .insert(cards)
-      .values(rows.map((row) => ({ ...row, phonetic: row.phonetic ?? null })))
+      .values(
+        rows.map((row) => ({
+          ...row,
+          phonetic: row.phonetic ?? null,
+          example: row.example ?? null,
+        })),
+      )
       .onConflictDoUpdate({
         target: cards.id,
         set: {
           term: sql`excluded.term`,
           definition: sql`excluded.definition`,
           phonetic: sql`excluded.phonetic`,
+          example: sql`excluded.example`,
           position: sql`excluded.position`,
           updatedAt: sql`excluded.updated_at`,
         },
@@ -269,6 +277,7 @@ export async function listSets(db: Database, ownerId: string, query: URLSearchPa
       term: card.term,
       definition: card.definition,
       ...(card.phonetic ? { phonetic: card.phonetic } : {}),
+      ...(card.example ? { example: card.example } : {}),
       ...(image ? { imageUrl: `/api/v1/images/${image.id}`, imageAlt: image.alt } : {}),
     });
     cardsBySet.set(card.setId, setCards);

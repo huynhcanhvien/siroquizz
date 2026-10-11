@@ -161,6 +161,7 @@ export const cards = pgTable(
     term: varchar("term", { length: 1000 }).notNull(),
     definition: varchar("definition", { length: 1000 }).notNull(),
     phonetic: varchar("phonetic", { length: 200 }),
+    example: varchar("example", { length: 1000 }),
     ...timestamps,
   },
   (t) => [index("cards_set_idx").on(t.setId)],

@@ -14,6 +14,14 @@ const baseInput = {
 } as const;
 
 describe("setInputSchema", () => {
+  it("keeps saved examples through editor validation and rejects oversized examples", () => {
+    const cards = baseInput.cards.map((card) => ({ ...card, example: "I eat an apple." }));
+    const edited = editorSchema.parse({ ...baseInput, cards });
+    expect(setInputSchema.parse({ ...edited, source: "manual" }).cards[0].example).toBe("I eat an apple.");
+    expect(setInputSchema.safeParse({
+      ...baseInput, cards: cards.map((card) => ({ ...card, example: "a".repeat(1001) })),
+    }).success).toBe(false);
+  });
   it("accepts a valid set and trims fields", () => {
     const result = setInputSchema.safeParse(baseInput);
     expect(result.success).toBe(true);

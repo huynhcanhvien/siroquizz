@@ -116,6 +116,11 @@ export default async function PublicSetPage({ params }: Props) {
                 </span>
                 <span lang={definitionLang} className="break-words text-muted">
                   {card.definition}
+                  {card.example ? (
+                    <span translate="no" className="mt-2 block text-sm whitespace-pre-line">
+                      {card.example}
+                    </span>
+                  ) : null}
                 </span>
               </li>
             ))}

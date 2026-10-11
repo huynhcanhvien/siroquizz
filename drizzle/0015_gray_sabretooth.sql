@@ -1,0 +1,1 @@
+ALTER TABLE "cards" ADD COLUMN "example" varchar(1000);

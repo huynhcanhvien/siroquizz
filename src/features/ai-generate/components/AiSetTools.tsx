@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { z } from "zod";
 import { Button } from "@/components/ui/Button";
-import { Checkbox, Input } from "@/components/ui/fields";
+import { Checkbox, Input, Textarea } from "@/components/ui/fields";
 import { Dialog } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/Toast";
 import { useUpdateSet } from "@/features/sets/hooks";
@@ -24,18 +24,19 @@ export function AiSetTools({ set }: { set: StudySet }) {
       kind: "phonetics" | "examples";
       cards: { id: string; text: string; selected: boolean }[];
     } | null>(null);
-  const run = async (kind: "phonetics" | "examples", scope: "missing" | "all" = "missing") => {
+  const run = async (kind: "phonetics" | "examples") => {
     setBusy(true);
     try {
       const { data } = await client.request(`/api/v1/ai/${kind}`, schema, {
         method: "POST",
-        body: { setId: set.id, ...(kind === "phonetics" ? { scope } : {}) },
+        body: { setId: set.id, ...(kind === "phonetics" ? { scope: "all" } : {}) },
       });
       setResult({
         kind,
         cards: data.cards.map((card) => ({
           ...card,
-          selected: !set.cards.find((c) => c.id === card.id)?.phonetic?.trim(),
+          selected:
+            kind === "examples" || !set.cards.find((c) => c.id === card.id)?.phonetic?.trim(),
         })),
       });
     } catch (error) {
@@ -54,13 +55,15 @@ export function AiSetTools({ set }: { set: StudySet }) {
         ...set,
         cards: set.cards.map((card) => ({
           ...card,
-          phonetic: values.get(card.id) ?? card.phonetic,
+          ...(result.kind === "phonetics"
+            ? { phonetic: values.get(card.id) ?? card.phonetic }
+            : { example: values.get(card.id) ?? card.example }),
         })),
       },
       {
         onSuccess: () => {
           setResult(null);
-          toast(t("phoneticsSaved"));
+          toast(t(result.kind === "phonetics" ? "phoneticsSaved" : "examplesSaved"));
         },
         onError: (error) => toast(errorMessage(error), "error"),
       },
@@ -72,12 +75,6 @@ export function AiSetTools({ set }: { set: StudySet }) {
         <Button variant="secondary" loading={busy} onClick={() => run("phonetics")}>
           {t("fillPhonetics")}
         </Button>
-        {set.cards.some((card) => card.phonetic?.trim()) &&
-        set.cards.some((card) => !card.phonetic?.trim()) ? (
-          <Button variant="secondary" disabled={busy} onClick={() => run("phonetics", "all")}>
-            {t("reviewPhonetics")}
-          </Button>
-        ) : null}
         <Button variant="secondary" disabled={busy} onClick={() => run("examples")}>
           {t("createExamples")}
         </Button>
@@ -89,7 +86,7 @@ export function AiSetTools({ set }: { set: StudySet }) {
         }}
         title={result?.kind === "phonetics" ? t("fillPhonetics") : t("createExamples")}
         footer={
-          result?.kind === "phonetics" ? (
+          result ? (
             <Button
               loading={update.isPending}
               disabled={
@@ -97,12 +94,16 @@ export function AiSetTools({ set }: { set: StudySet }) {
                 result.cards.some(
                   (card) =>
                     card.selected &&
-                    (!card.text.trim() || card.text.trim().length > SET_LIMITS.phoneticMax),
+                    (!card.text.trim() ||
+                      card.text.trim().length >
+                        (result.kind === "phonetics"
+                          ? SET_LIMITS.phoneticMax
+                          : SET_LIMITS.exampleMax)),
                 )
               }
               onClick={apply}
             >
-              {t("applyPhonetics")}
+              {t(result.kind === "phonetics" ? "applyPhonetics" : "applyExamples")}
             </Button>
           ) : null
         }
@@ -165,7 +166,28 @@ export function AiSetTools({ set }: { set: StudySet }) {
                   />
                 </div>
               ) : (
-                <p translate="no">{card.text}</p>
+                <label className="mt-2 block text-sm">
+                  {t("exampleSentence")}
+                  <Textarea
+                    translate="no"
+                    aria-label={`${t("exampleSentence")}: ${set.cards.find((c) => c.id === card.id)?.term}`}
+                    value={card.text}
+                    maxLength={SET_LIMITS.exampleMax}
+                    disabled={update.isPending}
+                    onChange={(event) => {
+                      const text = event.target.value;
+                      setResult(
+                        (current) =>
+                          current && {
+                            ...current,
+                            cards: current.cards.map((entry) =>
+                              entry.id === card.id ? { ...entry, text } : entry,
+                            ),
+                          },
+                      );
+                    }}
+                  />
+                </label>
               )}
             </li>
           ))}

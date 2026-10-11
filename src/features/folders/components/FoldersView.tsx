@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { Dialog } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/fields";
 import { EmptyState, Skeleton } from "@/components/ui/misc";
 import { QueryError } from "@/components/ui/QueryState";
@@ -37,17 +38,34 @@ export function NewFolderForm({ onCreated }: { onCreated?: (id: string) => void 
       }}
     >
       <Input
+        className="min-w-0 flex-1"
         aria-label={t("namePlaceholder")}
         placeholder={t("namePlaceholder")}
         value={name}
         maxLength={FOLDER_NAME_MAX}
         onChange={(event) => setName(event.target.value)}
       />
-      <Button type="submit" disabled={create.isPending || !name.trim()}>
+      <Button type="submit" className="shrink-0" disabled={create.isPending || !name.trim()}>
         <FolderPlus className="size-4" aria-hidden />
         {t("create")}
       </Button>
     </form>
+  );
+}
+
+export function NewFolderButton() {
+  const t = useTranslations("folders");
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button variant="secondary" onClick={() => setOpen(true)}>
+        <FolderPlus className="size-4" aria-hidden />
+        {t("createFolder")}
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen} title={t("createFolder")}>
+        <NewFolderForm onCreated={() => setOpen(false)} />
+      </Dialog>
+    </>
   );
 }
 
