@@ -4,13 +4,15 @@ import { toErrorCode, type RepositoryErrorCode } from "@/lib/repository-error";
 import type { AppStorage } from "@/lib/storage";
 import type { SyncRequest, SyncResponse } from "../schemas";
 import { BASE64_PATTERN, fromBase64, toBase64 } from "./base64";
-import { MAX_UPDATE_BYTES } from "./limits";
+import { MAX_SYNC_UPDATE_BYTES, MAX_UPDATE_BYTES } from "./limits";
 import {
   initialSyncState,
   nextDelayMs,
   reduce,
+  statusOf,
   type SyncEvent,
   type SyncState,
+  type SyncStatus,
 } from "./sync-state";
 
 export * from "./sync-state";
@@ -49,7 +51,6 @@ export function replayMirror(
   }
 }
 
-export type SyncStatus = "idle" | "saving" | "offline" | "readonly";
 export interface SyncLoopOptions {
   doc: Y.Doc;
   docId: string;
@@ -62,13 +63,9 @@ export interface SyncLoopOptions {
   storage: AppStorage;
   onChange: (state: SyncState, status: SyncStatus) => void;
   onError: (code: RepositoryErrorCode) => void;
+  /** The session's status and peer settings as of this sync (the teacher may change them). */
+  onSession?: (session: SyncResponse["session"]) => void;
   now?: () => number;
-}
-
-export function statusOf(state: SyncState): SyncStatus {
-  if (state.readOnly) return "readonly";
-  if (state.failures) return "offline";
-  return state.pending || state.inFlight ? "saving" : "idle";
 }
 
 /** Everything not yet confirmed by the server, oldest first. */
@@ -115,6 +112,11 @@ async function syncRound(
   now: () => number,
 ) {
   const sentUpdate = state.inFlight;
+  // Never upload what the server is bound to refuse; keep it and report it instead.
+  if (sentUpdate && sentUpdate.length > MAX_SYNC_UPDATE_BYTES) {
+    dispatch({ type: "fail", code: "DOC_TOO_LARGE", at: now() });
+    return options.onError("DOC_TOO_LARGE");
+  }
   try {
     const response = await options.send({
       sv: toBase64(Y.encodeStateVector(options.doc)),
@@ -126,6 +128,7 @@ async function syncRound(
     const hadRemote = response.version > state.version + (sentUpdate ? 1 : 0);
     const { version, readOnly } = response;
     dispatch({ type: "ok", version, hadRemote, readOnly, at: now() });
+    options.onSession?.(response.session);
   } catch (error) {
     const code = toErrorCode(error);
     dispatch({ type: "fail", code, at: now() });

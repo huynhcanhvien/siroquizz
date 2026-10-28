@@ -18,6 +18,7 @@ const SYNC_TONE = {
   saving: "text-muted",
   offline: "text-danger",
   readonly: "text-muted",
+  toolarge: "text-danger",
 };
 export function SyncIndicator({ status }: { status: SyncStatus }) {
   const t = useTranslations("writing.sync");

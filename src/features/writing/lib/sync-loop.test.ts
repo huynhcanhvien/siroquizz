@@ -83,6 +83,15 @@ describe("sync loop", () => {
     loop.stop();
   });
 
+  it("passes on the session settings each sync reports", async () => {
+    const onSession = vi.fn();
+    const { loop } = setup({ onSession });
+    loop.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onSession).toHaveBeenCalledWith(gate);
+    loop.stop();
+  });
+
   it("keeps edits through a network failure and retries after backing off", async () => {
     const { remote, doc, loop, storage } = setup();
     remote.send.mockRejectedValueOnce(new RepositoryError("NETWORK"));
@@ -98,6 +107,25 @@ describe("sync loop", () => {
     expect(text(remote.doc)).toBe("saved later");
     await vi.advanceTimersByTimeAsync(300);
     expect(storage.readValue(mirrorKey("doc"), (await import("zod")).z.any())).toBeNull();
+    loop.stop();
+  });
+
+  it("never sends more than a sync body can carry, and keeps the text", async () => {
+    const { remote, doc, loop, onError, onChange, storage } = setup();
+    loop.start();
+    await vi.advanceTimersByTimeAsync(0);
+    const calls = remote.send.mock.calls.length;
+    // Random text does not compress: well over the 256 KB sync limit.
+    const big = Array.from({ length: 300_000 }, (_, i) =>
+      String.fromCharCode(33 + ((i * 7919) % 90)),
+    ).join("");
+    doc.getText("quill").insert(0, big);
+    await vi.advanceTimersByTimeAsync(FAST_MS);
+    expect(remote.send.mock.calls.length).toBe(calls);
+    expect(onError).toHaveBeenCalledWith("DOC_TOO_LARGE");
+    expect(onChange).toHaveBeenLastCalledWith(expect.anything(), "toolarge");
+    expect(text(doc)).toBe(big);
+    expect(storage.readValue(mirrorKey("doc"), (await import("zod")).z.any())).not.toBeNull();
     loop.stop();
   });
 

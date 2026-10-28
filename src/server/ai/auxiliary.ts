@@ -7,7 +7,7 @@ import type { Database } from "../db/client";
 import { aiAuxUsage, user } from "../db/schema";
 import { getSet } from "../services/sets";
 import { groqJson, RateLimitError, type Usage } from "./groq";
-import { tallyAuxTokens } from "./credits";
+import { assertGlobalCapacity, tallyAuxTokens } from "./credits";
 import { issueContinuation, readContinuation } from "./aux-continuation";
 import { quotaWindow } from "./jobs";
 import { phoneticReference, verifyPhonetic } from "./phonetics";
@@ -15,8 +15,10 @@ import { getServerEnv } from "../env";
 import {
   AUX_BUDGET_MS,
   AUX_MIN_BATCH_MS,
+  GRADE_TOKENS,
   auxMaxTokens,
   batchCards,
+  estimateAuxTokens,
   mapBatchOutput,
   type AuxCard,
   type AuxCardTask,
@@ -87,9 +89,12 @@ export async function auxiliaryTask(
 ) {
   if (task === "grade") {
     const payload = gradeSchema.parse(input);
+    await assertGlobalCapacity(db, GRADE_TOKENS);
     return withAuxQuota(db, userId, (track) => gradeAnswer(payload, signal, track));
   }
   const job = await selectCards(db, userId, z.enum(["phonetics", "examples"]).parse(task), input);
+  // The shared key's daily budget is checked before anything is charged or sent.
+  await assertGlobalCapacity(db, estimateAuxTokens(job.task, job.cards));
   const click = job.continuation ? readContinuation(job.continuation, userId, task) : null;
   const result = await withAuxQuota(
     db,

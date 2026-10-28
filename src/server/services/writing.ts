@@ -8,7 +8,7 @@ import { sessionInputSchema, sessionPatchSchema } from "@/features/writing/schem
 import { ApiError } from "../api-error";
 import type { Database } from "../db/client";
 import { classMembers, classes, user, writingDocs, writingSessions } from "../db/schema";
-import { requireMembership, requireTeaching } from "./classes";
+import { requireMembership, requireTeaching, type ClassRole } from "./classes";
 import {
   docColumns,
   gateOf,
@@ -28,7 +28,11 @@ export const toDocSummary = (doc: DocRow) => ({
   lastEditorId: doc.lastEditorId,
   updatedAt: doc.updatedAt.toISOString(),
 });
-function toSummary(session: SessionRow, docCount: number, myDocId: string | null) {
+/**
+ * A session row as the viewer sees it. `docCount` is null when the viewer may not list the
+ * documents: a student does not learn how many classmates write while documents are hidden.
+ */
+function toSummary(session: SessionRow, role: ClassRole, docCount: number, myDocId: string | null) {
   return {
     id: session.id,
     classId: session.classId,
@@ -39,7 +43,7 @@ function toSummary(session: SessionRow, docCount: number, myDocId: string | null
     openedAt: iso(session.openedAt),
     closedAt: iso(session.closedAt),
     createdAt: session.createdAt.toISOString(),
-    docCount,
+    docCount: canListDocs(role, gateOf(session)) ? docCount : null,
     myDocId,
   };
 }
@@ -65,7 +69,7 @@ export async function listSessions(db: Database, userId: string, classId: string
       ),
     )
     .orderBy(desc(writingSessions.createdAt));
-  return rows.map((row) => toSummary(row.session, row.docCount, row.myDocId));
+  return rows.map((row) => toSummary(row.session, role, row.docCount, row.myDocId));
 }
 
 /** A teacher starts a session in draft; a class keeps at most MAX_SESSIONS_PER_CLASS. */
@@ -84,7 +88,7 @@ export async function createSession(db: Database, userId: string, classId: strin
       .insert(writingSessions)
       .values({ id: v7(), classId, createdBy: userId, ...data })
       .returning();
-    return toSummary(session, 0, null);
+    return toSummary(session, "owner", 0, null);
   });
 }
 
@@ -122,7 +126,7 @@ export async function getSession(db: Database, userId: string, sessionId: string
   const mine = docs.find((doc) => doc.authorId === userId)?.id ?? null;
   const listed = canListDocs(role, gateOf(session));
   return {
-    ...toSummary(session, docs.length, mine),
+    ...toSummary(session, role, docs.length, mine),
     prompt: session.prompt,
     className: klass.name,
     role,
@@ -155,7 +159,7 @@ export async function updateSession(
     })
     .where(eq(writingSessions.id, session.id))
     .returning();
-  return toSummary(updated, 0, null);
+  return toSummary(updated, "owner", 0, null);
 }
 
 export async function deleteSession(db: Database, userId: string, sessionId: string) {

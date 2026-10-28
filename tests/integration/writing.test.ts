@@ -109,7 +109,10 @@ describe("sessions", () => {
     expect(open.openedAt).not.toBeNull();
     const myDoc = await openOwnDoc(db, author, draft.id);
     const [listed] = await listSessions(db, author, classId);
-    expect(listed).toMatchObject({ status: "open", myDocId: myDoc.id, docCount: 1 });
+    // How many classmates write is hidden from students until documents open to peers.
+    expect(listed).toMatchObject({ status: "open", myDocId: myDoc.id, docCount: null });
+    expect((await listSessions(db, teacher, classId))[0].docCount).toBe(1);
+    expect((await getSession(db, author, draft.id)).docCount).toBeNull();
     const studentView = await getSession(db, author, draft.id);
     // Everyone in the class is listed so each person's text gets the right colour.
     expect(studentView.members.map((m) => m.userId).sort()).toEqual([teacher, author, peer].sort());
@@ -117,6 +120,8 @@ describe("sessions", () => {
     expect((await getSession(db, teacher, draft.id)).docs).toHaveLength(1);
     await updateSession(db, teacher, draft.id, { peerVisibility: "open" });
     expect((await getSession(db, peer, draft.id)).docs).toHaveLength(1);
+    expect((await getSession(db, peer, draft.id)).docCount).toBe(1);
+    expect((await listSessions(db, peer, classId))[0].docCount).toBe(1);
   });
 
   it("turns peer editing off whenever documents are hidden from peers", async () => {
@@ -205,6 +210,23 @@ describe("document access", () => {
     else await expect(attempt).rejects.toMatchObject({ status: 403, code: outcome });
   });
 
+  it("keeps a teacher's own document closed to student edits even with peer editing on", async () => {
+    const { sessionId } = await sessionWith({
+      status: "open",
+      peerVisibility: "open",
+      peerEditing: true,
+    });
+    const { id: teacherDoc } = await openOwnDoc(db, teacher, sessionId);
+    const { id: studentDoc } = await openOwnDoc(db, author, sessionId);
+    const intruder = new Client(peer, teacherDoc);
+    intruder.type(0, "x");
+    await expect(intruder.sync()).rejects.toMatchObject({ status: 403, code: "FORBIDDEN" });
+    expect(await getDocState(db, peer, teacherDoc)).toMatchObject({ readOnly: true });
+    const helper = new Client(peer, studentDoc);
+    helper.type(0, "y");
+    await expect(helper.sync()).resolves.toMatchObject({ version: 1, readOnly: false });
+  });
+
   it("lets students start a document only while the session is open", async () => {
     const { sessionId } = await sessionWith({ status: "closed" });
     await expect(openOwnDoc(db, author, sessionId)).rejects.toMatchObject({
@@ -216,6 +238,34 @@ describe("document access", () => {
 });
 
 describe("sync", () => {
+  it("refuses an edit that raced the session closing, re-checked under the row lock", async () => {
+    const { sessionId } = await sessionWith();
+    const { id: docId } = await openOwnDoc(db, author, sessionId);
+    const writer = new Client(author, docId);
+    writer.type(0, "kịp không?");
+    let finishClose: () => void = () => undefined;
+    let closeStarted: () => void = () => undefined;
+    const started = new Promise<void>((resolve) => (closeStarted = resolve));
+    // The teacher's close holds the session row until we let it commit.
+    const closing = db.transaction(async (tx) => {
+      await tx
+        .update(schema.writingSessions)
+        .set({ status: "closed", closedAt: new Date() })
+        .where(eq(schema.writingSessions.id, sessionId));
+      closeStarted();
+      await new Promise<void>((resolve) => (finishClose = resolve));
+    });
+    await started;
+    // The access check still sees the committed (open) session; the merge must wait and re-check.
+    const sync = writer.sync();
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    finishClose();
+    await closing;
+    await expect(sync).rejects.toMatchObject({ status: 403, code: "SESSION_CLOSED" });
+    const [row] = await db.select().from(schema.writingDocs);
+    expect(row.version).toBe(0);
+  });
+
   it("merges concurrent edits from two replicas and converges", async () => {
     const { sessionId } = await sessionWith({
       status: "open",
@@ -240,6 +290,17 @@ describe("sync", () => {
     expect(row.textPreview).toBe(a.text());
   });
 
+  it("refuses text a writer marks as someone else's", async () => {
+    const { sessionId } = await sessionWith();
+    const { id: docId } = await openOwnDoc(db, author, sessionId);
+    const forger = new Client(author, docId);
+    forger.doc.getText(TEXT_NAME).insert(0, "Cô khen", { author: teacher });
+    await expect(forger.sync()).rejects.toMatchObject({ status: 400 });
+    const honest = new Client(author, docId);
+    honest.doc.getText(TEXT_NAME).insert(0, "Em viết", { author });
+    await expect(honest.sync()).resolves.toMatchObject({ version: 1 });
+  });
+
   it("answers a poll with a current version from one select, without the state", async () => {
     const { sessionId } = await sessionWith();
     const { id: docId } = await openOwnDoc(db, author, sessionId);
@@ -257,11 +318,23 @@ describe("sync", () => {
     expect(queries[0]).not.toContain('"state"');
   });
 
+  it("accepts a large paste in one sync, up to the sync update limit", async () => {
+    const { sessionId } = await sessionWith();
+    const { id: docId } = await openOwnDoc(db, author, sessionId);
+    const writer = new Client(author, docId);
+    const paste = Array.from({ length: 150_000 }, (_, i) => "abcdefghij"[i % 10]).join("");
+    writer.type(0, paste);
+    expect(writer.pending!.length).toBeGreaterThan(64 * 1024);
+    await expect(writer.sync()).resolves.toMatchObject({ version: 1 });
+    const [row] = await db.select().from(schema.writingDocs);
+    expect(row.charCount).toBe(150_000);
+  });
+
   it("refuses oversized updates and states, and malformed updates", async () => {
     const { sessionId } = await sessionWith();
     const { id: docId } = await openOwnDoc(db, author, sessionId);
     const sv = toBase64(Y.encodeStateVector(new Y.Doc()));
-    const huge = toBase64(new Uint8Array(65 * 1024));
+    const huge = toBase64(new Uint8Array(257 * 1024));
     await expect(syncDoc(db, author, docId, { sv, update: huge })).rejects.toMatchObject({
       status: 413,
       code: "DOC_TOO_LARGE",

@@ -2,12 +2,16 @@ import "server-only";
 import { and, eq, sql } from "drizzle-orm";
 import { v7 } from "uuid";
 import { base64Bytes, fromBase64, toBase64 } from "@/features/writing/lib/base64";
-import { MAX_STATE_BYTES, MAX_UPDATE_BYTES, PREVIEW_CHARS } from "@/features/writing/lib/limits";
-import { teaches } from "@/features/writing/lib/permissions";
+import {
+  MAX_STATE_BYTES,
+  MAX_SYNC_UPDATE_BYTES,
+  PREVIEW_CHARS,
+} from "@/features/writing/lib/limits";
+import { canWriteDoc, teaches } from "@/features/writing/lib/permissions";
 import { syncRequestSchema, type SyncResponse } from "@/features/writing/schemas";
 import { ApiError } from "../api-error";
 import type { Database } from "../db/client";
-import { writingDocs } from "../db/schema";
+import { writingDocs, writingSessions } from "../db/schema";
 import {
   applyClientUpdate,
   diffSince,
@@ -16,7 +20,8 @@ import {
   plainText,
   preview,
 } from "../lib/ydoc";
-import { gateOf, requireDocAccess, requireSessionAccess } from "./writing-access";
+import type { Transaction } from "./sets";
+import { gateOf, requireDocAccess, requireSessionAccess, writeRefused } from "./writing-access";
 
 const decode = (value: string) => {
   try {
@@ -65,16 +70,39 @@ export async function getDocState(db: Database, userId: string, docId: string) {
   };
 }
 
+type DocAccess = Awaited<ReturnType<typeof requireDocAccess>>;
+
+/**
+ * Re-reads the session's settings under a share lock, so a write racing the teacher closing the
+ * session (or turning peer editing off) waits for that change and is then refused.
+ */
+async function assertStillWritable(tx: Transaction, userId: string, access: DocAccess) {
+  const [gate] = await tx
+    .select({
+      status: writingSessions.status,
+      peerVisibility: writingSessions.peerVisibility,
+      peerEditing: writingSessions.peerEditing,
+    })
+    .from(writingSessions)
+    .where(eq(writingSessions.id, access.session.id))
+    .for("share");
+  if (!gate) throw new ApiError(404, "NOT_FOUND");
+  if (!canWriteDoc(access.role, userId, access.doc.authorId, gate, access.authorRole))
+    throw writeRefused(gate);
+}
+
 /** Merges the update under a row lock and saves the compacted state; returns the merged doc. */
-async function mergeUpdate(db: Database, userId: string, docId: string, update: Uint8Array) {
+async function mergeUpdate(db: Database, userId: string, access: DocAccess, update: Uint8Array) {
+  const docId = access.doc.id;
   return db.transaction(async (tx) => {
     const [row] = await tx
       .select({ state: writingDocs.state })
       .from(writingDocs)
       .where(eq(writingDocs.id, docId))
       .for("update");
+    await assertStillWritable(tx, userId, access);
     const doc = docFromState(row?.state ?? null);
-    applyClientUpdate(doc, update);
+    applyClientUpdate(doc, update, userId);
     const state = encodeState(doc);
     if (state.length > MAX_STATE_BYTES) throw tooLarge();
     const text = plainText(doc);
@@ -107,14 +135,14 @@ export async function syncDoc(
   input: unknown,
 ): Promise<SyncResponse> {
   const request = syncRequestSchema.parse(input);
-  if (request.update && base64Bytes(request.update) > MAX_UPDATE_BYTES) throw tooLarge();
+  if (request.update && base64Bytes(request.update) > MAX_SYNC_UPDATE_BYTES) throw tooLarge();
   const access = await requireDocAccess(db, userId, docId, request.update ? "write" : "read");
   const base = { readOnly: !access.canWrite, session: gateOf(access.session) };
   if (!request.update && request.version === access.doc.version)
     return { version: access.doc.version, ...base };
   const sv = decode(request.sv);
   const { doc, version } = request.update
-    ? await mergeUpdate(db, userId, access.doc.id, decode(request.update))
+    ? await mergeUpdate(db, userId, access, decode(request.update))
     : { doc: docFromState(await loadState(db, access.doc.id)), version: access.doc.version };
   const diff = diffSince(doc, sv);
   return { version, ...(diff ? { update: toBase64(diff) } : {}), ...base };

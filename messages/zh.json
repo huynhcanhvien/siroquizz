@@ -1332,7 +1332,9 @@
       "docOf": "{name} 的文章",
       "notStarted": "写作课尚未开放，老师开放后即可写作。",
       "reloaded": "文章太长，刚输入的内容未能保存，已重新加载服务器上的版本。",
-      "toolbar": "文字格式"
+      "toolbar": "文字格式",
+      "tooLarge": "刚写的内容太大，无法保存到服务器。文字仍保留在本设备上，请删减或复制到别处。",
+      "pasteTooLong": "粘贴的内容太长，请分成较小的部分粘贴。"
     },
     "panel": {
       "prompt": "题目",
@@ -1365,7 +1367,8 @@
       "idle": "已保存",
       "saving": "正在保存…",
       "offline": "连接中断，稍后重试",
-      "readonly": "只读"
+      "readonly": "只读",
+      "toolarge": "未保存：内容过长"
     },
     "scratch": {
       "button": "临时卡片（{count}）",

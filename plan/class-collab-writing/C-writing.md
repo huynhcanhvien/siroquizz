@@ -62,7 +62,7 @@ export const scratchCards = pgTable("scratch_cards", {
 Hằng: `MAX_STATE_BYTES = 512*1024`, `MAX_UPDATE_BYTES = 64*1024` (trần body `keepalive`), `MAX_SCRATCH = 300`, `MAX_SESSIONS_PER_CLASS = 100`, `PREVIEW_CHARS = 300`.
 
 ## C3. Quy tắc quyền
-**Trạng thái:** done
+**Trạng thái:** done; hardening (wp4-hardening): bạn cùng lớp chỉ được viết lên bài của học sinh khác, không bao giờ lên bài riêng của giáo viên (canWriteDoc nhận vai trò tác giả); quyền ghi được kiểm lại trong transaction merge (FOR SHARE trên session) nên ghi đua với lúc đóng phiên bị từ chối
 Thuần, dùng chung client/server — `src/features/writing/lib/permissions.ts` (unit test ma trận):
 ```ts
 export interface SessionGate { status: "draft"|"open"|"closed"; peerVisibility: "hidden"|"open"; peerEditing: boolean }
@@ -79,7 +79,7 @@ export const requireSessionTeacher = (db, userId, sessionId) => …  // 403 nế
 ```
 
 ## C4. Service
-**Trạng thái:** done — publishToClass gọi shareToClass (WP3) trong cùng transaction (savepoint), audience teachers|class; giáo viên mở bài của mình bất kỳ lúc nào; updatedAt do đồng hồ DB ghi để khớp since của overview
+**Trạng thái:** done — publishToClass gọi shareToClass (WP3) trong cùng transaction (savepoint), audience teachers|class; giáo viên mở bài của mình bất kỳ lúc nào; updatedAt do đồng hồ DB ghi để khớp since của overview; hardening: docCount = null với học sinh khi chưa mở xem bài nhau; server từ chối (400) update gắn thuộc tính author không phải người sync (chống giả màu tác giả)
 `src/server/services/writing.ts`: `listSessions(db,userId,classId)` (học sinh không thấy draft; `myDocId` left join; `docCount`), `createSession(db,userId,classId,input)` (teacher; 100/lớp → 409), `getSession(db,userId,sessionId)` → session + `members` toàn lớp (để map màu, kể cả học sinh) + `docs` khi `canListDocs`, `updateSession` (title/prompt/status/peerVisibility/peerEditing; đặt `openedAt`/`closedAt`), `deleteSession`, `sessionOverview(db,userId,sessionId,query)` (`since` ISO → chỉ docs `updatedAt > since`; `[]` nếu không `canListDocs`; trả `serverTime`), `purgeClosedSessions(db, now)` (closed & `closedAt < now-180d`; gọi trong cron).
 `src/server/services/writing-docs.ts`: `openOwnDoc(db,userId,sessionId)` (học sinh cần status open; `insert … onConflictDoNothing` rồi select), `getDocState(db,userId,docId)` → `{ id, authorId, version, state: base64|null, readOnly }`, `syncDoc(db,userId,docId,input)` (C6).
 `src/server/services/scratch-cards.ts`: `listScratch`, `createScratch` (≥300 → 409 `SCRATCH_LIMIT`; giữ `sourceDocId` nếu đọc được doc), `updateScratch`, `deleteScratch`, `clearScratch`, `materializeScratch(db,userId,{ ids (2..500), title, termLang, definitionLang, classId?, audience? })` → tx: thiếu id → 404; `definition` rỗng → 400 `SCRATCH_INCOMPLETE`; `createSetInTransaction(tx, userId, { title, description:"", termLang, definitionLang, source:"manual", cards })`; xoá hàng; `classId` → `publishToClass(tx, userId, classId, setId, audience)` = `shareToClass` (WP3) hoặc stub `class_sets`.
@@ -103,7 +103,7 @@ export const requireSessionTeacher = (db, userId, sessionId) => …  // 403 nế
 Mã lỗi: `DOC_TOO_LARGE`, `SESSION_CLOSED`, `SCRATCH_LIMIT`, `SCRATCH_INCOMPLETE`.
 
 ## C6. Giao thức sync (hợp đồng giữa WP4a và WP4b)
-**Trạng thái:** done — sau review: một vòng sync tại một thời điểm (cờ busy), lỗi bị từ chối → dựng lại doc từ server, flush cả phần in-flight khi đóng/ẩn trang, schema phản hồi cho phép tới MAX_STATE_BYTES, overview dùng clock_timestamp() + chồng 5s, limit sync 120/phút, overview 60/phút
+**Trạng thái:** done — sau review: một vòng sync tại một thời điểm (cờ busy), lỗi bị từ chối → dựng lại doc từ server, flush cả phần in-flight khi đóng/ẩn trang, schema phản hồi cho phép tới MAX_STATE_BYTES, overview dùng clock_timestamp() + chồng 5s, limit sync 120/phút, overview 60/phút; hardening: mỗi phản hồi sync cập nhật ngay cache session (trạng thái/peer); update sync tối đa 256KB (body 384KB, keepalive vẫn 64KB), dán > 128KB bị chặn có thông báo, phần quá lớn được giữ lại trên máy + mirror với trạng thái "Chưa lưu được: bài quá dài" thay vì bị bỏ
 Request `POST /api/v1/writing/docs/:id/sync` body `{ sv: base64(Y.encodeStateVector(local)), update?: base64(pending đã gộp), version?: number }`.
 Server `syncDoc`:
 1. `requireDocAccess(db, userId, docId, update ? "write" : "read")`.
@@ -174,7 +174,7 @@ Namespace `writing.{sessions,status,editor,panel,roster,scratch,materialize,sync
 - Build: `next build` xác nhận `quill`/`yjs` chỉ trong chunk route `/study/writing/[sessionId]`; first-load JS các trang khác không tăng.
 
 ## C13. Rủi ro & giảm thiểu
-**Trạng thái:** done — bypass write limit đã gỡ sau khi WP1 merge (writePolicy write-fast); các rủi ro còn lại ghi trong báo cáo
+**Trạng thái:** done — bypass write limit đã gỡ sau khi WP1 merge (writePolicy write-fast); các rủi ro còn lại ghi trong báo cáo; hardening: đã xử lý các rủi ro mở (giả màu tác giả, đua đóng phiên, bài giáo viên, docCount, đồng bộ cài đặt phiên, dán lớn)
 - Yjs cold start / 2 bản: `serverExternalPackages`; decode tuyến tính theo state ≤ 512KB.
 - Bundle: Quill 2 (~110KB gz) + yjs (~25KB gz) + y-quill sau dynamic import trên 1 route.
 - IME: gán tác giả sau `text-change`, không trong composition; e2e Telex.

@@ -64,3 +64,55 @@ describe("ydoc", () => {
     expect(preview("  line one\n\nline   two  ", 300)).toBe("line one line two");
   });
 });
+
+describe("author attribution", () => {
+  /** An update made on a replica of `base`, by running `edit` on its text. */
+  function edited(base: Y.Doc, edit: (text: Y.Text) => void) {
+    const replica = docFromState(encodeState(base));
+    const before = Y.encodeStateVector(replica);
+    edit(replica.getText(TEXT_NAME));
+    return Y.encodeStateAsUpdate(replica, before);
+  }
+  const server = () => {
+    const doc = docFromState(null);
+    doc.getText(TEXT_NAME).insert(0, "teacher note", { author: "teacher" });
+    return doc;
+  };
+
+  it("accepts text marked as the writer's own or unmarked", () => {
+    const doc = server();
+    applyClientUpdate(
+      doc,
+      edited(doc, (t) => t.insert(0, "mine ", { author: "me" })),
+      "me",
+    );
+    applyClientUpdate(
+      doc,
+      edited(doc, (t) => t.insert(0, "\n")),
+      "me",
+    );
+    // Deleting or styling someone else's words keeps them theirs.
+    applyClientUpdate(
+      doc,
+      edited(doc, (t) => t.format(6, 7, { bold: true })),
+      "me",
+    );
+    applyClientUpdate(
+      doc,
+      edited(doc, (t) => t.delete(0, 2)),
+      "me",
+    );
+    expect(plainText(doc)).toBe("ine teacher note");
+  });
+  it("refuses text or formatting that claims someone else wrote it", () => {
+    const doc = server();
+    const forged = edited(doc, (t) => t.insert(0, "fake ", { author: "teacher" }));
+    expect(() => applyClientUpdate(doc, forged, "me")).toThrow(
+      expect.objectContaining({ status: 400 }),
+    );
+    const relabel = edited(doc, (t) => t.format(0, 7, { author: "other" }));
+    expect(() => applyClientUpdate(doc, relabel, "me")).toThrow(
+      expect.objectContaining({ status: 400 }),
+    );
+  });
+});

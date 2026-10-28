@@ -1332,7 +1332,9 @@
       "docOf": "Bài của {name}",
       "notStarted": "Phiên chưa mở. Bài sẽ viết được khi giáo viên mở phiên.",
       "reloaded": "Bài quá dài nên phần vừa gõ chưa được lưu; đã tải lại bản trên máy chủ.",
-      "toolbar": "Định dạng chữ"
+      "toolbar": "Định dạng chữ",
+      "tooLarge": "Phần vừa viết quá lớn để lưu lên máy chủ. Chữ vẫn còn trên máy này; hãy rút gọn hoặc sao chép ra ngoài.",
+      "pasteTooLong": "Đoạn dán quá dài. Hãy dán từng phần nhỏ hơn."
     },
     "panel": {
       "prompt": "Đề bài",
@@ -1365,7 +1367,8 @@
       "idle": "Đã lưu",
       "saving": "Đang lưu…",
       "offline": "Mất kết nối, sẽ thử lại",
-      "readonly": "Chỉ xem"
+      "readonly": "Chỉ xem",
+      "toolarge": "Chưa lưu được: bài quá dài"
     },
     "scratch": {
       "button": "Bộ thẻ tạm ({count})",

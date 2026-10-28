@@ -6,7 +6,12 @@ import { estimateTokens } from "@/features/ai-generate/lib/output";
 import { ApiError } from "../api-error";
 import { auditLogs, cards, studySets } from "../db/schema";
 import { groqJson } from "../ai/groq";
-import { awardPublishCredit, clawbackSetCredits, tallyAuxTokens } from "../ai/credits";
+import {
+  assertGlobalCapacity,
+  awardPublishCredit,
+  clawbackSetCredits,
+  tallyAuxTokens,
+} from "../ai/credits";
 import type { Database } from "../db/client";
 import type { Db } from "./sets";
 
@@ -90,15 +95,19 @@ export const audit = (
 ) => db.insert(auditLogs).values({ id: v7(), meta: {}, ...entry });
 
 type Decision = { status: "approved" | "flagged" | "pending"; reason: string | null };
+/** Provider tokens one check may use: the sample, the policy and the short verdict. */
+const CHECK_TOKENS = SAMPLE_TOKENS + 1_000;
 async function decide(
   text: string,
   sample: string,
-  onUsage: (tokens: number) => Promise<void>,
+  hooks: { assertCapacity: () => Promise<void>; onUsage: (tokens: number) => Promise<void> },
   deadline: number,
 ) {
   const local = scanForContactDetails(text);
   if (local) return { status: "flagged", reason: local } satisfies Decision;
   try {
+    // Over the app-wide daily cap: stay pending until tomorrow instead of calling the model.
+    await hooks.assertCapacity();
     // A deadline (not a self-aborting signal) turns a slow provider into AI_TIMEOUT.
     const { data, usage } = await groqJson(
       verdictSchema,
@@ -112,7 +121,7 @@ async function decide(
         deadline: Math.min(deadline, Date.now() + CHECK_TIMEOUT_MS),
       },
     );
-    await onUsage(usage.input + usage.output);
+    await hooks.onUsage(usage.input + usage.output);
     return data.violation
       ? ({ status: "flagged", reason: `${data.category}: ${data.reason}` } satisfies Decision)
       : ({ status: "approved", reason: null } satisfies Decision);
@@ -147,7 +156,10 @@ export async function moderateSet(db: Database, setId: string, deadline?: number
   const decision = await decide(
     text,
     moderationSample(set, setCards),
-    (tokens) => tallyAuxTokens(db, set.ownerId, tokens),
+    {
+      assertCapacity: () => assertGlobalCapacity(db, CHECK_TOKENS),
+      onUsage: (tokens) => tallyAuxTokens(db, set.ownerId, tokens),
+    },
     deadline ?? Date.now() + CHECK_TIMEOUT_MS,
   );
   if (decision.status === "pending") return "pending";

@@ -1,4 +1,4 @@
-import { plainText } from "@/features/ai-generate/lib/output";
+import { estimateTokens, plainText } from "@/features/ai-generate/lib/output";
 import { ApiError } from "../api-error";
 
 /** Cards sent to the model in one auxiliary call: small enough that the answer never truncates. */
@@ -29,6 +29,26 @@ export interface AuxResult {
 export function batchCards<T>(cards: readonly T[], size = AUX_BATCH_SIZE): T[][] {
   return Array.from({ length: Math.ceil(cards.length / size) }, (_, index) =>
     cards.slice(index * size, (index + 1) * size),
+  );
+}
+
+/** Prompt overhead of one auxiliary call: task text, JSON framing and schema. */
+const REQUEST_OVERHEAD_TOKENS = 600;
+/** Provider tokens grading one answer may use, prompt and output together. */
+export const GRADE_TOKENS = 1_500;
+
+/**
+ * Upper-end provider tokens for running every batch of `cards`, held against the app-wide daily
+ * cap before the first call.
+ */
+export function estimateAuxTokens(task: AuxCardTask, cards: readonly AuxCard[]): number {
+  return batchCards(cards).reduce(
+    (total, batch) =>
+      total +
+      REQUEST_OVERHEAD_TOKENS +
+      estimateTokens(batch.map((card) => `${card.term} ${card.definition}`).join("\n")) +
+      auxMaxTokens(task, batch.length),
+    0,
   );
 }
 

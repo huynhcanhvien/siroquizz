@@ -2,12 +2,21 @@ import { z } from "zod";
 import { classRoleSchema } from "@/features/classes/schemas";
 import { CONTENT_LANGUAGES } from "@/lib/types";
 import { BASE64_PATTERN } from "./lib/base64";
-import { MAX_PROMPT_CHARS, MAX_STATE_BYTES, MAX_TITLE_CHARS } from "./lib/limits";
+import {
+  MAX_PROMPT_CHARS,
+  MAX_STATE_BYTES,
+  MAX_SYNC_BODY_BYTES,
+  MAX_TITLE_CHARS,
+} from "./lib/limits";
 
 export const sessionStatusSchema = z.enum(["draft", "open", "closed"]);
 export const peerVisibilitySchema = z.enum(["hidden", "open"]);
 export const audienceSchema = z.enum(["teachers", "class"]);
-const base64 = z.string().max(200_000).regex(BASE64_PATTERN);
+// Bounded by the request body limit; the update size itself is checked by the server (413).
+const base64 = z
+  .string()
+  .max(Math.ceil((MAX_SYNC_BODY_BYTES * 4) / 3))
+  .regex(BASE64_PATTERN);
 /** Server answers can carry a whole stored document (up to MAX_STATE_BYTES). */
 const base64State = z
   .string()
@@ -52,7 +61,8 @@ export const sessionSummarySchema = z.object({
   openedAt: isoDate.nullable(),
   closedAt: isoDate.nullable(),
   createdAt: isoDate,
-  docCount: z.number().int(),
+  /** Null when the viewer may not list the session's documents. */
+  docCount: z.number().int().nullable(),
   myDocId: z.uuid().nullable(),
 });
 export type SessionSummary = z.infer<typeof sessionSummarySchema>;

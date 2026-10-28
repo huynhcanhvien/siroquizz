@@ -8,6 +8,7 @@ import {
   initialSyncState,
   nextDelayMs,
   reduce,
+  statusOf,
 } from "./sync-state";
 
 function edits(...texts: string[]) {
@@ -63,10 +64,24 @@ describe("sync reducer", () => {
     let state = reduce(initialSyncState(0, false, 0), { type: "local", update: a, at: 1 });
     state = reduce(reduce(state, { type: "sent", at: 2 }), {
       type: "fail",
-      code: "DOC_TOO_LARGE",
+      code: "NOT_FOUND",
       at: 3,
     });
     expect(state).toMatchObject({ pending: null, inFlight: null, failures: 0, readOnly: false });
+  });
+  it("keeps text that is too large to save and says so, instead of dropping it", () => {
+    const [a] = edits("a very long paste");
+    let state = reduce(initialSyncState(0, false, 0), { type: "local", update: a, at: 1 });
+    state = reduce(reduce(state, { type: "sent", at: 2 }), {
+      type: "fail",
+      code: "DOC_TOO_LARGE",
+      at: 3,
+    });
+    expect(textOf(state.pending)).toBe("a very long paste");
+    expect(state).toMatchObject({ inFlight: null, tooLarge: true, failures: 1 });
+    expect(statusOf(state)).toBe("toolarge");
+    state = reduce(state, { type: "ok", version: 1, hadRemote: false, readOnly: false, at: 4 });
+    expect(state.tooLarge).toBe(false);
   });
 });
 

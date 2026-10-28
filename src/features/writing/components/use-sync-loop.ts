@@ -6,6 +6,7 @@ import { apiId, createHttpClient } from "@/lib/http-client";
 import type { RepositoryErrorCode } from "@/lib/repository-error";
 import { getBrowserStorage } from "@/lib/storage";
 import { syncResponseSchema, type SyncRequest } from "../schemas";
+import type { SessionGate } from "../lib/permissions";
 import { createSyncLoop, replayMirror, type SyncStatus } from "../lib/sync-loop";
 
 const client = createHttpClient();
@@ -46,11 +47,14 @@ export function useSyncLoop(
   setup: SyncSetup | null,
   ready: boolean,
   onError: (code: RepositoryErrorCode) => void,
+  onSession: (session: SessionGate) => void,
 ): { status: SyncStatus; readOnly: boolean } {
   const [reported, setReported] = useState<Reported | null>(null);
   const onErrorRef = useRef(onError);
+  const onSessionRef = useRef(onSession);
   useEffect(() => {
     onErrorRef.current = onError;
+    onSessionRef.current = onSession;
   });
   useEffect(() => {
     if (!setup || !ready) return;
@@ -62,6 +66,7 @@ export function useSyncLoop(
       storage,
       onChange: (state, status) => setReported({ setup, status, readOnly: state.readOnly }),
       onError: (code) => onErrorRef.current(code),
+      onSession: (session) => onSessionRef.current(session),
     });
     if (!setup.readOnly) replayMirror(setup.doc, setup.docId, setup.userId, storage);
     loop.start();
