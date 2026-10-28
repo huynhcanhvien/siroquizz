@@ -63,6 +63,8 @@ const DEFAULT_TIMEOUT_MS = 50_000;
 const MAX_INLINE_WAIT_MS = 3_000;
 const MIN_CALL_MS = 1_000;
 const TRANSIENT_STATUSES = [500, 502, 503, 529];
+// A dropped connection is retried after 300ms, then 600ms.
+const NETWORK_BACKOFF_MS = 300;
 
 const isTimeout = (error: unknown) =>
   error instanceof DOMException && error.name === "TimeoutError";
@@ -81,6 +83,12 @@ function abortableDelay(ms: number, signal: AbortSignal) {
     };
     signal.addEventListener("abort", aborted, { once: true });
   });
+}
+/** Waits before retrying a failed connection, never past the caller's deadline. */
+async function networkBackoff(attempt: number, deadline: number | undefined, signal: AbortSignal) {
+  const wait = NETWORK_BACKOFF_MS * 2 ** attempt;
+  if (wait + MIN_CALL_MS > remaining(deadline)) throw new ApiError(502, "AI_PROVIDER_ERROR");
+  await abortableDelay(wait, signal);
 }
 async function providerErrorCode(response: Response) {
   // Only the machine-readable code is read; provider bodies may echo the document.
@@ -168,6 +176,7 @@ export async function groqJson<T>(
       if (signal.aborted) throw error;
       if (isTimeout(error)) throw new ApiError(504, "AI_TIMEOUT");
       failure = new ApiError(502, "AI_PROVIDER_ERROR");
+      if (attempt + 1 < MAX_ATTEMPTS) await networkBackoff(attempt, deadline, signal);
       continue;
     }
     if (!response.ok) {

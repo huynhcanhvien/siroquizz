@@ -79,7 +79,7 @@
 - **Test:** `pnpm ai:eval` ghi `cached_tokens` trước/sau vào `specs/state.md`.
 
 ### A13. Cron kiểm duyệt vỡ khi một call timeout; lease và retry
-**Trạng thái:** todo
+**Trạng thái:** done — moderation dùng deadline 20s thay AbortSignal.timeout, bắt cả DOMException; try/catch từng bộ (log setId); moderatePending(db, limit, deadline) dừng khi còn < 10s, cron truyền startedAt + 50s; backoff mạng 300ms·2^n; STEP_LEASE_MS = 50s
 - **Vấn đề:** `moderation.ts:92-111` dùng `AbortSignal.timeout(20_000)`; `groqJson` ném `DOMException` thô (`groq.ts:168`) không phải `ApiError` → vòng `moderatePending` (L175) vỡ, cron trả 500; 20 bộ × 20s vượt 60s. `groqJson` retry lỗi mạng không backoff (`groq.ts:167-171`). Lease 65s (`jobs.ts:72`) khi function bị kill khiến client poll "busy" ~30 lần.
 - **Sửa:** timeout/abort → giữ `pending`; try/catch từng bộ; dừng khi còn < 10s ngân sách step; backoff `300ms × 2^n` (tối đa 3); `LEASE_MS = 50_000`.
 - **Test:** integration mock Groq timeout ở bộ 1 → bộ 2 vẫn được duyệt, route cron 200.
