@@ -110,8 +110,10 @@ export function SessionList({ classId }: { classId: string }) {
                     <StatusBadge status={session.status} />
                   </p>
                   <p className="text-sm text-muted">
-                    {format.dateTime(new Date(session.createdAt), { dateStyle: "medium" })} ·{" "}
-                    {t("docCount", { count: session.docCount })}
+                    {format.dateTime(new Date(session.createdAt), { dateStyle: "medium" })}
+                    {session.docCount === null
+                      ? null
+                      : ` · ${t("docCount", { count: session.docCount })}`}
                   </p>
                 </div>
                 <Button

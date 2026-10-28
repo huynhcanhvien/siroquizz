@@ -52,7 +52,8 @@ export const sessionSummarySchema = z.object({
   openedAt: isoDate.nullable(),
   closedAt: isoDate.nullable(),
   createdAt: isoDate,
-  docCount: z.number().int(),
+  /** Null when the viewer may not list the session's documents. */
+  docCount: z.number().int().nullable(),
   myDocId: z.uuid().nullable(),
 });
 export type SessionSummary = z.infer<typeof sessionSummarySchema>;

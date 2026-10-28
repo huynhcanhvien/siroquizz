@@ -109,7 +109,10 @@ describe("sessions", () => {
     expect(open.openedAt).not.toBeNull();
     const myDoc = await openOwnDoc(db, author, draft.id);
     const [listed] = await listSessions(db, author, classId);
-    expect(listed).toMatchObject({ status: "open", myDocId: myDoc.id, docCount: 1 });
+    // How many classmates write is hidden from students until documents open to peers.
+    expect(listed).toMatchObject({ status: "open", myDocId: myDoc.id, docCount: null });
+    expect((await listSessions(db, teacher, classId))[0].docCount).toBe(1);
+    expect((await getSession(db, author, draft.id)).docCount).toBeNull();
     const studentView = await getSession(db, author, draft.id);
     // Everyone in the class is listed so each person's text gets the right colour.
     expect(studentView.members.map((m) => m.userId).sort()).toEqual([teacher, author, peer].sort());
@@ -117,6 +120,8 @@ describe("sessions", () => {
     expect((await getSession(db, teacher, draft.id)).docs).toHaveLength(1);
     await updateSession(db, teacher, draft.id, { peerVisibility: "open" });
     expect((await getSession(db, peer, draft.id)).docs).toHaveLength(1);
+    expect((await getSession(db, peer, draft.id)).docCount).toBe(1);
+    expect((await listSessions(db, peer, classId))[0].docCount).toBe(1);
   });
 
   it("turns peer editing off whenever documents are hidden from peers", async () => {
