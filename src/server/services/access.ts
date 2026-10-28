@@ -147,6 +147,15 @@ export async function requireStudySet(
 }
 
 /** Whether the owner granted `userId` edit rights on the set (directly or as a class teacher). */
+/** The set is assigned or shared to one of the viewer's classes: classmates may propose edits. */
+export async function reachedThroughClass(db: Db, userId: string, setId: string) {
+  const [row] = await db
+    .select({ id: studySets.id })
+    .from(studySets)
+    .where(and(eq(studySets.id, setId), or(assignedTo(userId), sharedToClassOf(userId))))
+    .limit(1);
+  return Boolean(row);
+}
 export async function isCollaborator(db: Db, userId: string, setId: string) {
   const [row] = await db
     .select({ id: studySets.id })

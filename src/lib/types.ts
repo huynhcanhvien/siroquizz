@@ -71,6 +71,8 @@ export interface SetAccess {
   isOwner: boolean;
   canEdit: boolean;
   acceptsContributions: boolean;
+  /** Viewer only: the set reached them through a class, so they may propose edits. */
+  canPropose?: boolean;
   /** Owner only: change requests waiting for review. */
   pendingChangeRequests?: number;
   /** Viewer only: the class through which the set was shared with them. */

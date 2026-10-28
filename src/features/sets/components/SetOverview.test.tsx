@@ -122,6 +122,19 @@ describe("SetOverview access", () => {
     expect(screen.queryByRole("link", { name: "Đề xuất chỉnh sửa" })).not.toBeInTheDocument();
   });
 
+  it("hides the suggestion from a viewer who only has the link", () => {
+    renderWithProviders(
+      <SetOverview
+        set={{
+          ...set,
+          access: { isOwner: false, canEdit: false, acceptsContributions: true, canPropose: false },
+        }}
+      />,
+    );
+    expect(screen.queryByRole("link", { name: "Đề xuất chỉnh sửa" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sao chép vào thư viện" })).toBeInTheDocument();
+  });
+
   it("lets a collaborator edit but not share or delete", () => {
     renderWithProviders(
       <SetOverview

@@ -20,7 +20,7 @@ import {
   studySets,
   user,
 } from "../db/schema";
-import { requireStudySet } from "./access";
+import { reachedThroughClass, requireStudySet } from "./access";
 import { requireMembership } from "./classes";
 import { markEdited } from "./sharing";
 import { applyCardOps, requireOwnedSet, toCardDto, type Db } from "./sets";
@@ -63,6 +63,7 @@ export async function proposeChange(db: Database, userId: string, setId: string,
   const set = await requireStudySet(db, userId, setId);
   if (set.ownerId === userId) throw new ApiError(403, "FORBIDDEN");
   if (!set.acceptsContributions) throw new ApiError(403, "CONTRIBUTIONS_CLOSED");
+  if (!(await reachedThroughClass(db, userId, set.id))) throw new ApiError(403, "FORBIDDEN");
   if (data.classId) await requireMembership(db, userId, data.classId);
   await requireOwnCards(db, set.id, data.ops);
   return db.transaction(async (tx) => {

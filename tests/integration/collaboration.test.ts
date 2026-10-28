@@ -126,6 +126,13 @@ describe("change requests", () => {
     const base = { baseUpdatedAt: set.updatedAt, ops: { cards: [editCard(set.cards[0].id, "x")] } };
     await expect(proposeChange(db, an, set.id, base)).rejects.toMatchObject({ status: 403 });
     await expect(proposeChange(db, outsider, set.id, base)).rejects.toMatchObject({ status: 404 });
+    // A shared link lets an outsider study the set, not propose edits: proposals stay in class.
+    await setVisibility(db, an, set.id, { visibility: "unlisted" });
+    await expect(proposeChange(db, outsider, set.id, base)).rejects.toMatchObject({
+      status: 403,
+      code: "FORBIDDEN",
+    });
+    await setVisibility(db, an, set.id, { visibility: "private" });
     await expect(
       proposeChange(db, mai, set.id, {
         ...base,

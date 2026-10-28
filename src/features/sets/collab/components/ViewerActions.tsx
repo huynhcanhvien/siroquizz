@@ -53,7 +53,7 @@ export function ViewerActions({ set, access }: { set: StudySet; access: SetAcces
             {t("edit")}
           </Link>
         </Button>
-      ) : access.acceptsContributions ? (
+      ) : access.acceptsContributions && access.canPropose !== false ? (
         <Button asChild variant="secondary" size="sm">
           <Link href={`/sets/${set.id}/propose${classQuery}`}>
             <GitPullRequestArrow className="size-4" aria-hidden />

@@ -89,6 +89,7 @@ export const setAccessSchema = z.object({
   isOwner: z.boolean(),
   canEdit: z.boolean(),
   acceptsContributions: z.boolean(),
+  canPropose: z.boolean().optional(),
   pendingChangeRequests: z.number().int().min(0).optional(),
   sharedIn: sharedInSchema.nullable().optional(),
 });

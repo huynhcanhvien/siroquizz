@@ -11,6 +11,7 @@ import type { Database } from "../db/client";
 import { attributionOf, markEdited, sharingOf } from "./sharing";
 import {
   isCollaborator,
+  reachedThroughClass,
   lockStrength,
   requireEditableSet,
   requireStudySet,
@@ -99,6 +100,7 @@ export async function accessOf(db: Db, viewerId: string, set: SetRow): Promise<S
     isOwner: false,
     canEdit: await isCollaborator(db, viewerId, set.id),
     acceptsContributions,
+    canPropose: acceptsContributions && (await reachedThroughClass(db, viewerId, set.id)),
     sharedIn: await sharedInContext(db, viewerId, set.id),
   };
 }
