@@ -13,7 +13,7 @@ import { Flashcard } from "@/features/flashcards/components/Flashcard";
 import { useFolder } from "@/features/folders/hooks";
 import { StudySessionContext } from "@/features/study/session-context";
 import type { LangCode } from "@/lib/types";
-import { useDue, useReview, useSessionRecording } from "../hooks";
+import { useDue, useRefreshLearning, useReview, useSessionRecording } from "../hooks";
 import { useBackgroundSave } from "../use-background-save";
 import type { dueResponseSchema } from "../schemas";
 import { StarButton } from "./StarButton";
@@ -30,7 +30,8 @@ function ActiveReview({
     [index, setIndex] = useState(0),
     [flipped, setFlipped] = useState(false),
     review = useReview(),
-    persist = useBackgroundSave(),
+    // The queue, stats and progress refetch once, after the session's last save.
+    persist = useBackgroundSave({ onExit: useRefreshLearning() }),
     started = useRef(0),
     eventId = useRef(v7()),
     ratedIndex = useRef(-1),
@@ -105,19 +106,14 @@ export function ReviewQueue({ folderId }: { folderId?: string }) {
     tFolders = useTranslations("folders"),
     folder = useFolder(folderId ?? "", Boolean(folderId)),
     [starred, setStarred] = useState(false),
-    query = useDue(starred, folderId),
     [queue, setQueue] = useState<z.infer<typeof dueResponseSchema> | null>(null),
+    // Paused during a session, which works on its own snapshot of the queue.
+    query = useDue(starred, folderId, !queue),
     count = useSessionRecording(null, "review");
   if (queue)
     return (
       <StudySessionContext.Provider value={count}>
-        <ActiveReview
-          data={queue}
-          onFinish={() => {
-            setQueue(null);
-            void query.refetch();
-          }}
-        />
+        <ActiveReview data={queue} onFinish={() => setQueue(null)} />
       </StudySessionContext.Provider>
     );
   return (

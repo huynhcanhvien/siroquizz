@@ -58,3 +58,28 @@ test("Review moves to the next card before the rating save returns", async ({ pa
   await expect(page.getByRole("button", { name: "Hiện đáp án" })).toBeVisible();
   expect((await saved).status()).toBe(200);
 });
+
+test("Review does not reload the queue after every rating", async ({ page }) => {
+  await registerUser(page);
+  const dueRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/v1/reviews/due")) dueRequests.push(request.url());
+  });
+  await page.goto("/review");
+  await page.getByRole("button", { name: /^Ôn \d+ thẻ$/ }).click();
+  const loaded = dueRequests.length;
+  expect(loaded).toBeGreaterThan(0);
+  for (let rated = 1; rated <= 3; rated++) {
+    await page.getByRole("button", { name: "Hiện đáp án" }).click();
+    const saved = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/v1/reviews") && response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Tốt" }).click();
+    expect((await saved).status()).toBe(200);
+    await expect(
+      page.getByRole("progressbar", { name: new RegExp(`^Đã ôn ${rated}/`) }),
+    ).toBeVisible();
+  }
+  expect(dueRequests).toHaveLength(loaded);
+});

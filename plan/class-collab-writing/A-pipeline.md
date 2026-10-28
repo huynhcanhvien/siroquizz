@@ -107,7 +107,7 @@
 - `package.json` `dev`/`build` dùng `--webpack` do Turbopack panic PostCSS worker "trên máy này" (`specs/state.md`). → `build`/`dev` mặc định không flag; thêm `dev:webpack`/`build:webpack`; thử Turbopack ở Vercel preview; nếu lỗi thì `vercel.json` `buildCommand: "pnpm build:webpack"`. Không chặn merge; ghi kết quả vào `specs/state.md`.
 
 ### A19. Ôn tập tải lại hàng đợi sau mỗi lần chấm
-**Trạng thái:** todo
+**Trạng thái:** done — mỗi lần chấm/vuốt chỉ `markStudyDataStale` (invalidate `due`/`stats`/`progress` với `refetchType: "none"`); vuốt thẻ ghi nhớ không còn refetch `progress` (đã cập nhật lạc quan). `useDue(…, enabled)` tắt khi phiên ôn đang chạy; `useBackgroundSave({ onExit })` gọi `useRefreshLearning` một lần sau lần lưu cuối khi phiên Ôn tập/Học kết thúc hoặc rời trang. Test `src/features/srs/study-refresh.test.tsx` + E2E `learning.spec.ts` "Review does not reload the queue after every rating".
 - `ReviewQueue.tsx:108` giữ `useDue` mounted khi `ActiveReview` làm việc trên snapshot; `srs/hooks.ts:63-68` invalidate `["due"]`, `["stats"]`, `["progress"]` mỗi lần chấm → chạy lại `dueCards` (`learning.ts:206-237`) mỗi thẻ. `progress/hooks.ts:50` invalidate mỗi lần vuốt. → tắt query `due` khi phiên đang chạy (`enabled: !active`), invalidate 1 lần khi kết thúc phiên; vuốt chỉ cập nhật cache cục bộ.
 
 ## Đã kiểm tra và thấy ổn (không sửa)
