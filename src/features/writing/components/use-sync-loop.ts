@@ -70,6 +70,8 @@ export function useSyncLoop(
     });
     if (!setup.readOnly) replayMirror(setup.doc, setup.docId, setup.userId, storage);
     loop.start();
+    // A tab opened in the background never fires visibilitychange until it is shown.
+    if (document.visibilityState === "hidden") loop.setHidden(true);
     const onVisibility = () => loop.setHidden(document.visibilityState === "hidden");
     const onPageHide = () => loop.flushNow();
     document.addEventListener("visibilitychange", onVisibility);

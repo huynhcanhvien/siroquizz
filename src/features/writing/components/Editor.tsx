@@ -77,7 +77,6 @@ function useQuill(
       editor.root.addEventListener("paste", guardPaste, true);
       editor.on("text-change", attribute);
       editor.on("text-change", count);
-      editor.root.setAttribute("aria-label", label);
       editor.root.setAttribute("aria-multiline", "true");
       editor.root.setAttribute("role", "textbox");
       editor.enable(!setup.readOnly);
@@ -92,8 +91,12 @@ function useQuill(
         setQuill(null);
       };
     },
-    [setup, placeholder, label, onPasteRefused],
+    [setup, placeholder, onPasteRefused],
   );
+  // The label changes once the student's own document is known; that must not rebuild Quill.
+  useEffect(() => {
+    quill?.root.setAttribute("aria-label", label);
+  }, [quill, label]);
   return { quill, chars, ref };
 }
 

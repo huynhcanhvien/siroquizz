@@ -151,6 +151,8 @@ export function createSyncLoop(options: SyncLoopOptions) {
     mirror.schedule(state);
   };
   const tick = async () => {
+    // A manual tick (syncNow, tab shown) replaces the scheduled one instead of adding a request.
+    if (timer) clearTimeout(timer);
     timer = null;
     if (!running || busy) return;
     busy = true;

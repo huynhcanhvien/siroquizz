@@ -59,7 +59,10 @@ export function useDocState(docId: string | null) {
   });
 }
 
-/** Create (POST to a class), change (PATCH) or delete a session; refreshes every writing query. */
+/** Every writing query except a document's state, which the open editor owns. */
+export const isNotDocState = (query: { queryKey: readonly unknown[] }) =>
+  query.queryKey[1] !== "doc";
+/** Create (POST to a class), change (PATCH) or delete a session; refreshes the writing queries. */
 export function useSessionAction() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -76,7 +79,9 @@ export function useSessionAction() {
         method,
         ...(method === "DELETE" ? {} : { body: body ?? {} }),
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: writingKeys.all }),
+    // Document state is left alone: refetching it would rebuild an open editor mid-typing.
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: writingKeys.all, predicate: isNotDocState }),
   });
 }
 export const createSessionPath = (classId: string) => `/api/v1/classes/${apiId(classId)}/writing`;

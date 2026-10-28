@@ -202,6 +202,20 @@ describe("sync loop", () => {
     loop.stop();
   });
 
+  it("a manual sync replaces the scheduled poll instead of adding one", async () => {
+    const { remote, loop } = setup();
+    loop.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FAST_MS / 2);
+    loop.syncNow();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(remote.send).toHaveBeenCalledTimes(2);
+    // The poll scheduled before the manual sync would have fired here.
+    await vi.advanceTimersByTimeAsync(FAST_MS / 2 + 1);
+    expect(remote.send).toHaveBeenCalledTimes(2);
+    loop.stop();
+  });
+
   it("flushes everything unsaved, in flight included, when the document closes", async () => {
     const { remote, doc, loop, beacon } = setup();
     remote.send.mockImplementation(() => new Promise(() => undefined));
