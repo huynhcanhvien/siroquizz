@@ -14,7 +14,7 @@ Học sinh trong lớp chia sẻ bộ thẻ hoặc thư mục của mình vào l
 - `SetOverview.test.tsx` mock `useSession` = `{id:"viewer"}` với `ownerId:"owner"` và mong **không** có link sửa → giữ hành vi khi `set.access` vắng (local mode).
 
 ## B1. Schema (migration M1, chỉ thêm) — `src/server/db/schema.ts`, thêm sau `classSets` (L461-475)
-**Trạng thái:** todo
+**Trạng thái:** done — migration 0017_great_mikhail_rasputin; khối bảng thêm ở cuối schema.ts (theo README), cột `accepts_contributions` trong `study_sets`
 
 ```ts
 // study_sets: thêm cột

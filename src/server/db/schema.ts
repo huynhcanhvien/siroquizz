@@ -138,6 +138,8 @@ export const studySets = pgTable(
     // Accent-folded title, description, tags and cards for Explore (see community/lib/search).
     searchText: text("search_text").notNull().default(""),
     tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+    // The owner's switch for change requests from people who can see the set (WP3).
+    acceptsContributions: boolean("accepts_contributions").notNull().default(true),
     ...timestamps,
   },
   (t) => [
@@ -616,4 +618,81 @@ export const cardImages = pgTable(
     createdAt: time("created_at").notNull().defaultNow(),
   },
   (t) => [uniqueIndex("card_image_card_idx").on(t.cardId)],
+);
+
+// --- WP3: class library and set collaboration ---------------------------------------------
+export const libraryItemType = pgEnum("library_item_type", ["set", "folder"]);
+export const libraryAudience = pgEnum("library_audience", ["teachers", "class"]);
+/** A set or folder a member shared into a class; `item_id` is polymorphic (checked in services). */
+export const classLibraryItems = pgTable(
+  "class_library_items",
+  {
+    id: uuid("id").primaryKey(),
+    classId: uuid("class_id")
+      .notNull()
+      .references(() => classes.id, { onDelete: "cascade" }),
+    itemType: libraryItemType("item_type").notNull(),
+    itemId: uuid("item_id").notNull(),
+    sharedBy: text("shared_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    audience: libraryAudience("audience").notNull().default("class"),
+    sharedAt: time("shared_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("class_library_once_idx").on(t.classId, t.itemType, t.itemId),
+    index("class_library_item_idx").on(t.itemId),
+  ],
+);
+export const collabPrincipal = pgEnum("collab_principal", ["user", "class_teachers"]);
+/** Lasting edit rights the owner grants: one person, or every current/future teacher of a class. */
+export const setCollaborators = pgTable(
+  "set_collaborators",
+  {
+    setId: uuid("set_id")
+      .notNull()
+      .references(() => studySets.id, { onDelete: "cascade" }),
+    principalType: collabPrincipal("principal_type").notNull(),
+    principalId: text("principal_id").notNull(),
+    grantedBy: text("granted_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: time("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.setId, t.principalType, t.principalId] }),
+    index("set_collab_principal_idx").on(t.principalType, t.principalId),
+  ],
+);
+export const changeRequestStatus = pgEnum("change_request_status", [
+  "pending",
+  "approved",
+  "rejected",
+  "withdrawn",
+]);
+/** A proposed edit to someone else's set, applied only when the owner approves it. */
+export const setChangeRequests = pgTable(
+  "set_change_requests",
+  {
+    id: uuid("id").primaryKey(),
+    setId: uuid("set_id")
+      .notNull()
+      .references(() => studySets.id, { onDelete: "cascade" }),
+    classId: uuid("class_id").references(() => classes.id, { onDelete: "set null" }),
+    authorId: text("author_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    status: changeRequestStatus("status").notNull().default("pending"),
+    ops: jsonb("ops").notNull(),
+    baseUpdatedAt: time("base_updated_at").notNull(),
+    note: varchar("note", { length: 500 }).notNull().default(""),
+    reviewNote: varchar("review_note", { length: 500 }).notNull().default(""),
+    reviewedBy: text("reviewed_by").references(() => user.id, { onDelete: "set null" }),
+    reviewedAt: time("reviewed_at"),
+    createdAt: time("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("change_requests_set_status_idx").on(t.setId, t.status, t.createdAt),
+    index("change_requests_author_idx").on(t.authorId, t.createdAt),
+  ],
 );
