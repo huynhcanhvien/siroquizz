@@ -20,6 +20,7 @@ export default defineConfig({
         "src/server/services/moderation.ts",
         "src/server/services/reports.ts",
         "src/server/community-api.ts",
+        "src/server/collab-api.ts",
         "src/server/admin-api.ts",
         "src/server/services/explore.ts",
         "src/server/services/profiles.ts",

@@ -84,7 +84,10 @@ describe("access through the class library", () => {
 
   it("A3: granting a class's teachers covers every teacher but not students", async () => {
     const { klass, set } = await sharedSet();
-    await grantCollaborator(db, an, set.id, { principalType: "class_teachers", principalId: klass.id });
+    await grantCollaborator(db, an, set.id, {
+      principalType: "class_teachers",
+      principalId: klass.id,
+    });
     await updateSet(db, mai, set.id, edit(set, "By Mai"));
     await updateSet(db, binh, set.id, edit(set, "By Bình"));
     await expect(updateSet(db, bao, set.id, edit(set, "By Bảo"))).rejects.toMatchObject({
@@ -141,7 +144,10 @@ describe("access through the class library", () => {
     const { klass, set } = await sharedSet();
     const other = await makeSet(db, bao, "Bảo's words");
     await shareToClass(db, bao, klass.id, { itemType: "set", itemId: other.id });
-    await grantCollaborator(db, an, set.id, { principalType: "class_teachers", principalId: klass.id });
+    await grantCollaborator(db, an, set.id, {
+      principalType: "class_teachers",
+      principalId: klass.id,
+    });
     await leaveClass(db, bao, klass.id);
     expect((await listClassLibrary(db, mai, klass.id)).map((item) => item.itemId)).toEqual([
       set.id,
@@ -234,7 +240,11 @@ describe("class library", () => {
     const folder = await createFolder(db, an, { name: "Unit 2" });
     await addSetToFolder(db, an, folder.id, set.id);
     await shareToClass(db, an, klass.id, { itemType: "set", itemId: set.id });
-    await shareToClass(db, an, klass.id, { itemType: "set", itemId: secret.id, audience: "teachers" });
+    await shareToClass(db, an, klass.id, {
+      itemType: "set",
+      itemId: secret.id,
+      audience: "teachers",
+    });
     await shareToClass(db, an, klass.id, { itemType: "set", itemId: gone.id });
     await shareToClass(db, an, second.id, { itemType: "folder", itemId: folder.id });
     await removeSet(db, an, gone.id);
@@ -279,7 +289,10 @@ describe("class library", () => {
     expect((await listClassLibrary(db, mai, klass.id)).map((item) => item.itemId)).toEqual([
       set.id,
     ]);
-    await grantCollaborator(db, an, set.id, { principalType: "class_teachers", principalId: klass.id });
+    await grantCollaborator(db, an, set.id, {
+      principalType: "class_teachers",
+      principalId: klass.id,
+    });
     await deleteClass(db, mai, klass.id);
     const grants = await db.select().from(schema.setCollaborators);
     expect(grants).toEqual([]);

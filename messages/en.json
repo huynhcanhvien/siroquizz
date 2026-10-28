@@ -46,7 +46,11 @@
     "USERNAME_COOLDOWN": "You can change your username once every 30 days.",
     "CLASS_NOT_FOUND": "No class uses that code. Check it with your teacher.",
     "CLASS_LOCKED": "This class isn't accepting new members. Ask your teacher to reopen it.",
-    "CLASS_FULL": "This class already has 200 members."
+    "CLASS_FULL": "This class already has 200 members.",
+    "SET_CHANGED": "Someone else just edited this set. Reload it, then apply your changes again.",
+    "CHANGE_REQUEST_LIMIT": "This set already has 20 suggestions waiting for review.",
+    "NOT_CLASSMATE": "This person is not in any of your classes.",
+    "CONTRIBUTIONS_CLOSED": "The owner of this set is not accepting suggestions."
   },
   "validation": {
     "required": "This field is required.",

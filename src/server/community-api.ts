@@ -4,6 +4,7 @@ import { readJson } from "./api";
 import { ApiError } from "./api-error";
 import { enforceLimit } from "./rate-limit";
 import { adminApi } from "./admin-api";
+import { collabApi } from "./collab-api";
 import { createReport } from "./services/reports";
 import {
   copyPublicSet,
@@ -142,6 +143,9 @@ async function folderRoutes(db: Database, userId: string, request: Request, path
 export async function communityApi(db: Database, userId: string, request: Request, path: string[]) {
   const [domain, id, sub] = path,
     method = request.method;
+  // Before the folder/class routers, which 404 on sub-paths they do not know.
+  const collab = await collabApi(db, userId, request, path);
+  if (collab) return collab;
   const folders = await folderRoutes(db, userId, request, path);
   if (folders) return folders;
   const klass = await classRoutes(db, userId, request, path);

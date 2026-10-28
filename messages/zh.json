@@ -46,7 +46,11 @@
     "USERNAME_COOLDOWN": "用户名每 30 天只能修改一次。",
     "CLASS_NOT_FOUND": "没有使用该代码的班级，请向老师核对。",
     "CLASS_LOCKED": "该班级已关闭加入，请联系老师重新开放。",
-    "CLASS_FULL": "该班级已满 200 人。"
+    "CLASS_FULL": "该班级已满 200 人。",
+    "SET_CHANGED": "其他人刚刚修改了这个学习集。请重新加载，然后再次应用你的修改。",
+    "CHANGE_REQUEST_LIMIT": "这个学习集已有 20 条待审核的修改建议。",
+    "NOT_CLASSMATE": "此人与你不在同一个班级。",
+    "CONTRIBUTIONS_CLOSED": "学习集的所有者已关闭修改建议。"
   },
   "validation": {
     "required": "此项为必填项。",

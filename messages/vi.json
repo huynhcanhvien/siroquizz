@@ -46,7 +46,11 @@
     "USERNAME_COOLDOWN": "Bạn chỉ được đổi tên người dùng 30 ngày một lần.",
     "CLASS_NOT_FOUND": "Không có lớp nào dùng mã này. Hãy kiểm tra lại mã với giáo viên.",
     "CLASS_LOCKED": "Lớp đang khóa đăng ký. Hãy nhờ giáo viên mở lại.",
-    "CLASS_FULL": "Lớp đã đủ 200 thành viên."
+    "CLASS_FULL": "Lớp đã đủ 200 thành viên.",
+    "SET_CHANGED": "Bộ thẻ vừa được người khác sửa. Hãy tải lại rồi áp dụng lại thay đổi của bạn.",
+    "CHANGE_REQUEST_LIMIT": "Bộ thẻ này đã có 20 đề xuất chờ duyệt.",
+    "NOT_CLASSMATE": "Người này không học chung lớp nào với bạn.",
+    "CONTRIBUTIONS_CLOSED": "Chủ bộ thẻ đang tắt nhận đóng góp."
   },
   "validation": {
     "required": "Trường này là bắt buộc.",

@@ -36,7 +36,8 @@ export async function insertCast(db: Database, cast: Cast) {
 export async function makeClass(db: Database, cast: Cast, name = "Lớp 10A") {
   const { id } = await createClass(db, cast.mai, { name });
   const { joinCode } = (await getClass(db, cast.mai, id)) as { joinCode: string };
-  for (const member of [cast.an, cast.bao, cast.binh]) await joinClass(db, member, { code: joinCode });
+  for (const member of [cast.an, cast.bao, cast.binh])
+    await joinClass(db, member, { code: joinCode });
   await setMemberRole(db, cast.mai, id, cast.binh, { role: "teacher" });
   return { id, joinCode };
 }
@@ -49,6 +50,9 @@ export const makeSet = (db: Database, owner: string, title = "An's words", size 
       termLang: "en",
       definitionLang: "vi",
       source: "manual",
-      cards: Array.from({ length: size }, (_, i) => ({ term: `${title} ${i}`, definition: `d ${i}` })),
+      cards: Array.from({ length: size }, (_, i) => ({
+        term: `${title} ${i}`,
+        definition: `d ${i}`,
+      })),
     }),
   );

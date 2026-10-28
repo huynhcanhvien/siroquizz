@@ -15,19 +15,17 @@ export const cardOpSchema = z.discriminatedUnion("op", [
 ]);
 export type CardOp = z.input<typeof cardOpSchema>;
 
+/** The stored shape of a proposal's edits (read back from the database without re-checking). */
+export const baseOpsSchema = z.object({
+  title: setInputSchema.shape.title.optional(),
+  description: setInputSchema.shape.description.optional(),
+  cards: z.array(cardOpSchema).max(MAX_OPS_PER_REQUEST),
+});
 /** A proposal: optional new title/description plus card ops. Reordering is not proposable. */
-export const changeOpsSchema = z
-  .object({
-    title: setInputSchema.shape.title.optional(),
-    description: setInputSchema.shape.description.optional(),
-    cards: z.array(cardOpSchema).max(MAX_OPS_PER_REQUEST),
-  })
-  .refine(
-    (ops) => ops.cards.length > 0 || ops.title !== undefined || ops.description !== undefined,
-    {
-      error: "noChanges",
-    },
-  );
+export const changeOpsSchema = baseOpsSchema.refine(
+  (ops) => ops.cards.length > 0 || ops.title !== undefined || ops.description !== undefined,
+  { error: "noChanges" },
+);
 export type ChangeOps = z.input<typeof changeOpsSchema>;
 
 export const personSchema = z.object({ id: z.string(), name: z.string(), avatarColor: z.string() });

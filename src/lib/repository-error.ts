@@ -32,6 +32,10 @@ export const REPOSITORY_ERROR_CODES = [
   "CLASS_NOT_FOUND",
   "CLASS_LOCKED",
   "CLASS_FULL",
+  "SET_CHANGED",
+  "CHANGE_REQUEST_LIMIT",
+  "NOT_CLASSMATE",
+  "CONTRIBUTIONS_CLOSED",
   "UNKNOWN",
 ] as const;
 export type RepositoryErrorCode = (typeof REPOSITORY_ERROR_CODES)[number];

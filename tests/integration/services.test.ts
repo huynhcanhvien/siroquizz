@@ -248,7 +248,10 @@ describe("Postgres ownership and transactional updates", () => {
     }
     const byId = new Map(page.data.map((set) => [set.id, set]));
     expect(byId.get(first.id)).toMatchObject({ cardCount: 3, progress: { known: 1, learning: 1 } });
-    expect(byId.get(second.id)).toMatchObject({ cardCount: 2, progress: { known: 0, learning: 0 } });
+    expect(byId.get(second.id)).toMatchObject({
+      cardCount: 2,
+      progress: { known: 0, learning: 0 },
+    });
     expect(page.data.map((set) => set.id)).toContain(second.id);
     const empty = await listSets(db, a, new URLSearchParams({ q: "missing" }));
     expect(empty.data).toEqual([]);

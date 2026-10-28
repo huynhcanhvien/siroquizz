@@ -98,7 +98,7 @@ export const collaboratorOn = (userId: string) => sql`exists(select 1 from set_c
 - `folders.ts`: export `requireFolder` (L17). Mới `requireViewableFolder(db, userId, id): Promise<{ folder; isOwner: boolean }>`: owner, hoặc `exists class_library_items li join class_members cm … where li.item_type='folder' and li.item_id=id and (audience='class' or cm.role teaching)` và chủ thư mục không bị ban/xoá; 404 nếu không. `getFolder` (L139-154) dùng nó; viewer lọc `isNull(studySets.hiddenAt)`; trả `{ id, name, isOwner, sets }`; `FolderDetail.isOwner`, `folderDetailSchema` (`src/features/folders/schemas.ts:10-23`) thêm `isOwner: z.boolean()`. `folderStudySet` (L160) giữ, `ownerId` của bộ gộp = `folder.userId`. `deleteFolder` (L76-79) xoá item thư viện lớp của thư mục (tx). Rename/add/remove/`foldersOfSet` giữ owner-only. Route `/study/folder/[folderId]/*` tự nhận thư mục chia sẻ qua `getFolder`.
 
 ## B5. Service mới
-**Trạng thái:** in-progress
+**Trạng thái:** done — quyền chọn người cấp: chỉ cần chung ≥1 lớp (UI học sinh chỉ thấy giáo viên); `myClassLibrary` bỏ mục do chính mình chia sẻ; `proposeChange` khoá đếm bằng advisory lock thay vì khoá hàng bộ thẻ
 
 `src/server/services/class-library.ts`
 ```ts
@@ -134,7 +134,7 @@ export async function myChangeRequests(db, userId, query): Promise<PendingReview
 Shapes: `ChangeRequestSummary { id; setId; classId; status; note; reviewNote; opCount; titleChanged; author{id,name,avatarColor}; createdAt; reviewedAt; stale }`; `ChangeRequestDetail = Summary & { title?; description?; cards: ({op:"add"; card} | {op:"edit"; cardId; before: Card|null; card} | {op:"delete"; cardId; before: Card|null})[] }`; `PendingReviewItem { id; setId; setTitle; author; opCount; createdAt; className: string|null }`. Approve: edit/delete thẻ không còn → bỏ qua; add → nối cuối; < 2 hoặc > 500 thẻ → 400 và rollback.
 
 ## B6. Routes — `src/server/collab-api.ts` mới; thêm ở `community-api.ts:145` (trước `folderRoutes`): `const collab = await collabApi(db, userId, request, path); if (collab) return collab;`
-**Trạng thái:** todo
+**Trạng thái:** done — `collabApi` gọi đầu `communityApi`; approve/withdraw nhận body rỗng
 
 | Method | Path | Ai | Service |
 |---|---|---|---|
