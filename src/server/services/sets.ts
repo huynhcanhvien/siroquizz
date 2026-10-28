@@ -7,7 +7,7 @@ import type { StudySet } from "@/lib/types";
 import { ApiError } from "../api-error";
 import type { Database } from "../db/client";
 import { attributionOf, markEdited, sharingOf } from "./sharing";
-import { lockStrength, requireStudySet, type SetLock } from "./access";
+import { lockStrength, requireStudySet, type SetLock, type SetRow } from "./access";
 import { clawbackSetCredits } from "../ai/credits";
 import { buildSearchText } from "@/features/community/lib/search";
 import {
@@ -57,17 +57,20 @@ export const toCardDto = ({ card, image }: { card: CardRow; image: ImageRow | nu
   ...(card.example ? { example: card.example } : {}),
   ...(image ? { imageUrl: `/api/v1/images/${image.id}`, imageAlt: image.alt } : {}),
 });
+/** The set's cards in order, each with its image if any. */
+const deckOf = (db: Db, setId: string) =>
+  db
+    .select({ card: cards, image: cardImages })
+    .from(cards)
+    .leftJoin(cardImages, eq(cardImages.cardId, cards.id))
+    .where(eq(cards.setId, setId))
+    .orderBy(asc(cards.position))
+    .limit(500);
 /** A set for studying: the viewer's own, or one assigned to their class (read-only for them). */
 export async function getSet(db: Db, viewerId: string, id: string): Promise<StudySet> {
   const set = await requireStudySet(db, viewerId, id);
   const isOwner = set.ownerId === viewerId;
-  const rows = await db
-    .select({ card: cards, image: cardImages })
-    .from(cards)
-    .leftJoin(cardImages, eq(cardImages.cardId, cards.id))
-    .where(eq(cards.setId, id))
-    .orderBy(asc(cards.position))
-    .limit(500);
+  const rows = await deckOf(db, set.id);
   return {
     ...publicFields(set),
     // Sharing settings belong to the owner; a student studying an assigned set does not see them.
@@ -83,7 +86,12 @@ export async function getSet(db: Db, viewerId: string, id: string): Promise<Stud
     updatedAt: set.updatedAt.toISOString(),
   };
 }
-export async function createSetInTransaction(db: Transaction, ownerId: string, input: unknown) {
+export async function createSetInTransaction(
+  db: Transaction,
+  ownerId: string,
+  input: unknown,
+  { copiedFromId = null }: { copiedFromId?: string | null } = {},
+) {
   const data = setInputSchema.parse(input);
   // Serializes count+insert across concurrent requests by this owner.
   await db.select({ id: user.id }).from(user).where(eq(user.id, ownerId)).for("update");
@@ -99,6 +107,7 @@ export async function createSetInTransaction(db: Transaction, ownerId: string, i
     ...metadata(data),
     cardCount: data.cards.length,
     searchText: buildSearchText({ ...data, tags: [] }),
+    copiedFromId,
   });
   await db
     .insert(cards)
@@ -113,54 +122,78 @@ const metadata = ({ title, description, termLang, definitionLang, source }: Vali
   source,
 });
 
+type DeckCard = Omit<ValidSetInput["cards"][number], "phonetic" | "example"> & {
+  phonetic?: string;
+  example?: string;
+};
+/**
+ * Replaces a set's cards with `deck`, in order. IDs of the set's own cards are kept (so progress
+ * survives); unknown or foreign IDs get fresh ones; missing cards are deleted. Returns the count.
+ */
+export async function replaceDeck(
+  tx: Transaction,
+  setId: string,
+  deck: readonly DeckCard[],
+): Promise<number> {
+  const existing = await tx
+    .select({ id: cards.id })
+    .from(cards)
+    .where(eq(cards.setId, setId))
+    .limit(500);
+  const existingIds = new Set(existing.map((c) => c.id));
+  const used = new Set<string>();
+  const now = new Date();
+  const rows = deck.map((card, position) => {
+    const cardId = card.id && existingIds.has(card.id) ? card.id : v7();
+    if (used.has(cardId)) throw new ApiError(400, "VALIDATION_ERROR");
+    used.add(cardId);
+    return { ...card, id: cardId, setId, position, updatedAt: now };
+  });
+  const removed = existing.filter((c) => !used.has(c.id)).map((c) => c.id);
+  if (removed.length) await tx.delete(cards).where(inArray(cards.id, removed));
+  // One statement for the whole deck instead of a round trip per card. Reused IDs come only
+  // from this set's own cards (checked above); position uniqueness is deferred to commit.
+  await tx
+    .insert(cards)
+    .values(
+      rows.map((row) => ({ ...row, phonetic: row.phonetic ?? null, example: row.example ?? null })),
+    )
+    .onConflictDoUpdate({
+      target: cards.id,
+      set: {
+        term: sql`excluded.term`,
+        definition: sql`excluded.definition`,
+        phonetic: sql`excluded.phonetic`,
+        example: sql`excluded.example`,
+        position: sql`excluded.position`,
+        updatedAt: sql`excluded.updated_at`,
+      },
+      setWhere: eq(cards.setId, setId),
+    });
+  return rows.length;
+}
+/** Writes the set's own fields after its deck changed; the caller already checked access. */
+export async function writeSetFields(
+  tx: Transaction,
+  set: SetRow,
+  data: ValidSetInput,
+  cardCount: number,
+) {
+  await tx
+    .update(studySets)
+    .set({
+      ...metadata(data),
+      cardCount,
+      searchText: buildSearchText({ ...data, tags: set.tags }),
+      updatedAt: new Date(),
+    })
+    .where(eq(studySets.id, set.id));
+}
 export async function updateSet(db: Database, ownerId: string, id: string, input: unknown) {
   const data = setInputSchema.parse(input);
-  const updated = await db.transaction(async (tx) => {
+  await db.transaction(async (tx) => {
     const current = await requireOwnedSet(tx, ownerId, id, "update");
-    const existing = await tx.select().from(cards).where(eq(cards.setId, id)).limit(500);
-    const existingIds = new Set(existing.map((c) => c.id));
-    const used = new Set<string>();
-    const rows = data.cards.map((card, position) => {
-      const cardId = card.id && existingIds.has(card.id) ? card.id : v7();
-      if (used.has(cardId)) throw new ApiError(400, "VALIDATION_ERROR");
-      used.add(cardId);
-      return { ...card, id: cardId, setId: id, position, updatedAt: new Date() };
-    });
-    const removed = existing.filter((c) => !used.has(c.id)).map((c) => c.id);
-    if (removed.length) await tx.delete(cards).where(inArray(cards.id, removed));
-    // One statement for the whole deck instead of a round trip per card. Reused IDs come only
-    // from this set's own cards (checked above); position uniqueness is deferred to commit.
-    await tx
-      .insert(cards)
-      .values(
-        rows.map((row) => ({
-          ...row,
-          phonetic: row.phonetic ?? null,
-          example: row.example ?? null,
-        })),
-      )
-      .onConflictDoUpdate({
-        target: cards.id,
-        set: {
-          term: sql`excluded.term`,
-          definition: sql`excluded.definition`,
-          phonetic: sql`excluded.phonetic`,
-          example: sql`excluded.example`,
-          position: sql`excluded.position`,
-          updatedAt: sql`excluded.updated_at`,
-        },
-        setWhere: eq(cards.setId, id),
-      });
-    await tx
-      .update(studySets)
-      .set({
-        ...metadata(data),
-        cardCount: rows.length,
-        searchText: buildSearchText({ ...data, tags: current.tags }),
-        updatedAt: new Date(),
-      })
-      .where(owned(ownerId, id));
-    return getSet(tx, ownerId, id);
+    await writeSetFields(tx, current, data, await replaceDeck(tx, id, data.cards));
   });
   // New content needs a new moderation verdict (checked now if the set is public).
   await markEdited(db, id);
@@ -194,45 +227,59 @@ const cursorSchema = z.object({
   value: z.union([z.string().max(120), z.number().int().min(2).max(500)]),
   id: z.uuid(),
 });
+type PageParams = z.infer<typeof pageSchema>;
+/** Keyset condition continuing after the cursor's row in the requested order. */
+function afterCursor(params: PageParams, encoded: string) {
+  let cursor: z.infer<typeof cursorSchema>;
+  try {
+    cursor = cursorSchema.parse(JSON.parse(Buffer.from(encoded, "base64url").toString()));
+  } catch {
+    throw new ApiError(400, "VALIDATION_ERROR");
+  }
+  if (cursor.sort !== params.sort) throw new ApiError(400, "VALIDATION_ERROR");
+  if (params.sort === "recent") {
+    const value = new Date(z.iso.datetime().parse(cursor.value));
+    return or(
+      lt(studySets.updatedAt, value),
+      and(eq(studySets.updatedAt, value), lt(studySets.id, cursor.id)),
+    )!;
+  }
+  if (params.sort === "name") {
+    const value = z.string().parse(cursor.value);
+    return or(
+      gt(studySets.title, value),
+      and(eq(studySets.title, value), lt(studySets.id, cursor.id)),
+    )!;
+  }
+  const value = z.number().int().parse(cursor.value);
+  return or(
+    lt(studySets.cardCount, value),
+    and(eq(studySets.cardCount, value), lt(studySets.id, cursor.id)),
+  )!;
+}
+function encodeCursor(sort: PageParams["sort"], last: SetRow) {
+  const value =
+    sort === "name" ? last.title : sort === "cards" ? last.cardCount : last.updatedAt.toISOString();
+  return Buffer.from(JSON.stringify({ sort, value, id: last.id })).toString("base64url");
+}
+const listedSet = (set: SetRow, progress: StudySet["progress"]): StudySet => ({
+  ...publicFields(set),
+  sharing: sharingOf(set),
+  termLang: set.termLang as StudySet["termLang"],
+  definitionLang: set.definitionLang as StudySet["definitionLang"],
+  // Library cards show only counts; the deck loads with the set itself.
+  cards: [],
+  cardCount: set.cardCount,
+  progress: progress ?? { known: 0, learning: 0 },
+  createdAt: set.createdAt.toISOString(),
+  updatedAt: set.updatedAt.toISOString(),
+});
 export async function listSets(db: Database, ownerId: string, query: URLSearchParams) {
   const params = pageSchema.parse(Object.fromEntries(query));
   const filters = [eq(studySets.ownerId, ownerId), isNull(studySets.deletedAt)];
   if (params.source) filters.push(eq(studySets.source, params.source));
   if (params.q) filters.push(ilike(studySets.title, `%${params.q.replace(/[\\%_]/g, "\\$&")}%`));
-  if (params.cursor) {
-    let cursor: z.infer<typeof cursorSchema>;
-    try {
-      cursor = cursorSchema.parse(JSON.parse(Buffer.from(params.cursor, "base64url").toString()));
-    } catch {
-      throw new ApiError(400, "VALIDATION_ERROR");
-    }
-    if (cursor.sort !== params.sort) throw new ApiError(400, "VALIDATION_ERROR");
-    if (params.sort === "recent") {
-      const value = z.iso.datetime().parse(cursor.value);
-      filters.push(
-        or(
-          lt(studySets.updatedAt, new Date(value)),
-          and(eq(studySets.updatedAt, new Date(value)), lt(studySets.id, cursor.id)),
-        )!,
-      );
-    } else if (params.sort === "name") {
-      const value = z.string().parse(cursor.value);
-      filters.push(
-        or(
-          gt(studySets.title, value),
-          and(eq(studySets.title, value), lt(studySets.id, cursor.id)),
-        )!,
-      );
-    } else {
-      const value = z.number().int().parse(cursor.value);
-      filters.push(
-        or(
-          lt(studySets.cardCount, value),
-          and(eq(studySets.cardCount, value), lt(studySets.id, cursor.id)),
-        )!,
-      );
-    }
-  }
+  if (params.cursor) filters.push(afterCursor(params, params.cursor));
   const ordering =
     params.sort === "name"
       ? asc(studySets.title)
@@ -247,40 +294,16 @@ export async function listSets(db: Database, ownerId: string, query: URLSearchPa
     .limit(params.limit + 1);
   const page = rows.slice(0, params.limit);
   const last = page.at(-1);
-  const nextCursor =
-    rows.length > params.limit && last
-      ? Buffer.from(
-          JSON.stringify({
-            sort: params.sort,
-            value:
-              params.sort === "name"
-                ? last.title
-                : params.sort === "cards"
-                  ? last.cardCount
-                  : last.updatedAt.toISOString(),
-            id: last.id,
-          }),
-        ).toString("base64url")
-      : null;
   const progress = await progressCounts(
     db,
     ownerId,
     page.map((set) => set.id),
   );
   return {
-    data: page.map((set): StudySet => ({
-      ...publicFields(set),
-      sharing: sharingOf(set),
-      termLang: set.termLang as StudySet["termLang"],
-      definitionLang: set.definitionLang as StudySet["definitionLang"],
-      // Library cards show only counts; the deck loads with the set itself.
-      cards: [],
-      cardCount: set.cardCount,
-      progress: progress.get(set.id) ?? { known: 0, learning: 0 },
-      createdAt: set.createdAt.toISOString(),
-      updatedAt: set.updatedAt.toISOString(),
-    })),
-    meta: { nextCursor },
+    data: page.map((set) => listedSet(set, progress.get(set.id))),
+    meta: {
+      nextCursor: rows.length > params.limit && last ? encodeCursor(params.sort, last) : null,
+    },
   };
 }
 
@@ -305,12 +328,21 @@ async function progressCounts(db: Db, userId: string, setIds: string[]) {
  */
 export async function duplicateSet(db: Database, viewerId: string, id: string, title: string) {
   const original = await requireStudySet(db, viewerId, id);
-  const source = await getSet(db, viewerId, id);
+  const deck = await deckOf(db, original.id);
   const copiedFromId = original.ownerId === viewerId ? original.copiedFromId : original.id;
-  return db.transaction(async (tx) => {
-    const created = await createSetInTransaction(tx, viewerId, { ...source, title });
-    if (!copiedFromId) return created;
-    await tx.update(studySets).set({ copiedFromId }).where(eq(studySets.id, created.id));
-    return getSet(tx, viewerId, created.id);
-  });
+  return db.transaction((tx) =>
+    createSetInTransaction(
+      tx,
+      viewerId,
+      {
+        title,
+        description: original.description,
+        termLang: original.termLang,
+        definitionLang: original.definitionLang,
+        source: original.source,
+        cards: deck.map(toCardDto),
+      },
+      { copiedFromId },
+    ),
+  );
 }

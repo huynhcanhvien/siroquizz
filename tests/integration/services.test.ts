@@ -7,9 +7,11 @@ import { v7 } from "uuid";
 import * as schema from "@/server/db/schema";
 import {
   createSetInTransaction,
+  duplicateSet,
   getSet,
   listSets,
   removeSet,
+  replaceDeck,
   updateSet,
 } from "@/server/services/sets";
 import {
@@ -123,6 +125,43 @@ describe("Postgres ownership and transactional updates", () => {
       updateSet(db, a, set.id, { ...input, title: "changed", cards: [set.cards[0], set.cards[0]] }),
     ).rejects.toMatchObject({ status: 400 });
     expect((await getSet(db, a, set.id)).title).toBe("HSK");
+  });
+  it("replaces a deck: keeps own IDs, mints new ones for unknown IDs, keeps positions dense", async () => {
+    const set = await create();
+    const [first, second] = set.cards;
+    const count = await db.transaction((tx) =>
+      replaceDeck(tx, set.id, [
+        { id: second.id, term: "two", definition: "hai" },
+        { id: "not-a-card-of-this-set", term: "new", definition: "mới" },
+        { term: "three", definition: "ba", example: "Ba con mèo." },
+      ]),
+    );
+    expect(count).toBe(3);
+    const rows = await db
+      .select()
+      .from(schema.cards)
+      .where(eq(schema.cards.setId, set.id))
+      .orderBy(schema.cards.position);
+    expect(rows.map((row) => row.position)).toEqual([0, 1, 2]);
+    expect(rows[0]).toMatchObject({ id: second.id, term: "two" });
+    expect(rows[1].id).not.toBe("not-a-card-of-this-set");
+    expect(rows.map((row) => row.id)).not.toContain(first.id);
+    expect(rows[2]).toMatchObject({ term: "three", example: "Ba con mèo.", phonetic: null });
+    await expect(
+      db.transaction((tx) =>
+        replaceDeck(tx, set.id, [
+          { id: second.id, term: "x", definition: "x" },
+          { id: second.id, term: "y", definition: "y" },
+        ]),
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+  it("duplicates a set with its cards and returns the copy", async () => {
+    const set = await create();
+    const copy = await duplicateSet(db, a, set.id, "Copy");
+    expect(copy).toMatchObject({ title: "Copy", ownerId: a, cardCount: 2 });
+    expect(copy.cards.map((card) => card.term)).toEqual(set.cards.map((card) => card.term));
+    expect(copy.cards.map((card) => card.id)).not.toEqual(set.cards.map((card) => card.id));
   });
   it("does not reuse client-supplied foreign IDs on create or edit", async () => {
     const first = await create(),

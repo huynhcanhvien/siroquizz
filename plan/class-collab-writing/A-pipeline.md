@@ -35,7 +35,7 @@
 - **Test:** integration: 500 thẻ ≤ 10 query (đếm qua drizzle `logger` tuỳ biến trong test); snapshot FSRS giống hàm cũ cho cùng input/`now`; `NEW_CARD_LIMIT` đúng khi batch vượt hạn mức.
 
 ### A6. `updateSet`/`duplicateSet` đọc thừa; tách helper cho phần B
-**Trạng thái:** todo
+**Trạng thái:** done — thêm `deckOf`; `createSetInTransaction` nhận `{ copiedFromId }` để `duplicateSet` đọc bộ nguồn 1 lần; tách `listSets` (afterCursor/encodeCursor/listedSet) cho hàm < 50 dòng
 - **Vấn đề:** `sets.ts:157` gán `getSet(tx)` vào `updated` không dùng rồi L161 `getSet(db)` lần nữa; `duplicateSet` (L303-313) đọc bộ 4 lần. Phần B cần dùng lại logic thay thẻ.
 - **Sửa:** tách `replaceDeck(tx, setId, cards): Promise<number>` (logic L114-147 nguyên vẹn: giữ id có trong bộ, `v7()` cho id lạ, chặn id trùng, xoá thẻ thiếu, 1 upsert với `setWhere`) và `writeSetFields(tx, set, data, cardCount)` (L148-156, `where eq(studySets.id, set.id)`). `updateSet` = lock + `replaceDeck` + `writeSetFields`, `getSet` 1 lần sau tx. `duplicateSet` đọc 1 lần (`getSet` đã kiểm quyền). Tách `toCardDto({card, image})` dùng chung `getSet`/`listSets`.
 - **Test:** test hiện có xanh; thêm unit cho `replaceDeck` qua integration (id lạ → id mới, vị trí liên tục).
