@@ -12,12 +12,13 @@ import { moderatePending } from "@/server/services/moderation";
 
 const verdict = vi.hoisted(() => vi.fn());
 const handle = vi.hoisted(() => ({ db: null as unknown }));
+const cap = vi.hoisted(() => ({ tokens: 350_000 }));
 vi.mock("@/server/ai/groq", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/ai/groq")>()),
   groqJson: verdict,
 }));
 vi.mock("@/server/env", () => ({
-  getServerEnv: () => ({ AI_GLOBAL_DAILY_TOKENS: 350_000, CRON_SECRET: "cron-secret" }),
+  getServerEnv: () => ({ AI_GLOBAL_DAILY_TOKENS: cap.tokens, CRON_SECRET: "cron-secret" }),
 }));
 vi.mock("@/server/db/client", () => ({ getDatabase: () => handle.db }));
 const url =
@@ -85,6 +86,7 @@ beforeEach(async () => {
     createdAt: new Date(Date.now() - 2 * 86400_000),
   });
   verdict.mockReset().mockResolvedValue(safe);
+  cap.tokens = 350_000;
 });
 afterAll(() => connection.end());
 
@@ -132,4 +134,12 @@ it("never lets a check run past the cron deadline", async () => {
   const deadline = Date.now() + 15_000;
   await moderatePending(db, 20, deadline);
   expect(verdict.mock.calls[0][5].deadline).toBeLessThanOrEqual(deadline - 3_000);
+});
+
+it("leaves sets pending without calling the model when the daily token cap is spent", async () => {
+  const ids = await pendingSets(1);
+  cap.tokens = 100;
+  expect(await moderatePending(db)).toEqual(["pending"]);
+  expect(verdict).not.toHaveBeenCalled();
+  expect(await statuses(ids)).toEqual(["pending"]);
 });

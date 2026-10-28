@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { AUX_BATCH_SIZE, auxMaxTokens, batchCards, mapBatchOutput } from "./aux-batches";
+import {
+  AUX_BATCH_SIZE,
+  auxMaxTokens,
+  batchCards,
+  estimateAuxTokens,
+  mapBatchOutput,
+} from "./aux-batches";
 
 const cards = (n: number) =>
   Array.from({ length: n }, (_, i) => ({ id: `id-${i}`, term: `t${i}`, definition: "" }));
@@ -22,6 +28,15 @@ describe("auxMaxTokens", () => {
     expect(auxMaxTokens("phonetics", 1)).toBeLessThan(auxMaxTokens("phonetics", 40));
     expect(auxMaxTokens("examples", 40)).toBeGreaterThan(auxMaxTokens("phonetics", 40));
     expect(auxMaxTokens("examples", 1000)).toBe(4096);
+  });
+});
+
+describe("estimateAuxTokens", () => {
+  it("covers every batch's prompt and output budget", () => {
+    const one = estimateAuxTokens("examples", cards(40));
+    expect(one).toBeGreaterThan(auxMaxTokens("examples", 40));
+    expect(estimateAuxTokens("examples", cards(80))).toBeGreaterThanOrEqual(2 * one - 50);
+    expect(estimateAuxTokens("phonetics", cards(40))).toBeLessThan(one);
   });
 });
 

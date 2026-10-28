@@ -12,6 +12,7 @@ import { ApiError } from "@/server/api-error";
 import { RateLimitError } from "@/server/ai/groq";
 
 const provider = vi.hoisted(() => vi.fn());
+const cap = vi.hoisted(() => ({ tokens: 10_000_000 }));
 vi.mock("@/server/ai/groq", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/ai/groq")>()),
   groqJson: provider,
@@ -20,6 +21,7 @@ vi.mock("@/server/env", () => ({
   getServerEnv: () => ({
     AI_ENABLED: "true",
     GROQ_TEXT_MODEL: "openai/gpt-oss-120b",
+    AI_GLOBAL_DAILY_TOKENS: cap.tokens,
     BETTER_AUTH_SECRET: "s".repeat(40),
   }),
 }));
@@ -65,6 +67,7 @@ beforeEach(async () => {
     .insert(schema.user)
     .values({ id: owner, name: "Owner", email: "aux-owner@example.com", emailVerified: true });
   provider.mockReset().mockImplementation(answer);
+  cap.tokens = 10_000_000;
 });
 afterEach(() => vi.restoreAllMocks());
 afterAll(() => connection.end());
@@ -200,4 +203,27 @@ it("does not charge a follow-up that presents the continuation, and passes on th
     signal(),
   );
   expect(await auxCount()).toBe(3);
+});
+
+it("checks the app-wide daily token cap before calling the provider", async () => {
+  const set = await setWith(10);
+  // Today's spending already sits right at the shared key's cap.
+  cap.tokens = 5_000;
+  await db.insert(schema.aiAuxUsage).values({
+    userId: owner,
+    day: new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10),
+    count: 0,
+    tokens: 4_900,
+  });
+  for (const [task, input] of [
+    ["examples", { setId: set.id }],
+    ["phonetics", { setId: set.id }],
+    ["grade", { expected: "cat", answer: "a cat", lang: "en" }],
+  ] as const)
+    await expect(auxiliaryTask(db, owner, task, input, signal())).rejects.toMatchObject({
+      status: 429,
+      code: "AI_GLOBAL_LIMIT",
+    });
+  expect(provider).not.toHaveBeenCalled();
+  expect(await auxCount()).toBe(0);
 });
