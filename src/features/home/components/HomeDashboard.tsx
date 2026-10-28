@@ -1,6 +1,7 @@
 "use client";
 
 import { AssignedToMe } from "@/features/classes/components/AssignedToMe";
+import { PendingReviews } from "@/features/sets/collab/components/PendingReviews";
 import { ArrowRight, ClipboardPaste, FolderOpen, Layers, PencilLine, Sparkles, WandSparkles } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -144,7 +145,12 @@ export function HomeDashboard({ user }: { user: User }) {
 
       <QuickCreate />
 
-      {process.env.NEXT_PUBLIC_DATA_SOURCE === "http" ? <AssignedToMe /> : null}
+      {process.env.NEXT_PUBLIC_DATA_SOURCE === "http" ? (
+        <>
+          <AssignedToMe />
+          <PendingReviews />
+        </>
+      ) : null}
 
       {continueSets.length > 0 ? (
         <section aria-labelledby="continue-title">

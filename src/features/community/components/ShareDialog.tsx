@@ -15,6 +15,7 @@ import { cn } from "@/lib/cn";
 import { createHttpClient } from "@/lib/http-client";
 import type { SetSharing, SetVisibility, StudySet } from "@/lib/types";
 import { useErrorMessage } from "@/lib/use-messages";
+import { ShareToClassPanel } from "@/features/class-library/components/ShareToClassPanel";
 
 const client = createHttpClient();
 const VISIBILITY_ICONS = { private: Lock, unlisted: Link2, public: Globe } as const;
@@ -138,6 +139,7 @@ export function ShareDialog({ set }: { set: StudySet }) {
   const queryClient = useQueryClient();
   const linkId = useId();
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<"link" | "classes">("link");
   const sharing: SetSharing = set.sharing ?? {
     visibility: "private",
     tags: [],
@@ -195,6 +197,19 @@ export function ShareDialog({ set }: { set: StudySet }) {
       </Button>
       <Dialog open={open} onOpenChange={setOpen} title={t("shareTitle")}>
         <div className="flex flex-col gap-5">
+          <SegmentedControl
+            label={t("shareTitle")}
+            hideLabel
+            value={tab}
+            onChange={setTab}
+            options={(["link", "classes"] as const).map((value) => ({
+              value,
+              label: t(`shareTabs.${value}`),
+            }))}
+          />
+          {tab === "classes" ? <ShareToClassPanel itemType="set" itemId={set.id} /> : null}
+        </div>
+        <div className={cn("mt-5 flex flex-col gap-5", tab !== "link" && "hidden")}>
           <SegmentedControl
             label={t("visibility")}
             value={sharing.visibility}

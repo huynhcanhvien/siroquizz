@@ -19,6 +19,7 @@ import { useClass, useClassAction } from "../hooks";
 import { isTeaching, type ClassDetail } from "../schemas";
 import { ClassProgress } from "./ClassProgress";
 import { DeadlineCalendar } from "./DeadlineCalendar";
+import { ClassLibrarySection } from "@/features/class-library/components/ClassLibrarySection";
 
 function Section({
   id,
@@ -348,6 +349,7 @@ export function ClassView({ id }: { id: string }) {
         {teaching ? <AssignForm klass={klass} /> : null}
         <AssignedList klass={klass} />
       </Section>
+      <ClassLibrarySection classId={klass.id} />
       {teaching ? (
         <>
           <Section id="class-progress" title={t("progressTitle")}>

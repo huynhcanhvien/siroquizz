@@ -68,7 +68,8 @@
     "maxCards": "A set can have at most 500 cards.",
     "cardTermRequired": "Enter a term.",
     "cardDefinitionRequired": "Enter a definition.",
-    "fieldTooLong": "This is too long."
+    "fieldTooLong": "This is too long.",
+    "noChanges": "You have not changed anything in this set."
   },
   "nav": {
     "home": "Home",
@@ -252,7 +253,11 @@
     "noResults": "No sets match “{query}”.",
     "emptyTitle": "Your library is empty",
     "emptyBody": "Sets you create will show up here.",
-    "updated": "Updated {date}"
+    "updated": "Updated {date}",
+    "tabMine": "Mine",
+    "tabFromClass": "From classes",
+    "fromClassEmpty": "No sets have been shared in your classes yet.",
+    "fromClass": "Class {class}"
   },
   "editor": {
     "createTitle": "Create a new set",
@@ -957,7 +962,15 @@
       "saved": "Profile saved.",
       "view": "View profile"
     },
-    "studyNow": "Study now"
+    "studyNow": "Study now",
+    "shareTabs": {
+      "link": "Link",
+      "classes": "Classes"
+    },
+    "classShare": {
+      "hint": "Teachers always see what you share. Choose \"Whole class\" so classmates can see it too.",
+      "none": "You have not joined any class yet."
+    }
   },
   "folders": {
     "title": "Folders",
@@ -997,7 +1010,11 @@
     "practiceBadge": "Practice: progress isn't saved",
     "reviewScope": "Reviewing the folder “{name}”.",
     "reviewAll": "Review all sets",
-    "notFound": "Folder not found."
+    "notFound": "Folder not found.",
+    "share": "Share",
+    "shareTitle": "Share folder to a class",
+    "readOnly": "This folder is shared in a class: you can view and study it but not change it.",
+    "sharedIn": "Shared in a class"
   },
   "classes": {
     "title": "Classes",
@@ -1085,6 +1102,27 @@
       "soon": "Within 48 hours",
       "upcoming": "Upcoming",
       "studySet": "Study {title}"
+    },
+    "library": {
+      "title": "Class library",
+      "share": "Share to class",
+      "shareItem": "Share a set or folder",
+      "chooseItem": "Set or folder",
+      "noItems": "You have no sets or folders yet.",
+      "audience": "Who can see it",
+      "audienceTeachers": "Teachers only",
+      "audienceClass": "Whole class",
+      "empty": "Nothing has been shared in this class yet.",
+      "open": "Open",
+      "copy": "Copy to my library",
+      "copied": "Copied to your library.",
+      "remove": "Remove",
+      "removed": "Removed from the class library.",
+      "shared": "Shared with the class.",
+      "sharedBy": "Shared by {name}",
+      "setItem": "Set",
+      "folderItem": "Folder",
+      "setCount": "{count, plural, one {# set} other {# sets}}"
     }
   },
   "admin": {
@@ -1192,5 +1230,56 @@
     "runningJobs": "Active AI jobs",
     "tokenUsage": "Groq tokens today / limit",
     "openReports": "Open reports"
+  },
+  "collab": {
+    "propose": "Suggest edits",
+    "proposeTitle": "Suggest edits",
+    "proposeHint": "The owner reviews your changes. Reordering cards and images cannot be suggested.",
+    "note": "Note for the owner",
+    "notePlaceholder": "Why do you suggest this change?",
+    "send": "Send suggestion",
+    "sent": "Suggestion sent.",
+    "noChanges": "You have not changed anything.",
+    "edit": "Edit",
+    "copyToLibrary": "Copy to my library",
+    "sharedIn": "Shared in {class} by {name}",
+    "pendingTitle": "Suggestions to review ({count})",
+    "pendingCount": "{count, plural, one {# suggestion to review} other {# suggestions to review}}",
+    "approve": "Approve",
+    "reject": "Decline",
+    "withdraw": "Withdraw",
+    "withdrawn": "Suggestion withdrawn.",
+    "approved": "Approved and applied.",
+    "rejected": "Suggestion declined.",
+    "reviewNote": "Reply note",
+    "stale": "The set changed after this suggestion was sent. Changes to deleted cards will be skipped.",
+    "added": "Add",
+    "edited": "Edit",
+    "deleted": "Delete",
+    "titleChange": "New title: {title}",
+    "descriptionChange": "New description: {description}",
+    "opCount": "{count, plural, one {# change} other {# changes}}",
+    "mine": "Your suggestions",
+    "status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Declined",
+      "withdrawn": "Withdrawn"
+    },
+    "collaborators": "Collaborators",
+    "collaboratorsTitle": "Collaborators",
+    "allTeachers": "All teachers",
+    "collaboratorsHint": "Collaborators edit the set directly, without your review. Students only see their class teachers.",
+    "acceptContributions": "Accept suggestions",
+    "acceptContributionsHint": "People who can see the set may send edits for you to review.",
+    "homeTitle": "Waiting for your review",
+    "by": "Suggested by {name}",
+    "conflict": "Someone else just edited this set. Reload to see the latest version.",
+    "reload": "Reload",
+    "noClasses": "You have not joined any class yet.",
+    "empty": "No suggestions are waiting.",
+    "details": "Show changes",
+    "unknownCard": "Card was deleted",
+    "saved": "Saved."
   }
 }

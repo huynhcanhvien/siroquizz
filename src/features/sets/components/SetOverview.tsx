@@ -1,37 +1,19 @@
 "use client";
 
-import {
-  Brain,
-  Copy,
-  Ellipsis,
-  FolderPlus,
-  Gamepad2,
-  Layers,
-  ListChecks,
-  Pencil,
-  Puzzle,
-  Trash,
-  type LucideIcon,
-} from "lucide-react";
+import { Brain, Gamepad2, Layers, ListChecks, Puzzle, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
-import { Button } from "@/components/ui/Button";
-import { ConfirmDialog } from "@/components/ui/Dialog";
-import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/Menu";
 import { Avatar } from "@/components/ui/misc";
-import { useToast } from "@/components/ui/Toast";
 import { useSession } from "@/features/auth/hooks";
 import { cn } from "@/lib/cn";
-import type { StudySet } from "@/lib/types";
-import { useErrorMessage } from "@/lib/use-messages";
-import { useDeleteSet, useDuplicateSet } from "../hooks";
+import type { SetAccess, StudySet } from "@/lib/types";
 import { useSetPhoneticSide } from "../use-set-phonetic-side";
 import { AiSetTools } from "@/features/ai-generate/components/AiSetTools";
-import { ShareDialog } from "@/features/community/components/ShareDialog";
-import { AddToFolderDialog } from "@/features/folders/components/AddToFolderDialog";
+import { ChangeRequestsPanel } from "../collab/components/ChangeRequestsPanel";
+import { MyChangeRequests } from "../collab/components/MyChangeRequests";
+import { SharedInBadge, ViewerActions } from "../collab/components/ViewerActions";
 import { CardList } from "./CardList";
+import { SetActions } from "./SetActions";
 import { ProgressPanel } from "./ProgressPanel";
 import { SetPreview } from "./SetPreview";
 import { SourceBadge } from "./SetCard";
@@ -76,89 +58,6 @@ const MODES: readonly ModeTile[] = [
   },
 ];
 
-function SetActions({ set }: { set: StudySet }) {
-  const t = useTranslations("set");
-  const tCommon = useTranslations("common");
-  const router = useRouter();
-  const { toast } = useToast();
-  const errorMessage = useErrorMessage();
-  const duplicate = useDuplicateSet();
-  const remove = useDeleteSet();
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [folderOpen, setFolderOpen] = useState(false);
-  const tFolders = useTranslations("folders");
-
-  const handleDuplicate = () =>
-    duplicate.mutate(
-      { id: set.id, title: t("copyTitle", { title: set.title }) },
-      {
-        onSuccess: (copy) => {
-          toast(t("duplicated"));
-          router.push(`/sets/${copy.id}`);
-        },
-        onError: (error) => toast(errorMessage(error), "error"),
-      },
-    );
-
-  const handleDelete = () =>
-    remove.mutate(set.id, {
-      onSuccess: () => {
-        toast(t("deleted"));
-        router.replace("/library");
-      },
-      onError: (error) => toast(errorMessage(error), "error"),
-    });
-
-  return (
-    <div className="flex items-center gap-2">
-      {process.env.NEXT_PUBLIC_DATA_SOURCE === "http" ? <ShareDialog set={set} /> : null}
-      <Button asChild variant="secondary" size="sm">
-        <Link href={`/sets/${set.id}/edit`}>
-          <Pencil className="size-4" aria-hidden />
-          {tCommon("edit")}
-        </Link>
-      </Button>
-      <Menu>
-        <MenuTrigger asChild>
-          <Button variant="secondary" size="icon-sm" className="size-9" aria-label={t("actions")}>
-            <Ellipsis className="size-4" aria-hidden />
-          </Button>
-        </MenuTrigger>
-        <MenuContent>
-          <MenuItem onSelect={handleDuplicate}>
-            <Copy aria-hidden />
-            {t("duplicate")}
-          </MenuItem>
-          {process.env.NEXT_PUBLIC_DATA_SOURCE === "http" ? (
-            <MenuItem onSelect={() => setFolderOpen(true)}>
-              <FolderPlus aria-hidden />
-              {tFolders("addToFolder")}
-            </MenuItem>
-          ) : null}
-          <MenuSeparator />
-          <MenuItem tone="danger" onSelect={() => setConfirmOpen(true)}>
-            <Trash aria-hidden />
-            {t("deleteSet")}
-          </MenuItem>
-        </MenuContent>
-      </Menu>
-      {folderOpen ? (
-        <AddToFolderDialog setId={set.id} open={folderOpen} onOpenChange={setFolderOpen} />
-      ) : null}
-      <ConfirmDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        title={t("deleteTitle")}
-        description={t("deleteBody", { title: set.title })}
-        confirmLabel={t("deleteConfirm")}
-        cancelLabel={tCommon("cancel")}
-        onConfirm={handleDelete}
-        loading={remove.isPending}
-      />
-    </div>
-  );
-}
-
 export function SetOverview({ set }: { set: StudySet }) {
   const t = useTranslations("set");
   const tCommon = useTranslations("common");
@@ -166,8 +65,15 @@ export function SetOverview({ set }: { set: StudySet }) {
   const tCommunity = useTranslations("community");
   const { data: user } = useSession();
   const { phoneticSide, setPhoneticSide } = useSetPhoneticSide(set.id);
-  // A set assigned in a class can be studied by students but only changed by its owner.
-  const isOwner = !user || user.id === set.ownerId;
+  // Browser-stored sets carry no access summary: whoever sees them owns them.
+  const fallbackOwner = !user || user.id === set.ownerId;
+  const access: SetAccess = set.access ?? {
+    isOwner: fallbackOwner,
+    canEdit: fallbackOwner,
+    acceptsContributions: true,
+  };
+  const { isOwner } = access;
+  const isHttp = process.env.NEXT_PUBLIC_DATA_SOURCE === "http";
 
   return (
     <div className="flex flex-col gap-10">
@@ -183,8 +89,13 @@ export function SetOverview({ set }: { set: StudySet }) {
         </div>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <h1 className="max-w-3xl text-title font-extrabold text-balance">{set.title}</h1>
-          {isOwner ? <SetActions set={set} /> : null}
+          {isOwner ? (
+            <SetActions set={set} />
+          ) : set.access ? (
+            <ViewerActions set={set} access={set.access} />
+          ) : null}
         </div>
+        {access.sharedIn ? <SharedInBadge sharedIn={access.sharedIn} /> : null}
         {set.description ? <p className="max-w-2xl text-lg text-muted">{set.description}</p> : null}
         {set.copiedFrom ? (
           <p className="text-sm text-muted">
@@ -250,10 +161,12 @@ export function SetOverview({ set }: { set: StudySet }) {
         <ProgressPanel set={set} />
       </div>
 
-      {process.env.NEXT_PUBLIC_DATA_SOURCE === "http" && isOwner ? <AiSetTools set={set} /> : null}
+      {isHttp && isOwner ? <ChangeRequestsPanel setId={set.id} /> : null}
+      {isHttp && set.access && !isOwner ? <MyChangeRequests setId={set.id} /> : null}
+      {isHttp && isOwner ? <AiSetTools set={set} /> : null}
       <CardList
         set={set}
-        editable={isOwner}
+        editable={access.canEdit}
         phoneticSide={phoneticSide}
         onPhoneticSideChange={setPhoneticSide}
       />

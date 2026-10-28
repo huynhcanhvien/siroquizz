@@ -68,7 +68,8 @@
     "maxCards": "学习集最多 500 张卡片。",
     "cardTermRequired": "请输入词语。",
     "cardDefinitionRequired": "请输入释义。",
-    "fieldTooLong": "内容太长。"
+    "fieldTooLong": "内容太长。",
+    "noChanges": "你还没有对学习集做任何修改。"
   },
   "nav": {
     "home": "首页",
@@ -252,7 +253,11 @@
     "noResults": "没有与“{query}”匹配的学习集。",
     "emptyTitle": "学习集还是空的",
     "emptyBody": "你创建的学习集会显示在这里。",
-    "updated": "更新于 {date}"
+    "updated": "更新于 {date}",
+    "tabMine": "我的",
+    "tabFromClass": "来自班级",
+    "fromClassEmpty": "你的班级中还没有分享的学习集。",
+    "fromClass": "班级 {class}"
   },
   "editor": {
     "createTitle": "新建学习集",
@@ -957,7 +962,15 @@
       "saved": "主页已保存。",
       "view": "查看主页"
     },
-    "studyNow": "立即学习"
+    "studyNow": "立即学习",
+    "shareTabs": {
+      "link": "链接",
+      "classes": "班级"
+    },
+    "classShare": {
+      "hint": "老师始终可以看到你分享的内容。选择“全班”后同学也能查看。",
+      "none": "你还没有加入任何班级。"
+    }
   },
   "folders": {
     "title": "文件夹",
@@ -997,7 +1010,11 @@
     "practiceBadge": "练习：不保存进度",
     "reviewScope": "正在复习文件夹「{name}」。",
     "reviewAll": "复习全部卡组",
-    "notFound": "未找到文件夹。"
+    "notFound": "未找到文件夹。",
+    "share": "分享",
+    "shareTitle": "将文件夹分享到班级",
+    "readOnly": "此文件夹分享在班级中：你可以查看和学习，但不能修改。",
+    "sharedIn": "已在班级中分享"
   },
   "classes": {
     "title": "班级",
@@ -1085,6 +1102,27 @@
       "soon": "未来48小时内",
       "upcoming": "尚未到期",
       "studySet": "学习 {title}"
+    },
+    "library": {
+      "title": "班级资料库",
+      "share": "分享到班级",
+      "shareItem": "分享学习集或文件夹",
+      "chooseItem": "学习集或文件夹",
+      "noItems": "你还没有学习集或文件夹。",
+      "audience": "谁可以查看",
+      "audienceTeachers": "仅老师",
+      "audienceClass": "全班",
+      "empty": "班级资料库中还没有内容。",
+      "open": "打开",
+      "copy": "复制到我的资料库",
+      "copied": "已复制到你的资料库。",
+      "remove": "移除",
+      "removed": "已从班级资料库移除。",
+      "shared": "已分享到班级。",
+      "sharedBy": "由 {name} 分享",
+      "setItem": "学习集",
+      "folderItem": "文件夹",
+      "setCount": "{count, plural, other {# 个学习集}}"
     }
   },
   "admin": {
@@ -1192,5 +1230,56 @@
     "runningJobs": "运行中 AI 任务",
     "tokenUsage": "今日 Groq Token / 上限",
     "openReports": "待处理举报"
+  },
+  "collab": {
+    "propose": "建议修改",
+    "proposeTitle": "建议修改",
+    "proposeHint": "所有者会审核你的修改。无法建议调整卡片顺序或图片。",
+    "note": "给所有者的备注",
+    "notePlaceholder": "为什么建议这项修改？",
+    "send": "发送建议",
+    "sent": "建议已发送。",
+    "noChanges": "你还没有做任何修改。",
+    "edit": "编辑",
+    "copyToLibrary": "复制到我的资料库",
+    "sharedIn": "由 {name} 分享在班级 {class}",
+    "pendingTitle": "待审核的建议（{count}）",
+    "pendingCount": "{count, plural, other {# 条待审核的建议}}",
+    "approve": "批准",
+    "reject": "拒绝",
+    "withdraw": "撤回",
+    "withdrawn": "已撤回建议。",
+    "approved": "已批准并应用修改。",
+    "rejected": "已拒绝建议。",
+    "reviewNote": "回复备注",
+    "stale": "建议发送后学习集已被修改。针对已删除卡片的修改将被跳过。",
+    "added": "添加",
+    "edited": "修改",
+    "deleted": "删除",
+    "titleChange": "新标题：{title}",
+    "descriptionChange": "新描述：{description}",
+    "opCount": "{count, plural, other {# 项修改}}",
+    "mine": "你的建议",
+    "status": {
+      "pending": "待审核",
+      "approved": "已批准",
+      "rejected": "已拒绝",
+      "withdrawn": "已撤回"
+    },
+    "collaborators": "协作者",
+    "collaboratorsTitle": "协作者",
+    "allTeachers": "所有老师",
+    "collaboratorsHint": "协作者可以直接编辑学习集，无需你审核。学生只能看到班级老师。",
+    "acceptContributions": "接受建议",
+    "acceptContributionsHint": "能查看学习集的人可以发送修改建议供你审核。",
+    "homeTitle": "等待你审核",
+    "by": "{name} 的建议",
+    "conflict": "其他人刚刚修改了这个学习集。请重新加载查看最新版本。",
+    "reload": "重新加载",
+    "noClasses": "你还没有加入任何班级。",
+    "empty": "没有待审核的建议。",
+    "details": "查看修改",
+    "unknownCard": "卡片已被删除",
+    "saved": "已保存。"
   }
 }
