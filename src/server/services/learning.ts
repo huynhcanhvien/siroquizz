@@ -278,19 +278,23 @@ export async function dueCards(
   const starFilter = starred
     ? sql`exists(select 1 from card_stars where card_stars.user_id=${userId} and card_stars.card_id=${cards.id})`
     : undefined;
-  // A folder narrows the queue to its sets; only the person's own sets are ever included.
+  // A folder narrows the queue to its sets.
   const inFolder = folderId
     ? sql`exists(select 1 from folder_sets where folder_sets.folder_id=${z.uuid().parse(folderId)} and folder_sets.set_id=${studySets.id})`
     : undefined;
-  // Assigned class sets are due like one's own.
+  // Assigned class sets are due like one's own. Sets shared into a class library join the
+  // general queue only once the person has studied them (else every shared set would pour new
+  // cards in); inside a shared folder they all count.
+  const sharedHere = folderId
+    ? sharedToClassOf(userId)
+    : and(
+        sharedToClassOf(userId),
+        sql`exists(select 1 from card_progress started where started.user_id=${userId} and started.set_id=${studySets.id})`,
+      );
   const base = and(
     or(
       eq(studySets.ownerId, userId),
-      and(
-        isNull(studySets.hiddenAt),
-        or(assignedTo(userId), sharedToClassOf(userId)),
-        ownerInGoodStanding(),
-      ),
+      and(isNull(studySets.hiddenAt), or(assignedTo(userId), sharedHere), ownerInGoodStanding()),
     ),
     isNull(studySets.deletedAt),
     inFolder,

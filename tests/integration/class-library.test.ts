@@ -119,6 +119,8 @@ describe("access through the class library", () => {
     expect((await folderStudySet(db, bao, folder.id)).cards).toHaveLength(4);
     const due = await dueCards(db, bao, 200, new Date(), false, folder.id);
     expect(due.cards).toHaveLength(4);
+    // Outside the folder, an unstudied shared set adds no new cards to the general queue.
+    expect((await dueCards(db, bao)).cards).toHaveLength(0);
     await removeSetFromFolder(db, an, folder.id, set.id);
     await expect(getSet(db, bao, set.id)).rejects.toMatchObject({ status: 404 });
   });
