@@ -164,9 +164,9 @@ export const cards = pgTable(
     example: varchar("example", { length: 1000 }),
     ...timestamps,
   },
-  (t) => [index("cards_set_idx").on(t.setId)],
+  // Lookups by set use the deferrable (set_id, position) unique constraint added in SQL migration
+  // 0000, which also keeps reordering atomic; a separate set_id index would duplicate it.
 );
-// Deferrable position uniqueness is added in SQL migration, so reordering is atomic.
 export const cardProgress = pgTable(
   "card_progress",
   {
@@ -196,6 +196,9 @@ export const cardProgress = pgTable(
     primaryKey({ columns: [t.userId, t.cardId] }),
     index("progress_user_set_idx").on(t.userId, t.setId),
     index("progress_user_due_idx").on(t.userId, t.due),
+    // Foreign-key cascades from cards and sets look rows up by these columns alone.
+    index("progress_card_idx").on(t.cardId),
+    index("progress_set_idx").on(t.setId),
   ],
 );
 export const testResults = pgTable(
@@ -216,6 +219,7 @@ export const testResults = pgTable(
   },
   (t) => [
     index("tests_user_set_idx").on(t.userId, t.setId, t.takenAt),
+    index("tests_set_idx").on(t.setId),
     check(
       "test_score_valid",
       sql`${t.score} >= 0 and ${t.total} > 0 and ${t.score} <= ${t.total} and ${t.durationMs} >= 0`,
@@ -256,6 +260,7 @@ export const studyActivity = pgTable(
   (t) => [
     primaryKey({ columns: [t.userId, t.setId] }),
     index("activity_user_at_idx").on(t.userId, t.at),
+    index("activity_set_idx").on(t.setId),
   ],
 );
 export const localImports = pgTable(
@@ -533,7 +538,10 @@ export const cardStars = pgTable(
       .notNull()
       .references(() => cards.id, { onDelete: "cascade" }),
   },
-  (t) => [primaryKey({ columns: [t.userId, t.cardId] })],
+  (t) => [
+    primaryKey({ columns: [t.userId, t.cardId] }),
+    index("card_stars_card_idx").on(t.cardId),
+  ],
 );
 export const reviewLogs = pgTable(
   "review_logs",
@@ -555,7 +563,11 @@ export const reviewLogs = pgTable(
     wasNew: boolean("was_new").notNull().default(false),
     snapshot: jsonb("snapshot").notNull(),
   },
-  (t) => [index("review_user_time_idx").on(t.userId, t.reviewedAt)],
+  (t) => [
+    index("review_user_time_idx").on(t.userId, t.reviewedAt),
+    index("review_card_idx").on(t.cardId),
+    index("review_set_idx").on(t.setId),
+  ],
 );
 export const studySessions = pgTable(
   "study_sessions",

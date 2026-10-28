@@ -11,7 +11,7 @@
 - **Test:** unit `write-policy.test.ts`; integration: 61 request progress trong 1 phút không 429, 61 request tạo bộ vẫn 429 (mock `rate-limit` như `tests/integration/community-api.test.ts`).
 
 ### A2. Thiếu index cho FK cascade
-**Trạng thái:** todo
+**Trạng thái:** done — migration 0016_mighty_steel_serpent; xoá bộ 500 thẻ trên 100k progress+logs: 13ms (có index) vs 4400ms (không)
 - **Vấn đề:** `card_progress` (PK `user_id,card_id`), `card_stars` (PK `user_id,card_id`), `review_logs` (index `user_id,reviewed_at`) không dùng được cho `card_id`; xoá thẻ/bộ (`sets.ts:124,171-174`, cron hard-delete) quét toàn bảng. `test_results(set_id)`, `study_activity(set_id)`, `card_progress(set_id)` tương tự. `cards_set_idx` (`schema.ts:167`) trùng cột đầu của unique `(set_id, position)` (`drizzle/0000_futuristic_naoko.sql:153`).
 - **Sửa:** thêm index `card_progress(card_id)`, `card_progress(set_id)`, `card_stars(card_id)`, `review_logs(card_id)`, `review_logs(set_id)`, `test_results(set_id)`, `study_activity(set_id)`; bỏ `cards_set_idx`. Migration M0 (`pnpm db:generate`).
 - **Test:** migration chạy trên DB test; `EXPLAIN` xoá 1 bộ 500 thẻ dùng index (ghi số liệu vào `specs/state.md`).
