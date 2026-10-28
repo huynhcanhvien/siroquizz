@@ -83,6 +83,15 @@ describe("sync loop", () => {
     loop.stop();
   });
 
+  it("passes on the session settings each sync reports", async () => {
+    const onSession = vi.fn();
+    const { loop } = setup({ onSession });
+    loop.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onSession).toHaveBeenCalledWith(gate);
+    loop.stop();
+  });
+
   it("keeps edits through a network failure and retries after backing off", async () => {
     const { remote, doc, loop, storage } = setup();
     remote.send.mockRejectedValueOnce(new RepositoryError("NETWORK"));

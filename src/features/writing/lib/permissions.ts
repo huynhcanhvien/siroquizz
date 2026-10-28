@@ -7,6 +7,10 @@ export interface SessionGate {
   peerEditing: boolean;
 }
 
+/** Whether two sets of session settings are the same. */
+export const sameGate = (a: SessionGate, b: SessionGate): boolean =>
+  a.status === b.status && a.peerVisibility === b.peerVisibility && a.peerEditing === b.peerEditing;
+
 /** Owners and co-teachers run sessions; students write in them. */
 export const teaches = (role: ClassRole): boolean => role !== "student";
 

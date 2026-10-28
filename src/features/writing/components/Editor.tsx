@@ -18,6 +18,7 @@ import { unattributedInserts, type DeltaOp } from "../lib/author-ranges";
 import { fromBase64 } from "../lib/base64";
 import { SOFT_CHAR_LIMIT } from "../lib/limits";
 import type { SyncStatus } from "../lib/sync-loop";
+import type { SessionGate } from "../lib/permissions";
 import type { SessionMember } from "../schemas";
 import { EditorToolbar } from "./EditorToolbar";
 import { EDITOR_FORMATS, registerAuthorFormat } from "./quill-author";
@@ -32,6 +33,8 @@ export interface EditorProps {
   onStatus: (status: SyncStatus) => void;
   onSaveWord: (term: string) => void;
   onGone: () => void;
+  /** Called with the session settings each sync reports. */
+  onSession: (session: SessionGate) => void;
 }
 
 /**
@@ -111,7 +114,7 @@ export default function Editor(props: EditorProps) {
       void queryClient.resetQueries({ queryKey: writingKeys.doc(docId) });
   };
   const { quill, chars, ref } = useQuill(setup, t("placeholder"), props.label);
-  const { status, readOnly } = useSyncLoop(setup, Boolean(quill), onError);
+  const { status, readOnly } = useSyncLoop(setup, Boolean(quill), onError, props.onSession);
   useEffect(() => onStatus(status), [status, onStatus]);
   useEffect(() => quill?.enable(!readOnly), [quill, readOnly]);
   const authorId = query.data?.authorId;

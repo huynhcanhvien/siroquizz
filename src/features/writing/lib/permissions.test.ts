@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { ClassRole } from "@/features/classes/schemas";
-import { canListDocs, canReadDoc, canWriteDoc, teaches, type SessionGate } from "./permissions";
+import {
+  canListDocs,
+  canReadDoc,
+  canWriteDoc,
+  sameGate,
+  teaches,
+  type SessionGate,
+} from "./permissions";
 
 const AUTHOR = "author",
   PEER = "peer",
@@ -32,6 +39,12 @@ function expected(viewer: Viewer, gate: SessionGate) {
 }
 
 describe("writing permissions", () => {
+  it("compares session settings field by field", () => {
+    const gate: SessionGate = { status: "open", peerVisibility: "hidden", peerEditing: false };
+    expect(sameGate(gate, { ...gate })).toBe(true);
+    expect(sameGate(gate, { ...gate, peerVisibility: "open" })).toBe(false);
+    expect(sameGate(gate, { ...gate, status: "closed" })).toBe(false);
+  });
   it("treats owners and co-teachers as teaching", () => {
     expect(teaches("owner")).toBe(true);
     expect(teaches("teacher")).toBe(true);

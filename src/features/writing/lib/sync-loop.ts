@@ -62,6 +62,8 @@ export interface SyncLoopOptions {
   storage: AppStorage;
   onChange: (state: SyncState, status: SyncStatus) => void;
   onError: (code: RepositoryErrorCode) => void;
+  /** The session's status and peer settings as of this sync (the teacher may change them). */
+  onSession?: (session: SyncResponse["session"]) => void;
   now?: () => number;
 }
 
@@ -126,6 +128,7 @@ async function syncRound(
     const hadRemote = response.version > state.version + (sentUpdate ? 1 : 0);
     const { version, readOnly } = response;
     dispatch({ type: "ok", version, hadRemote, readOnly, at: now() });
+    options.onSession?.(response.session);
   } catch (error) {
     const code = toErrorCode(error);
     dispatch({ type: "fail", code, at: now() });

@@ -11,7 +11,9 @@ import { Dialog } from "@/components/ui/Dialog";
 import { EmptyState, Skeleton } from "@/components/ui/misc";
 import { QueryError } from "@/components/ui/QueryState";
 import { useSession } from "@/features/auth/hooks";
-import { useOpenOwnDoc, useScratchCards, useWritingSession } from "../hooks";
+import { useQueryClient } from "@tanstack/react-query";
+import { useOpenOwnDoc, useScratchCards, useWritingSession, writingKeys } from "../hooks";
+import { sameGate, type SessionGate } from "../lib/permissions";
 import type { SyncStatus } from "../lib/sync-loop";
 import { teaches } from "../lib/permissions";
 import type { SessionDetail } from "../schemas";
@@ -40,6 +42,24 @@ function useActiveDoc(session: SessionDetail | undefined, userId: string | undef
     ? (session?.myDocId ?? open.data?.id ?? null)
     : (session?.docs?.find((doc) => doc.authorId !== userId)?.id ?? session?.myDocId ?? null);
   return { activeDocId: chosen ?? fallback, setActiveDocId: setChosen };
+}
+
+/**
+ * Applies the session settings a sync reports (the teacher opened/closed the session or changed
+ * peer access) to the cached session at once, then refreshes it for the document list.
+ */
+function useApplySessionGate(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useCallback(
+    (gate: SessionGate) => {
+      const key = writingKeys.session(sessionId);
+      const current = queryClient.getQueryData<SessionDetail>(key);
+      if (!current || sameGate(current, gate)) return;
+      queryClient.setQueryData<SessionDetail>(key, { ...current, ...gate });
+      void queryClient.invalidateQueries({ queryKey: key });
+    },
+    [queryClient, sessionId],
+  );
 }
 
 function TopBar(props: { session: SessionDetail; status: SyncStatus; onScratch: () => void }) {
@@ -76,6 +96,7 @@ export function WritingWorkspace({ sessionId }: { sessionId: string }) {
   const [panelOpen, setPanelOpen] = useState(false);
   const [word, setWord] = useState<string | null>(null);
   const onStatus = useCallback((next: SyncStatus) => setStatus(next), []);
+  const onSession = useApplySessionGate(sessionId);
   if (session.error) return <QueryError error={session.error} onRetry={() => session.refetch()} />;
   if (!session.data || !userId) return <Skeleton className="h-[32rem] w-full rounded-xl" />;
   const detail = session.data;
@@ -122,6 +143,7 @@ export function WritingWorkspace({ sessionId }: { sessionId: string }) {
               onStatus={onStatus}
               onSaveWord={(term) => setWord(term)}
               onGone={() => router.push(`/classes/${detail.classId}/writing`)}
+              onSession={onSession}
             />
           ) : (
             <EmptyState
