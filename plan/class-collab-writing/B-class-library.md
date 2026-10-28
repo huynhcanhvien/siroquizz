@@ -154,7 +154,7 @@ Route đổi hành vi: `PUT /sets/:id` (editor + `baseUpdatedAt` → 409 `SET_CH
 Mã lỗi: `SET_CHANGED`, `CHANGE_REQUEST_LIMIT`, `NOT_CLASSMATE`, `CONTRIBUTIONS_CLOSED` → `src/lib/repository-error.ts` + `errors.*` (vi: "Bộ thẻ vừa được người khác sửa. Hãy tải lại rồi áp dụng lại thay đổi của bạn." / "Bộ thẻ này đã có 20 đề xuất chờ duyệt." / "Người này không học chung lớp nào với bạn." / "Chủ bộ thẻ đang tắt nhận đóng góp.").
 
 ## B7. Client
-**Trạng thái:** in-progress
+**Trạng thái:** done — `setAccessSchema` nằm ở sets/schemas.ts (tránh import vòng), re-export từ collab/schemas; thêm `baseOpsSchema` để đọc ops đã lưu
 
 `src/features/sets/collab/schemas.ts` (dùng chung client+server):
 ```ts
@@ -177,7 +177,7 @@ export const setAccessSchema = z.object({ isOwner, canEdit, acceptsContributions
 `SetEditor` gửi `baseUpdatedAt: set.updatedAt`; lỗi `SET_CHANGED` → toast + nút tải lại.
 
 ## B8. UI (gate `NEXT_PUBLIC_DATA_SOURCE === "http"`)
-**Trạng thái:** todo
+**Trạng thái:** done — `SetActions` tách ra file riêng; ClassLibrarySection nhận `classId`; panel duyệt mở sẵn diff; ShareFolderDialog chỉ có tab lớp; trang propose là server component đọc `?class=`
 
 | Component | Props / nội dung | Mount |
 |---|---|---|
@@ -196,11 +196,11 @@ export const setAccessSchema = z.object({ isOwner, canEdit, acceptsContributions
 | `FolderView` (sửa) | ẩn Đổi tên/Xoá/Gỡ bộ khi `!data.isOwner`; chú thích read-only; `ShareFolderDialog` cho owner | — |
 
 ## B9. i18n (3 ngôn ngữ)
-**Trạng thái:** todo
+**Trạng thái:** done — thêm vài khoá phụ (`collab.conflict`, `reload`, `details`, `unknownCard`, `saved`, `noClasses`, `empty`, `proposeHint`, `classes.library.noItems`)
 `errors.{SET_CHANGED,CHANGE_REQUEST_LIMIT,NOT_CLASSMATE,CONTRIBUTIONS_CLOSED}`, `validation.noChanges`, `classes.library.{title,share,shareItem,chooseItem,audience,audienceTeachers,audienceClass,empty,open,copy,copied,remove,removed,shared,sharedBy,setItem,folderItem,setCount}`, `community.shareTabs.{link,classes}`, `community.classShare.{hint,none}`, `library.{tabMine,tabFromClass,fromClassEmpty,fromClass}`, `folders.{share,shareTitle,readOnly,sharedIn}`, `collab.{propose,proposeTitle,note,notePlaceholder,send,sent,noChanges,edit,copyToLibrary,sharedIn,pendingTitle,pendingCount,approve,reject,withdraw,withdrawn,approved,rejected,reviewNote,stale,added,edited,deleted,titleChange,descriptionChange,opCount,mine,status.{pending,approved,rejected,withdrawn},collaborators,collaboratorsTitle,allTeachers,collaboratorsHint,acceptContributions,acceptContributionsHint,homeTitle,by}`.
 
 ## B10. Test
-**Trạng thái:** todo
+**Trạng thái:** done — thêm tests/integration/{class-library,collaboration,collab-api}.test.ts + helpers/collab.ts; e2e class-library.spec.ts xanh; sửa classes.spec.ts dùng `exact: true` cho link "Chỉnh sửa" (Playwright khớp chuỗi con nên "Đề xuất chỉnh sửa" làm hỏng)
 
 Integration (harness như `tests/integration/classes.test.ts:29-68`; user: owner-học sinh `an`, giáo viên `mai`, đồng giáo viên `binh`, bạn lớp `bao`, người ngoài):
 

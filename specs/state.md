@@ -51,6 +51,12 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 
 ## Nhật ký
 
+### 2026-10-29 01:55 +07: 🧱 WP1 (A1–A6) + WP3 (B1–B10) xong trên nhánh `wp1-wp3-foundation-collab` (chưa merge)
+
+- **WP1:** rate limit ghi theo đường dẫn (`src/server/write-policy.ts`: tiến độ/ôn tập 120/phút, AI upload/step bỏ qua bucket chung); index FK cascade (migration `0016_mighty_steel_serpent`; xoá bộ 500 thẻ trên 100k progress+logs: 13 ms có index so với 4.400 ms không index); `listSets` trả `cardCount` + `progress` thay vì thẻ; khoá `FOR KEY SHARE` khi ghi tiến độ; `putProgress` 500 thẻ từ 4.003 xuống ≤ 10 query; tách `replaceDeck`/`writeSetFields`/`toCardDto`.
+- **WP3:** thư viện lớp (chia sẻ bộ/thư mục, audience giáo viên | cả lớp), cộng tác viên (người hoặc mọi giáo viên của lớp), đề xuất sửa chờ duyệt, công tắc "Nhận đóng góp", phát hiện xung đột `baseUpdatedAt` → 409 `SET_CHANGED`. Migration `0017_great_mikhail_rasputin`. Router mới `src/server/collab-api.ts` gọi đầu `communityApi`.
+- Kiểm thử: unit 551 (coverage dòng 95,5%), integration 247 (dòng 92,6%), e2e `class-library`, `classes`, `folders` xanh.
+
 ### 2026-10-06 14:03 +07: ✅ Khu quản trị hoàn tất, mọi kiểm tra pass
 
 - E2E toàn dự án 44 pass, 2 skip (Groq live). Lỗi auth/thư mục ở lượt trước là do tải, không tái hiện.
