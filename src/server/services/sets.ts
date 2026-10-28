@@ -7,7 +7,7 @@ import type { StudySet } from "@/lib/types";
 import { ApiError } from "../api-error";
 import type { Database } from "../db/client";
 import { attributionOf, markEdited, sharingOf } from "./sharing";
-import { requireStudySet } from "./access";
+import { lockStrength, requireStudySet, type SetLock } from "./access";
 import { clawbackSetCredits } from "../ai/credits";
 import { buildSearchText } from "@/features/community/lib/search";
 import {
@@ -40,9 +40,9 @@ const publicFields = (set: typeof studySets.$inferSelect) => ({
   source: set.source,
 });
 
-export async function requireOwnedSet(db: Db, ownerId: string, id: string, lock = false) {
+export async function requireOwnedSet(db: Db, ownerId: string, id: string, lock: SetLock = false) {
   const query = db.select().from(studySets).where(owned(ownerId, id)).limit(1);
-  const [set] = await (lock ? query.for("update") : query);
+  const [set] = await (lock ? query.for(lockStrength(lock)) : query);
   if (!set) throw new ApiError(404, "NOT_FOUND");
   return set;
 }
@@ -116,7 +116,7 @@ const metadata = ({ title, description, termLang, definitionLang, source }: Vali
 export async function updateSet(db: Database, ownerId: string, id: string, input: unknown) {
   const data = setInputSchema.parse(input);
   const updated = await db.transaction(async (tx) => {
-    const current = await requireOwnedSet(tx, ownerId, id, true);
+    const current = await requireOwnedSet(tx, ownerId, id, "update");
     const existing = await tx.select().from(cards).where(eq(cards.setId, id)).limit(500);
     const existingIds = new Set(existing.map((c) => c.id));
     const used = new Set<string>();
@@ -168,7 +168,7 @@ export async function updateSet(db: Database, ownerId: string, id: string, input
 }
 export async function removeSet(db: Database, ownerId: string, id: string) {
   await db.transaction(async (tx) => {
-    await requireOwnedSet(tx, ownerId, id, true);
+    await requireOwnedSet(tx, ownerId, id, "update");
     await tx
       .update(studySets)
       .set({ deletedAt: new Date(), updatedAt: new Date() })

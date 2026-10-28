@@ -32,7 +32,7 @@ const visibilitySchema = z.object({ visibility: z.enum(["private", "unlisted", "
 export async function setVisibility(db: Database, ownerId: string, setId: string, input: unknown) {
   const { visibility } = visibilitySchema.parse(input);
   const set = await db.transaction(async (tx) => {
-    const current = await requireOwnedSet(tx, ownerId, setId, true);
+    const current = await requireOwnedSet(tx, ownerId, setId, "update");
     const slug = current.slug ?? (visibility === "private" ? null : await uniqueSlug(tx));
     // A first publication needs a check; an approved, flagged or rejected verdict stands until
     // the content changes (see markEdited).
@@ -103,7 +103,7 @@ const tagsSchema = z.object({ tags: z.array(z.string().max(100)).max(20) });
 export async function setTags(db: Database, ownerId: string, setId: string, input: unknown) {
   const tags = normalizeTags(tagsSchema.parse(input).tags);
   await db.transaction(async (tx) => {
-    const set = await requireOwnedSet(tx, ownerId, setId, true);
+    const set = await requireOwnedSet(tx, ownerId, setId, "update");
     const setCards = await tx
       .select({ term: cards.term, definition: cards.definition })
       .from(cards)

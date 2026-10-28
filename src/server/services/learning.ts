@@ -21,7 +21,7 @@ import {
   streakFreezes,
 } from "../db/schema";
 import { type Transaction, type Db } from "./sets";
-import { assignedTo, requireStudySet } from "./access";
+import { assignedTo, requireStudySet, type SetLock } from "./access";
 
 export async function getPreferences(db: Db, userId: string) {
   const read = () => db.select().from(userPreferences).where(eq(userPreferences.userId, userId));
@@ -42,11 +42,11 @@ export async function savePreferences(db: Database, userId: string, input: unkno
   await db.update(userPreferences).set(valid).where(eq(userPreferences.userId, userId));
   return valid;
 }
-export async function requireCard(db: Db, userId: string, id: string) {
+export async function requireCard(db: Db, userId: string, id: string, lock: SetLock = false) {
   z.uuid().parse(id);
   const [card] = await db.select().from(cards).where(eq(cards.id, id)).limit(1);
   if (!card) throw new ApiError(404, "NOT_FOUND");
-  await requireStudySet(db, userId, card.setId);
+  await requireStudySet(db, userId, card.setId, lock);
   return card;
 }
 export async function newAllowance(db: Db, userId: string, now = new Date()) {
@@ -102,8 +102,7 @@ export async function reviewInTransaction(
       throw new ApiError(404, "NOT_FOUND");
     return event.snapshot;
   }
-  const card = await requireCard(tx, userId, data.cardId);
-  await requireStudySet(tx, userId, card.setId, true);
+  const card = await requireCard(tx, userId, data.cardId, "share");
   const [previous] = await tx
     .select()
     .from(cardProgress)

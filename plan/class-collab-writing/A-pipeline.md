@@ -23,7 +23,7 @@
 - **Test:** integration `listSets` không trả thẻ, `cardCount`/`progress` đúng; unit `summarizeProgress`, `set-utils`; test component hiện có vẫn xanh.
 
 ### A4. Review khoá hàng `study_sets` bằng `FOR UPDATE`
-**Trạng thái:** todo
+**Trạng thái:** done — `SetLock` + `lockStrength` ở access.ts; `requireCard` nhận lock nên bỏ được lần kiểm tra thứ hai; `resetProgress` cũng dùng "share"
 - **Vấn đề:** `learning.ts:106` và `progress.ts:41,123,156,166` gọi `requireStudySet(tx, …, true)` = `SELECT … FOR UPDATE` trên `study_sets`. 30 học sinh ôn cùng bộ chạy tuần tự và chặn `updateSet` của chủ bộ. `learning.ts:105-106` kiểm tra bộ 2 lần (`requireCard` đã gọi `requireStudySet`).
 - **Sửa:** chữ ký `requireStudySet(db, userId, setId, lock: false | "update" | "share" = false)`; `"share"` → `.for("key share")`. Đường ghi tiến độ (`putProgress`, `saveTest`, `saveGame`, `recordActivity`, `reviewInTransaction`) dùng `"share"`; `updateSet`/`removeSet` (qua `requireOwnedSet`) giữ `"update"`. Bỏ dòng `learning.ts:106`. Cập nhật mọi caller `true` → `"update"`.
 - **Test:** integration: 2 transaction review song song cùng bộ không chặn nhau (đo thời gian hoặc dùng `pg_locks`); `updateSet` vẫn chờ review đang chạy xong.

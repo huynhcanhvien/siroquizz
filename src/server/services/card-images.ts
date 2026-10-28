@@ -51,7 +51,7 @@ export async function attachCardImage(
   await putStoredFile(key, image, "image/webp", signal);
   try {
     await db.transaction(async (tx) => {
-      await requireOwnedSet(tx,userId,card.setId,true);
+      await requireOwnedSet(tx, userId, card.setId, "update");
       await requireCard(tx, userId, cardId);
       await tx.update(cardImages).set({ cardId: null }).where(eq(cardImages.cardId, cardId));
       await tx.insert(cardImages).values({ id, key, userId, cardId, alt, size: image.length });

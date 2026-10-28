@@ -38,7 +38,7 @@ export async function putProgress(db: Database, ownerId: string, setId: string, 
     .parse(input);
   return db.transaction(async (tx) => {
     await lockLearner(tx, ownerId);
-    await requireStudySet(tx, ownerId, setId, true);
+    await requireStudySet(tx, ownerId, setId, "share");
     const ids = data.cards.map((c) => c.cardId);
     const found = await tx
       .select({ id: cards.id })
@@ -75,7 +75,7 @@ export async function putProgress(db: Database, ownerId: string, setId: string, 
 }
 export async function resetProgress(db: Database, ownerId: string, setId: string) {
   await db.transaction(async (tx) => {
-    await requireStudySet(tx, ownerId, setId, true);
+    await requireStudySet(tx, ownerId, setId, "share");
     await tx
       .delete(cardProgress)
       .where(and(eq(cardProgress.userId, ownerId), eq(cardProgress.setId, setId)));
@@ -120,7 +120,7 @@ export async function saveTest(db: Database, ownerId: string, setId: string, inp
     .refine((v) => v.score <= v.total && v.setId === setId)
     .parse(input);
   return db.transaction(async (tx) => {
-    await requireStudySet(tx, ownerId, setId, true);
+    await requireStudySet(tx, ownerId, setId, "share");
     const [row] = await tx
       .insert(testResults)
       .values({ ...data, id: v7(), userId: ownerId })
@@ -153,7 +153,7 @@ export async function saveGame(db: Database, ownerId: string, setId: string, inp
     .refine((v) => v.setId === setId)
     .parse(input);
   return db.transaction(async (tx) => {
-    await requireStudySet(tx, ownerId, setId, true);
+    await requireStudySet(tx, ownerId, setId, "share");
     const [row] = await tx
       .insert(gameScores)
       .values({ ...data, id: v7(), userId: ownerId })
@@ -163,7 +163,7 @@ export async function saveGame(db: Database, ownerId: string, setId: string, inp
 }
 export async function recordActivity(db: Database, ownerId: string, setId: string) {
   await db.transaction(async (tx) => {
-    await requireStudySet(tx, ownerId, setId, true);
+    await requireStudySet(tx, ownerId, setId, "share");
     await tx
       .insert(studyActivity)
       .values({ userId: ownerId, setId, at: new Date() })

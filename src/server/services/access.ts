@@ -78,11 +78,24 @@ export const sharedForStudy = () =>
 export const ownerInGoodStanding = () =>
   sql`not exists(select 1 from "user" u where u.id = ${studySets.ownerId} and (u.banned_at is not null or u.deleted_at is not null))`;
 /**
+ * Row lock taken on the set: `"update"` for edits and deletion (excludes everything else),
+ * `"share"` (FOR KEY SHARE) for progress writes, which then run side by side while still
+ * holding off an edit or deletion of the set until they commit.
+ */
+export type SetLock = false | "update" | "share";
+export const lockStrength = (lock: "update" | "share") =>
+  lock === "update" ? ("update" as const) : ("key share" as const);
+/**
  * A set the person may study and record progress on: their own, one assigned to a class they are
  * in, or one shared by link (unless a moderator hid it). Leaving the class or unsharing removes
  * the access at once. Editing, deleting and sharing stay with the owner (requireOwnedSet).
  */
-export async function requireStudySet(db: Db, userId: string, setId: string, lock = false) {
+export async function requireStudySet(
+  db: Db,
+  userId: string,
+  setId: string,
+  lock: SetLock = false,
+) {
   const query = db
     .select()
     .from(studySets)
@@ -98,7 +111,7 @@ export async function requireStudySet(db: Db, userId: string, setId: string, loc
       ),
     )
     .limit(1);
-  const [set] = await (lock ? query.for("update") : query);
+  const [set] = await (lock ? query.for(lockStrength(lock)) : query);
   if (!set) throw new ApiError(404, "NOT_FOUND");
   return set;
 }
