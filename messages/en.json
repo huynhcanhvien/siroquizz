@@ -1332,7 +1332,9 @@
       "docOf": "{name}'s document",
       "notStarted": "The session is not open yet. You can write once your teacher opens it.",
       "reloaded": "The text got too long, so your latest typing was not saved; the server copy was reloaded.",
-      "toolbar": "Text formatting"
+      "toolbar": "Text formatting",
+      "tooLarge": "What you just wrote is too large to save to the server. The text is still on this device; shorten it or copy it elsewhere.",
+      "pasteTooLong": "That paste is too long. Paste it in smaller parts."
     },
     "panel": {
       "prompt": "Prompt",
@@ -1365,7 +1367,8 @@
       "idle": "Saved",
       "saving": "Saving…",
       "offline": "Offline, will retry",
-      "readonly": "Read-only"
+      "readonly": "Read-only",
+      "toolarge": "Not saved: too long"
     },
     "scratch": {
       "button": "Scratch cards ({count})",

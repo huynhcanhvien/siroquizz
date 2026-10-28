@@ -17,6 +17,8 @@ export interface SyncState {
   failures: number;
   readOnly: boolean;
   hidden: boolean;
+  /** The unsaved text is larger than the server accepts; it is kept locally, never dropped. */
+  tooLarge: boolean;
 }
 export type SyncEvent =
   | { type: "local"; update: Uint8Array; at: number }
@@ -33,6 +35,7 @@ export const initialSyncState = (version: number, readOnly: boolean, now: number
   failures: 0,
   readOnly,
   hidden: false,
+  tooLarge: false,
 });
 
 const merge = (a: Uint8Array | null, b: Uint8Array | null) =>
@@ -43,11 +46,7 @@ const READ_ONLY_CODES: ReadonlySet<RepositoryErrorCode> = new Set(["FORBIDDEN", 
  * Errors after which local changes are dropped; the caller must then rebuild the document from
  * the server (or leave), because the local Y.Doc still contains them.
  */
-const DROP_CODES: ReadonlySet<RepositoryErrorCode> = new Set([
-  "DOC_TOO_LARGE",
-  "NOT_FOUND",
-  "VALIDATION",
-]);
+const DROP_CODES: ReadonlySet<RepositoryErrorCode> = new Set(["NOT_FOUND", "VALIDATION"]);
 
 export function reduce(state: SyncState, event: SyncEvent): SyncState {
   switch (event.type) {
@@ -61,6 +60,7 @@ export function reduce(state: SyncState, event: SyncEvent): SyncState {
         inFlight: null,
         version: event.version,
         failures: 0,
+        tooLarge: false,
         readOnly: event.readOnly,
         lastActivityAt: event.hadRemote ? event.at : state.lastActivityAt,
       };
@@ -68,16 +68,26 @@ export function reduce(state: SyncState, event: SyncEvent): SyncState {
       if (READ_ONLY_CODES.has(event.code))
         return { ...state, pending: null, inFlight: null, readOnly: true };
       if (DROP_CODES.has(event.code)) return { ...state, pending: null, inFlight: null };
-      // Keep the unsent changes, oldest first, and back off.
+      // Keep the unsent changes, oldest first, and back off. Text too large to save stays too:
+      // the person still has it on screen and in the local mirror.
       return {
         ...state,
         pending: merge(state.inFlight, state.pending),
         inFlight: null,
         failures: state.failures + 1,
+        tooLarge: event.code === "DOC_TOO_LARGE",
       };
     case "visibility":
       return { ...state, hidden: event.hidden };
   }
+}
+
+export type SyncStatus = "idle" | "saving" | "offline" | "readonly" | "toolarge";
+export function statusOf(state: SyncState): SyncStatus {
+  if (state.readOnly) return "readonly";
+  if (state.tooLarge) return "toolarge";
+  if (state.failures) return "offline";
+  return state.pending || state.inFlight ? "saving" : "idle";
 }
 
 /** When to sync next; null pauses polling (hidden tab with nothing to save). */

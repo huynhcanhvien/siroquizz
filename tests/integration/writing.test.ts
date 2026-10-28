@@ -318,11 +318,23 @@ describe("sync", () => {
     expect(queries[0]).not.toContain('"state"');
   });
 
+  it("accepts a large paste in one sync, up to the sync update limit", async () => {
+    const { sessionId } = await sessionWith();
+    const { id: docId } = await openOwnDoc(db, author, sessionId);
+    const writer = new Client(author, docId);
+    const paste = Array.from({ length: 150_000 }, (_, i) => "abcdefghij"[i % 10]).join("");
+    writer.type(0, paste);
+    expect(writer.pending!.length).toBeGreaterThan(64 * 1024);
+    await expect(writer.sync()).resolves.toMatchObject({ version: 1 });
+    const [row] = await db.select().from(schema.writingDocs);
+    expect(row.charCount).toBe(150_000);
+  });
+
   it("refuses oversized updates and states, and malformed updates", async () => {
     const { sessionId } = await sessionWith();
     const { id: docId } = await openOwnDoc(db, author, sessionId);
     const sv = toBase64(Y.encodeStateVector(new Y.Doc()));
-    const huge = toBase64(new Uint8Array(65 * 1024));
+    const huge = toBase64(new Uint8Array(257 * 1024));
     await expect(syncDoc(db, author, docId, { sv, update: huge })).rejects.toMatchObject({
       status: 413,
       code: "DOC_TOO_LARGE",

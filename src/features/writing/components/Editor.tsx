@@ -4,7 +4,7 @@ import "quill/dist/quill.core.css";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import Quill from "quill";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QuillBinding } from "y-quill";
 import * as Y from "yjs";
 import { Skeleton } from "@/components/ui/misc";
@@ -16,7 +16,7 @@ import { useDocState, writingKeys } from "../hooks";
 import { authorStyles } from "../lib/author-colors";
 import { unattributedInserts, type DeltaOp } from "../lib/author-ranges";
 import { fromBase64 } from "../lib/base64";
-import { SOFT_CHAR_LIMIT } from "../lib/limits";
+import { MAX_PASTE_BYTES, SOFT_CHAR_LIMIT } from "../lib/limits";
 import type { SyncStatus } from "../lib/sync-loop";
 import type { SessionGate } from "../lib/permissions";
 import type { SessionMember } from "../schemas";
@@ -41,7 +41,12 @@ export interface EditorProps {
  * Creates Quill on the element (a React 19 ref callback with cleanup), binds it to the Y.Text,
  * marks the user's own typing and counts characters.
  */
-function useQuill(setup: SyncSetup | null, placeholder: string, label: string) {
+function useQuill(
+  setup: SyncSetup | null,
+  placeholder: string,
+  label: string,
+  onPasteRefused: () => void,
+) {
   const [quill, setQuill] = useState<Quill | null>(null);
   const [chars, setChars] = useState(0);
   const ref = useCallback(
@@ -61,6 +66,15 @@ function useQuill(setup: SyncSetup | null, placeholder: string, label: string) {
           editor.formatText(range.index, range.length, "author", setup.userId, "api");
       };
       const count = () => setChars(editor.getLength() - 1);
+      // A paste too large to sync is refused up front, so text is never half-saved.
+      const guardPaste = (event: ClipboardEvent) => {
+        const pasted = event.clipboardData?.getData("text/plain") ?? "";
+        if (new TextEncoder().encode(pasted).length <= MAX_PASTE_BYTES) return;
+        event.preventDefault();
+        event.stopPropagation();
+        onPasteRefused();
+      };
+      editor.root.addEventListener("paste", guardPaste, true);
       editor.on("text-change", attribute);
       editor.on("text-change", count);
       editor.root.setAttribute("aria-label", label);
@@ -72,12 +86,13 @@ function useQuill(setup: SyncSetup | null, placeholder: string, label: string) {
       return () => {
         editor.off("text-change", attribute);
         editor.off("text-change", count);
+        editor.root.removeEventListener("paste", guardPaste, true);
         binding.destroy();
         element.replaceChildren();
         setQuill(null);
       };
     },
-    [setup, placeholder, label],
+    [setup, placeholder, label, onPasteRefused],
   );
   return { quill, chars, ref };
 }
@@ -101,19 +116,24 @@ export default function Editor(props: EditorProps) {
   const errorMessage = useErrorMessage();
   const queryClient = useQueryClient();
   const { query, setup } = useDocSetup(docId, userId);
+  const lastError = useRef<RepositoryErrorCode | null>(null);
   const onError = (code: RepositoryErrorCode) => {
     if (code === "NOT_FOUND") return onGone();
+    // Text too large to save stays on screen and in the local mirror; say so once.
     if (code === "DOC_TOO_LARGE") {
-      toast(t("reloaded"), "error");
-      return void queryClient.resetQueries({ queryKey: writingKeys.doc(docId) });
+      if (lastError.current !== code) toast(t("tooLarge"), "error");
+      lastError.current = code;
+      return;
     }
+    lastError.current = code;
     toast(errorMessage(new RepositoryError(code)), "error");
     // Refused edits were dropped from the sync state but are still in the local document:
     // start again from the server copy so this tab never silently diverges.
     if (code !== "UNAUTHENTICATED")
       void queryClient.resetQueries({ queryKey: writingKeys.doc(docId) });
   };
-  const { quill, chars, ref } = useQuill(setup, t("placeholder"), props.label);
+  const onPasteRefused = useCallback(() => toast(t("pasteTooLong"), "error"), [toast, t]);
+  const { quill, chars, ref } = useQuill(setup, t("placeholder"), props.label, onPasteRefused);
   const { status, readOnly } = useSyncLoop(setup, Boolean(quill), onError, props.onSession);
   useEffect(() => onStatus(status), [status, onStatus]);
   useEffect(() => quill?.enable(!readOnly), [quill, readOnly]);

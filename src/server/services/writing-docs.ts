@@ -2,7 +2,11 @@ import "server-only";
 import { and, eq, sql } from "drizzle-orm";
 import { v7 } from "uuid";
 import { base64Bytes, fromBase64, toBase64 } from "@/features/writing/lib/base64";
-import { MAX_STATE_BYTES, MAX_UPDATE_BYTES, PREVIEW_CHARS } from "@/features/writing/lib/limits";
+import {
+  MAX_STATE_BYTES,
+  MAX_SYNC_UPDATE_BYTES,
+  PREVIEW_CHARS,
+} from "@/features/writing/lib/limits";
 import { canWriteDoc, teaches } from "@/features/writing/lib/permissions";
 import { syncRequestSchema, type SyncResponse } from "@/features/writing/schemas";
 import { ApiError } from "../api-error";
@@ -131,7 +135,7 @@ export async function syncDoc(
   input: unknown,
 ): Promise<SyncResponse> {
   const request = syncRequestSchema.parse(input);
-  if (request.update && base64Bytes(request.update) > MAX_UPDATE_BYTES) throw tooLarge();
+  if (request.update && base64Bytes(request.update) > MAX_SYNC_UPDATE_BYTES) throw tooLarge();
   const access = await requireDocAccess(db, userId, docId, request.update ? "write" : "read");
   const base = { readOnly: !access.canWrite, session: gateOf(access.session) };
   if (!request.update && request.version === access.doc.version)
