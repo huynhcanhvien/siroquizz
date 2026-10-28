@@ -1,5 +1,7 @@
 # Phần D — Nghiệm thu & kiểm chứng (gói WP5 §6, WP6 §1–5)
 
+**Trạng thái WP6:** review — §1 xanh, §4 review xong (MEDIUM đã sửa, phần còn lại ở `specs/phase-7-collab-writing.md` §Review WP6); §2 kịch bản tay và §3 số liệu chưa làm (cần người).
+
 Đọc `README.md` trước. Chạy sau khi WP1–WP4 đã merge vào `feat/class-collab-writing`.
 
 ## 1. Kiểm tra tự động
@@ -27,12 +29,12 @@
 - Agent `security-reviewer`, tập trung: IDOR trên `class_library_items` / `set_collaborators` / `set_change_requests` / `writing_docs` / `scratch_cards`; leo thang quyền qua `class_teachers` (owner lớp xoá lớp, thành viên rời); `audience=teachers` không rò cho học sinh; kích thước payload sync (`readJson` 96KB, 413); rate limit từng route mới; `baseUpdatedAt` không bypass được; ảnh bộ private qua route ảnh.
 
 ## 5. Checklist trước PR vào `main`
-- [ ] Mọi kiểm tra ở §1 xanh; e2e chạy 2 lần liên tiếp không flaky.
-- [ ] `specs/state.md` có nhật ký từng gói (timestamp giờ VN) và số liệu §3.
-- [ ] `specs/phase-7-collab-writing.md` mới: tóm tắt schema, bảng phân quyền (như `phase-5-community.md` §Phân quyền), bảng route, giao thức sync, giới hạn.
-- [ ] `specs/phase-5-community.md` §5 thêm dòng trỏ sang phase 7; `plan/teams.md` đã đánh dấu thay thế.
-- [ ] Ghi chú deploy trong PR: chạy migration trên Neon **trước** khi merge (`DATABASE_URL=<neon-direct> pnpm db:migrate`); nếu A18 bật Turbopack mà Vercel build lỗi → `vercel.json` `buildCommand: "pnpm build:webpack"`; env mới (nếu có) đặt trên Vercel trước.
-- [ ] PR body theo `rules/common/git-workflow.md`: tóm tắt toàn bộ commit, test plan.
+- [x] Mọi kiểm tra ở §1 xanh; e2e chạy 2 lần liên tiếp không flaky. (WP6: 138 pass × 2; axe/tràn ngang trang mới ở 375/1440 qua `collab-quality.spec.ts`, chưa chạy 320/768/1024)
+- [ ] `specs/state.md` có nhật ký từng gói (timestamp giờ VN) và số liệu §3. (nhật ký có; số liệu §3 chưa đo)
+- [x] `specs/phase-7-collab-writing.md` mới: tóm tắt schema, bảng phân quyền (như `phase-5-community.md` §Phân quyền), bảng route, giao thức sync, giới hạn.
+- [x] `specs/phase-5-community.md` §5 thêm dòng trỏ sang phase 7; `plan/teams.md` đã đánh dấu thay thế.
+- [ ] Ghi chú deploy trong PR (nội dung có sẵn ở `specs/phase-7-collab-writing.md` §Ghi chú deploy; Vercel vẫn build webpack, không có env mới): chạy migration trên Neon **trước** khi merge (`DATABASE_URL=<neon-direct> pnpm db:migrate`); nếu A18 bật Turbopack mà Vercel build lỗi → `vercel.json` `buildCommand: "pnpm build:webpack"`; env mới (nếu có) đặt trên Vercel trước.
+- [ ] PR body (người điều phối tạo PR) theo `rules/common/git-workflow.md`: tóm tắt toàn bộ commit, test plan.
 
 ## 6. Tài liệu (gói WP5)
 - Cập nhật `README.md` repo: mục tính năng (thư viện lớp, cộng tác, viết bài, bộ thẻ tạm), biến env mới nếu có.

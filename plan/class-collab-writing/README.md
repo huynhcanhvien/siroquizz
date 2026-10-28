@@ -15,7 +15,7 @@ Ký hiệu: `todo` · `in-progress` · `review` · `done` · `blocked`. Chi ti�
 | WP2 AI pipeline (A7–A13) | Agent 2 (Opus 5.5) | `wp2-wp4-*` (worktree) | done | merged (c722e21); migration 0018 |
 | WP4 Viết bài (C1–C13) | Agent 2 (Opus 5.5) | nối tiếp WP2 | done | merged (c722e21); migration 0019; dùng `shareToClass` |
 | WP5 CI/dọn dẹp/tài liệu (A14–A19) | Agent 3 (Opus 5.5) | `wp5-cleanup-ci` (worktree) | done | merged (31de4be); còn phase-7 spec + ghi chú deploy → WP6 |
-| WP6 Review & nghiệm thu (D) | Agent 4 (Opus 5.5) | `wp6-acceptance` (worktree) | in-progress | sau hardening WP4 (wp4-hardening đã merge) |
+| WP6 Review & nghiệm thu (D) | Agent 4 (Opus 5.5) | `wp6-acceptance` (worktree) | review | e2e 138×2 xanh, review sửa 4 MEDIUM + LOW client; còn kịch bản tay D§2, số liệu D§3 |
 
 ## Bối cảnh
 

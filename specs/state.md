@@ -3,7 +3,7 @@
 > File này ghi lại **đã làm gì, đang làm dở gì, làm tiếp thế nào** để bất kỳ ai (người hoặc agent) cũng có thể tiếp tục.
 > Thời gian theo giờ Việt Nam (UTC+7). Mục mới nhất ở trên cùng của phần Nhật ký.
 
-**Cập nhật lần cuối:** 2026-10-06 14:03 +07
+**Cập nhật lần cuối:** 2026-10-29 03:05 +07
 **Phase hiện tại:** AI (tốc độ + credit) xong trên nhánh `feat/ai-pipeline-speed` (PR #1 vào `main`, **chưa merge**). Phase 5 cộng đồng **hoàn tất (đợt 1–6)** trên nhánh `feat/phase5-community` (tách từ nhánh AI, chưa push/PR). Phase 4 (SRS) vẫn đang dở.
 **Tình trạng:** Người dùng yêu cầu hoàn thành toàn bộ Phase 2–6 và cập nhật state khi từng phase xong. Không coi credentials, deployment hay beta bên ngoài đã hoàn tất nếu chưa thực hiện.
 
@@ -50,6 +50,15 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 **Bước tiếp theo:** (1) user merge PR #1 sau khi chạy migration 0006–0008 trên Neon; (2) push `feat/phase5-community` + tạo PR (migration 0009–0013); (3) các mục bảo mật còn để lại (xem nhật ký đợt 6); (4) quay lại Phase 4 (SRS) phần còn dở.
 
 ## Nhật ký
+
+### 2026-10-29 03:05 +07: ✅ WP6 nghiệm thu & review xong trên nhánh `wp6-acceptance` (tách từ `feat/class-collab-writing` e270bd3, chưa merge)
+
+- **Kiểm thử:** lint/typecheck sạch; unit 678 (dòng 95,9%, nhánh 90,3%); integration 306 (dòng 94,0%, nhánh 84,0%) trên DB riêng `siroquizz_wp6_test`; `pnpm build` xanh. E2E toàn bộ 2 lần liên tiếp trên `siroquizz_wp6` (`DEPLOYMENT_ENV=local E2E_PORT=3240 RESEND_API_KEY= PW_CHANNEL=chrome`): **138 pass, 2 skip** (Groq live, credit publish) mỗi lần. `study`/`starred-flashcards`/`flashcard-corrections` xanh sau khi `readSets` đọc chi tiết bộ. Lần đầu `class-library` timeout lúc đăng ký khi server vừa khởi động lạnh, chạy lại xanh (10s).
+- **E2E mới `collab-quality.spec.ts`:** `/classes/[id]` (GV + HS), `/classes/[id]/writing`, `/sets/[id]/propose`, `/sets/[id]` (viewer), `/library?tab=class`, `/study/writing/[sessionId]` (GV + HS) ở 375/1440, sáng/tối: không tràn ngang, axe WCAG 2.1 AA sạch. Tìm ra trang viết bài không có `<main id="main">` (skip link hỏng) và không có lề trên điện thoại → đã sửa.
+- **Review (code + bảo mật), không có CRITICAL/HIGH. MEDIUM đã sửa kèm test:** cộng tác viên sửa bộ public không còn đưa verdict `flagged`/`rejected` về `pending` (mở lại link + tiêu quota kiểm duyệt của chủ); quyền sửa cấp đích danh hết hiệu lực khi không còn chung lớp với chủ; token continuation AI aux ký kèm digest các thẻ còn lại (trước đó replay được 15 phút để làm miễn phí bộ khác); bộ chia sẻ vào thư viện lớp chỉ vào hàng ôn tập chung khi đã học (trước đó mọi bộ chia sẻ đổ thẻ mới vào); GV đổi cài đặt phiên không còn dựng lại editor đang mở; nhãn editor không dựng lại Quill; `syncNow` không để lại timer thừa; tab mở ở nền bắt đầu ở trạng thái tạm dừng.
+- **Còn để lại (MEDIUM/LOW, ghi ở `specs/phase-7-collab-writing.md` §Review):** người xem qua link (không cùng lớp) vẫn gửi được đề xuất (đúng quyết định #3 nhưng có thể spam hàng chờ 20; note không qua kiểm duyệt); học sinh nhận danh sách thành viên đầy đủ qua phiên viết (để tô màu); `baseUpdatedAt` là tuỳ chọn; duyệt đề xuất cũ ghi đè thay đổi mới (chỉ báo `stale`); GET doc/ảnh/list chưa có rate limit riêng; chưa đo CPU của update Yjs độc hại; token của batch AI lỗi không cộng vào trần ngày; migration 0016 tạo index không `CONCURRENTLY` (khoá ghi vài giây).
+- **Tài liệu:** `specs/phase-7-collab-writing.md` mới (schema, phân quyền, route, giao thức sync, giới hạn, ngân sách polling, migration 0016–0019, ghi chú deploy); `specs/README.md` thêm Phase 7; `specs/phase-5-community.md` §5 trỏ sang Phase 7.
+- **Deploy:** chạy `DATABASE_URL=<neon-direct> pnpm db:migrate` **trước** khi merge vào `main`; không có biến env mới. Chưa làm: kịch bản tay 3 trình duyệt (D §2) và số liệu trước/sau (D §3).
 
 ### 2026-10-29 02:40 +07: 🧱 WP2 (A7–A13) + WP4 (C1–C13) xong trên nhánh `wp2-wp4-ai-writing` (đã rebase lên `feat/class-collab-writing`, chưa merge)
 
