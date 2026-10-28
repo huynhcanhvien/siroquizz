@@ -9,7 +9,8 @@ import {
   type AiJobState,
   type CreditEstimate,
 } from "@/features/ai-generate/schemas";
-import { estimateTokens, normalizeCards, splitDocument } from "@/features/ai-generate/lib/output";
+import { estimateTokens, normalizeCards } from "@/features/ai-generate/lib/output";
+import { planChunks } from "@/features/ai-generate/lib/plan-requests";
 import {
   AUTO_CONFIRM_CREDITS,
   MAX_JOB_CREDITS,
@@ -268,10 +269,10 @@ async function planGeneration(ctx: StepContext, hasFiles: boolean): Promise<Step
     return { status: "validating", stage: "validating" };
   }
   const { cardCount } = generationOptionsSchema.parse(job.options);
-  state.chunks = text ? splitDocument(text) : [""];
+  state.chunks = planChunks(text, cardCount);
   state.chunkTokens = state.chunks.map(estimateTokens);
   state.chunkIndex = 0;
-  state.tasks = planTasks(state.chunks.length, cardCount);
+  state.tasks = planTasks(state.chunkTokens, cardCount);
   state.totalTasks = state.tasks.length;
   state.phase = "generate";
   const credits = creditsForCards(cardCount);
@@ -332,7 +333,7 @@ export async function generateStep(ctx: StepContext): Promise<StepResult> {
   if (!state.tasks) {
     const chunks = state.chunks ?? [""];
     state.tasks = planTasks(
-      chunks.length,
+      state.chunkTokens ?? chunks.map(estimateTokens),
       generationOptionsSchema.parse(job.options).cardCount,
     ).filter((task) => task.chunk >= state.chunkIndex);
     state.totalTasks = state.tasks.length;

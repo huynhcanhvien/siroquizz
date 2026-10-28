@@ -50,6 +50,7 @@ import {
   type StepResult,
 } from "./job-steps";
 import { planTasks } from "./generate";
+import { estimateTokens } from "@/features/ai-generate/lib/output";
 
 export { quotaWindow } from "./credits";
 export type { StepResult } from "./job-steps";
@@ -240,8 +241,8 @@ export async function confirmJob(db: Database, userId: string, id: string, input
     const state = aiJobStateSchema.parse(job.state);
     const options = generationOptionsSchema.parse(job.options);
     const count = cardCount ?? options.cardCount;
-    const chunks = state.chunks ?? [""];
-    state.tasks = planTasks(chunks.length, count);
+    const chunkTokens = state.chunkTokens ?? (state.chunks ?? [""]).map(estimateTokens);
+    state.tasks = planTasks(chunkTokens, count);
     state.totalTasks = state.tasks.length;
     const used = (state.ocrPages ?? 0) * OCR_CREDITS_PER_PAGE;
     await reserveCredits(
@@ -249,7 +250,7 @@ export async function confirmJob(db: Database, userId: string, id: string, input
       userId,
       id,
       used + creditsForCards(count),
-      estimateGenerationTokens(state.chunkTokens ?? [], count),
+      estimateGenerationTokens(chunkTokens, count),
     );
     await tx
       .update(aiJobs)

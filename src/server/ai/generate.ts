@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import type { AiJobState, GenerationOptions, GenerationTask } from "@/features/ai-generate/schemas";
 import { estimateTokens } from "@/features/ai-generate/lib/output";
-import { planRequests } from "@/features/ai-generate/lib/credits";
+import { planRequests } from "@/features/ai-generate/lib/plan-requests";
 import { ApiError } from "../api-error";
 import { getServerEnv } from "../env";
 import { addUsage } from "./extract";
@@ -30,9 +30,9 @@ const modelOutputSchema = z.object({
   ),
 });
 
-/** The generation requests for a job, in the same plan its credit estimate was priced on. */
-export function planTasks(chunkCount: number, cardCount: number): GenerationTask[] {
-  return planRequests(chunkCount, cardCount).map((request) => ({ ...request, attempts: 0 }));
+/** The generation requests for a job, in the same plan its token estimate was priced on. */
+export function planTasks(chunkTokens: readonly number[], cardCount: number): GenerationTask[] {
+  return planRequests(chunkTokens, cardCount).map((request) => ({ ...request, attempts: 0 }));
 }
 
 /** Picks up to CONCURRENCY tasks from different chunks so parts of one chunk stay sequential. */

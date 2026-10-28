@@ -6,7 +6,6 @@ import {
   creditsForCards,
   estimateGenerationTokens,
   jobCredits,
-  planDocumentChunks,
 } from "./credits";
 import { CARD_COUNT_MAX } from "./generator";
 
@@ -32,12 +31,6 @@ describe("AI credits", () => {
     expect(jobCredits({ cards: 20, cached: true })).toBe(0);
     expect(jobCredits({ cards: 20, imported: true })).toBe(0);
     expect(jobCredits({ cards: 20, imported: true, ocrPages: 3 })).toBe(3);
-  });
-
-  it("reads every chunk even when requesting few cards", () => {
-    expect(planDocumentChunks(12)).toEqual(Array.from({ length: 12 }, (_, i) => i));
-    expect(planDocumentChunks(2)).toEqual([0, 1]);
-    expect(planDocumentChunks(1)).toEqual([0]);
   });
 
   it("accounts for the full document in the provider token estimate", () => {

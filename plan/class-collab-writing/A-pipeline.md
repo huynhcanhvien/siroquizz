@@ -55,7 +55,7 @@
 - **Test:** integration `assertGlobalCapacity` chặn đúng với 2 job đồng thời trên tài liệu lớn.
 
 ### A9. Mỗi chunk ít nhất một request
-**Trạng thái:** todo
+**Trạng thái:** done — gộp bằng cách chia lại tài liệu với phần ≤ 6.500 token (prompt + overhead phải < 8.000 TPM free tier, specs/state.md) thay vì 8.000; 100k token/10 thẻ → ≤ 16 request (không phải ≤ 13); mỗi request ≥ 1 thẻ, phần còn lại chia theo tỉ lệ token
 - **Vấn đề:** `src/features/ai-generate/lib/credits.ts:66-79` `Math.max(1, …)`, `output.ts:68` `CHUNK_TOKENS = 2500`, `generate.ts:14` `CONCURRENCY = 2`: 100k token + 10 thẻ = 40 call ≈ 148k token, ~18 phút throttle 8k tpm; `normalizeCards` bỏ 30+ ứng viên.
 - **Sửa:** hàm thuần `planRequests(chunks, cardsRequested): Request[]` trong `src/features/ai-generate/lib/plan-requests.ts`: khi `chunks.length > cardsRequested * 2` gộp chunk kề nhau thành yêu cầu ≤ 8.000 token (vẫn đọc mọi đoạn, đúng spec "AI xử lý mọi đoạn"); phân bổ `cardsPerRequest` theo tỉ lệ token. Ước lượng credit và `generateStep` dùng cùng hàm.
 - **Test:** unit `plan-requests.test.ts` (40 chunk/10 thẻ → ≤ 13 request; 3 chunk/50 thẻ → 3 request; tổng thẻ = yêu cầu); `pnpm ai:eval` không giảm chất lượng (so `evals/ai-generation/latest-report.json`).
