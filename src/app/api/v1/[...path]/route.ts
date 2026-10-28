@@ -3,7 +3,8 @@ import { z } from "zod";
 import { profileUpdateSchema } from "@/features/auth/schemas";
 import { learningApi } from "@/server/learning-api";
 import { communityApi } from "@/server/community-api";
-import { api, readJson } from "@/server/api";
+import { api, readJson, type ApiContext } from "@/server/api";
+import type { User } from "@/lib/types";
 import { ApiError } from "@/server/api-error";
 import { getDatabase } from "@/server/db/client";
 import { account, session as sessionTable, user } from "@/server/db/schema";
@@ -28,12 +29,13 @@ import {
 } from "@/server/services/progress";
 import { importLocal } from "@/server/services/import-local";
 import { ensureSampleSets } from "@/server/services/seed";
+import { writePolicy } from "@/server/write-policy";
 
 export const runtime = "nodejs";
 type Context = { params: Promise<{ path: string[] }> };
 async function handle(request: Request, context: Context) {
-  return api(request, async (current, session) => {
-    const { path } = await context.params;
+  const { path } = await context.params;
+  const action = async (current: User, session: ApiContext) => {
     const [domain, id, sub] = path;
     const method = request.method;
     const db = getDatabase();
@@ -156,6 +158,7 @@ async function handle(request: Request, context: Context) {
       return { data: null };
     }
     throw new ApiError(405, "NOT_FOUND");
-  });
+  };
+  return api(request, action, { writeLimit: writePolicy(path) });
 }
 export { handle as GET, handle as POST, handle as PUT, handle as PATCH, handle as DELETE };

@@ -9,6 +9,7 @@ import { ApiError } from "./api-error";
 import { getDatabase } from "./db/client";
 import { user } from "./db/schema";
 import { enforceLimit } from "./rate-limit";
+import type { WritePolicy } from "./write-policy";
 import type { User } from "@/lib/types";
 
 export function checkOrigin(request: Request) {
@@ -100,9 +101,19 @@ export interface ApiContext {
   /** Call after changing user fields carried in the session cookie cache. */
   refreshSession: () => void;
 }
+export interface ApiOptions {
+  /** Bucket for the per-user write limit on non-GET requests; defaults to 60 writes a minute. */
+  writeLimit?: WritePolicy;
+}
+async function enforceWriteLimit(userId: string, policy: WritePolicy | undefined) {
+  if (policy === "none") return;
+  const { key, max, seconds } = policy ?? { key: "write", max: 60, seconds: 60 };
+  await enforceLimit(`${key}:${userId}`, max, seconds);
+}
 export async function api(
   request: Request,
   action: (current: User, context: ApiContext) => Promise<{ data: unknown; meta?: unknown }>,
+  options: ApiOptions = {},
 ): Promise<Response> {
   const requestId = randomUUID();
   try {
@@ -111,7 +122,7 @@ export async function api(
     const session = await getSessionContext(request.headers);
     const current = session.user;
     if (request.method !== "GET") {
-      await enforceLimit(`write:${current.id}`);
+      await enforceWriteLimit(current.id, options.writeLimit);
       // The session cookie can be minutes old; a ban or deletion must stop writes at once.
       await assertActiveAccount(current.id);
     }

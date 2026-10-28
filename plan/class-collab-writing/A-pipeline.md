@@ -5,7 +5,7 @@
 ## M0 — Nền tảng (gói WP1, phải xong trước WP3/WP4)
 
 ### A1. Rate limit ghi chung 60/phút chặn nhầm
-**Trạng thái:** todo
+**Trạng thái:** done
 - **Vấn đề:** `src/server/api.ts:113-114` áp `enforceLimit("write:<user>")` (mặc định 60/phút, `src/server/rate-limit.ts:10`) cho mọi non-GET. Upload AI tuần tự (tối đa 100 file, `api-generator.ts:216-247`) và lật thẻ nhanh (`PUT /progress` mỗi lần vuốt, `FlashcardDeck.tsx:220-231`) chạm 429; `RATE_LIMITED` không retry (`data-provider.tsx:73`) nên cả lượt tạo thất bại. Limit riêng `ai-step` 300/60 ở `src/app/api/v1/ai/[...path]/route.ts:118` không bao giờ có tác dụng.
 - **Sửa:** `api(request, action, { writeLimit?: { key: string; max: number; seconds: number } | "none" })`. Hàm thuần `writePolicy(path: string[]): WritePolicy` trong `src/server/write-policy.ts`: `ai/*` → `"none"` (đã có limit riêng); `sets/:id/progress`, `reviews`, `reviews/*`, `writing/docs/:id/sync` → `{ key: "write-fast", max: 120, seconds: 60 }`; còn lại `{ key: "write", max: 60, seconds: 60 }`. Router v1 và router AI truyền policy.
 - **Test:** unit `write-policy.test.ts`; integration: 61 request progress trong 1 phút không 429, 61 request tạo bộ vẫn 429 (mock `rate-limit` như `tests/integration/community-api.test.ts`).
