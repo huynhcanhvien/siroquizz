@@ -4,7 +4,7 @@ import { v7 } from "uuid";
 import { DAILY_FREE_CREDITS, MAX_JOB_CREDITS } from "@/features/ai-generate/lib/credits";
 import { ApiError } from "../api-error";
 import type { Database } from "../db/client";
-import { aiJobs, creditLedger, user } from "../db/schema";
+import { aiAuxUsage, aiJobs, creditLedger, user } from "../db/schema";
 import { getServerEnv } from "../env";
 import type { Transaction } from "../services/sets";
 
@@ -69,22 +69,45 @@ export async function creditStatus(db: Executor, userId: string): Promise<Credit
   };
 }
 
-/** Provider tokens a reserved credit stands for while its job runs (4 cards ≈ 2,500 tokens). */
-const TOKENS_PER_RESERVED_CREDIT = 3000;
+/**
+ * Tokens a reserved credit stands for, for jobs reserved before tokens_reserved was recorded
+ * (4 cards ≈ 2,500 tokens).
+ */
+const LEGACY_TOKENS_PER_RESERVED_CREDIT = 3000;
 
 /**
  * Provider tokens the whole app has used or committed today on the one shared key: tokens spent
- * by finished jobs plus what running jobs have reserved.
+ * by jobs finished today, the estimates running jobs reserved, and auxiliary/moderation calls.
  */
 export async function globalTokensToday(db: Executor) {
-  const { start } = quotaWindow();
-  const [row] = await db
-    .select({
-      spent: sql<number>`coalesce(sum(${aiJobs.inputTokens} + ${aiJobs.outputTokens}) filter (where ${aiJobs.finishedAt} >= ${start.toISOString()}::timestamptz), 0)::int`,
-      reserved: sql<number>`coalesce(sum(${aiJobs.creditsReserved}) filter (where ${inArray(aiJobs.status, ACTIVE_JOB_STATUSES)}), 0)::int`,
-    })
-    .from(aiJobs);
-  return row.spent + row.reserved * TOKENS_PER_RESERVED_CREDIT;
+  const { start, day } = quotaWindow();
+  const [[jobs], [aux]] = await Promise.all([
+    db
+      .select({
+        spent: sql<number>`coalesce(sum(${aiJobs.inputTokens} + ${aiJobs.outputTokens}) filter (where ${aiJobs.finishedAt} >= ${start.toISOString()}::timestamptz), 0)::int`,
+        reserved: sql<number>`coalesce(sum(coalesce(nullif(${aiJobs.tokensReserved}, 0), ${aiJobs.creditsReserved} * ${LEGACY_TOKENS_PER_RESERVED_CREDIT})) filter (where ${inArray(aiJobs.status, ACTIVE_JOB_STATUSES)}), 0)::int`,
+      })
+      .from(aiJobs),
+    db
+      .select({ tokens: sql<number>`coalesce(sum(${aiAuxUsage.tokens}), 0)::int` })
+      .from(aiAuxUsage)
+      .where(eq(aiAuxUsage.day, day)),
+  ]);
+  return jobs.spent + jobs.reserved + aux.tokens;
+}
+/** Adds provider tokens an auxiliary task or a moderation check spent to today's tally. */
+export async function recordAuxTokens(db: Executor, userId: string, tokens: number) {
+  // Provider usage is external data: ignore anything that is not a positive count.
+  if (!Number.isFinite(tokens) || tokens <= 0) return;
+  const spent = Math.round(tokens);
+  const { day } = quotaWindow();
+  await db
+    .insert(aiAuxUsage)
+    .values({ userId, day, count: 0, tokens: spent })
+    .onConflictDoUpdate({
+      target: [aiAuxUsage.userId, aiAuxUsage.day],
+      set: { tokens: sql`${aiAuxUsage.tokens} + ${spent}` },
+    });
 }
 /** Refuses work that would take the shared key past today's app-wide token budget. */
 export async function assertGlobalCapacity(db: Executor, tokens: number) {
@@ -114,7 +137,7 @@ export async function reserveCredits(
   await assertGlobalCapacity(tx, tokens);
   await tx
     .update(aiJobs)
-    .set({ creditsEstimated: credits, creditsReserved: credits })
+    .set({ creditsEstimated: credits, creditsReserved: credits, tokensReserved: tokens })
     .where(eq(aiJobs.id, jobId));
 }
 
@@ -152,6 +175,7 @@ export async function chargeJob(
 /** Columns recording a charge and releasing the job's reservation. */
 export const chargeColumns = (charge: Charge) => ({
   creditsReserved: 0,
+  tokensReserved: 0,
   creditsCharged: charge.credits,
   dailyCreditsCharged: charge.daily,
 });

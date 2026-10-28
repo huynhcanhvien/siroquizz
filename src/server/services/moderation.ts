@@ -6,7 +6,7 @@ import { estimateTokens } from "@/features/ai-generate/lib/output";
 import { ApiError } from "../api-error";
 import { auditLogs, cards, studySets } from "../db/schema";
 import { groqJson } from "../ai/groq";
-import { awardPublishCredit, clawbackSetCredits } from "../ai/credits";
+import { awardPublishCredit, clawbackSetCredits, recordAuxTokens } from "../ai/credits";
 import type { Database } from "../db/client";
 import type { Db } from "./sets";
 
@@ -83,11 +83,11 @@ export const audit = (
 ) => db.insert(auditLogs).values({ id: v7(), meta: {}, ...entry });
 
 type Decision = { status: "approved" | "flagged" | "pending"; reason: string | null };
-async function decide(text: string, sample: string) {
+async function decide(text: string, sample: string, onUsage: (tokens: number) => Promise<void>) {
   const local = scanForContactDetails(text);
   if (local) return { status: "flagged", reason: local } satisfies Decision;
   try {
-    const { data } = await groqJson(
+    const { data, usage } = await groqJson(
       verdictSchema,
       sample,
       AbortSignal.timeout(20_000),
@@ -98,6 +98,7 @@ async function decide(text: string, sample: string) {
         maxTokens: 400,
       },
     );
+    await onUsage(usage.input + usage.output);
     return data.violation
       ? ({ status: "flagged", reason: `${data.category}: ${data.reason}` } satisfies Decision)
       : ({ status: "approved", reason: null } satisfies Decision);
@@ -128,7 +129,9 @@ export async function moderateSet(db: Database, setId: string) {
     ...set.tags,
     ...setCards.map((c) => `${c.term} ${c.definition}${c.example ? `\n${c.example}` : ""}`),
   ].join("\n");
-  const decision = await decide(text, moderationSample(set, setCards));
+  const decision = await decide(text, moderationSample(set, setCards), (tokens) =>
+    recordAuxTokens(db, set.ownerId, tokens),
+  );
   if (decision.status === "pending") return "pending";
   await db.transaction(async (tx) => {
     const updated = await tx

@@ -6,7 +6,8 @@ import { ApiError } from "../api-error";
 import type { Database } from "../db/client";
 import { aiAuxUsage, user } from "../db/schema";
 import { getSet } from "../services/sets";
-import { groqJson } from "./groq";
+import { groqJson, type Usage } from "./groq";
+import { recordAuxTokens } from "./credits";
 import { quotaWindow } from "./jobs";
 import { phoneticReference, verifyPhonetic } from "./phonetics";
 import { getServerEnv } from "../env";
@@ -78,10 +79,10 @@ export async function auxiliaryTask(
 ) {
   if (task === "grade") {
     const payload = gradeSchema.parse(input);
-    return withAuxQuota(db, userId, () => gradeAnswer(payload, signal));
+    return withAuxQuota(db, userId, (track) => gradeAnswer(payload, signal, track));
   }
   const job = await selectCards(db, userId, z.enum(["phonetics", "examples"]).parse(task), input);
-  return withAuxQuota(db, userId, () => runCardBatches(job, signal));
+  return withAuxQuota(db, userId, (track) => runCardBatches(job, signal, track));
 }
 
 /** The cards to work on: a set's (missing or all, or a continuation's ids) or the posted ones. */
@@ -112,8 +113,16 @@ async function selectCards(
   };
 }
 
-/** Counts one use of today's allowance for the whole request; gives it back if nothing came of it. */
-async function withAuxQuota<T>(db: Database, userId: string, run: () => Promise<T>): Promise<T> {
+type TrackUsage = (usage: Usage) => void;
+/**
+ * Counts one use of today's allowance for the whole request and gives it back if nothing came of
+ * it. Provider tokens the calls spent are added to today's app-wide tally either way.
+ */
+async function withAuxQuota<T>(
+  db: Database,
+  userId: string,
+  run: (track: TrackUsage) => Promise<T>,
+): Promise<T> {
   const { day } = quotaWindow();
   await db.transaction(async (tx) => {
     await tx.select({ id: user.id }).from(user).where(eq(user.id, userId)).for("update");
@@ -130,18 +139,29 @@ async function withAuxQuota<T>(db: Database, userId: string, run: () => Promise<
         set: { count: sql`${aiAuxUsage.count}+1` },
       });
   });
+  let tokens = 0;
+  const track: TrackUsage = (usage) => {
+    tokens += usage.input + usage.output;
+  };
   try {
-    return await run();
+    const result = await run(track);
+    await recordAuxTokens(db, userId, tokens);
+    return result;
   } catch (error) {
     await db
       .update(aiAuxUsage)
       .set({ count: sql`greatest(0,${aiAuxUsage.count}-1)` })
       .where(and(eq(aiAuxUsage.userId, userId), eq(aiAuxUsage.day, day)));
+    await recordAuxTokens(db, userId, tokens);
     throw error;
   }
 }
 
-async function gradeAnswer(data: z.infer<typeof gradeSchema>, signal: AbortSignal) {
+async function gradeAnswer(
+  data: z.infer<typeof gradeSchema>,
+  signal: AbortSignal,
+  track: TrackUsage,
+) {
   const result = await groqJson(
     z.object({ correct: z.boolean(), reason: z.string() }),
     JSON.stringify({
@@ -153,6 +173,7 @@ async function gradeAnswer(data: z.infer<typeof gradeSchema>, signal: AbortSigna
     "openai/gpt-oss-20b",
     { deadline: Date.now() + AUX_BUDGET_MS },
   );
+  track(result.usage);
   return result.data;
 }
 
@@ -160,13 +181,17 @@ async function gradeAnswer(data: z.infer<typeof gradeSchema>, signal: AbortSigna
  * Runs the cards in batches, one after another, while the request's time budget lasts. Once a
  * batch has succeeded, a later failure or the end of the budget returns what is done so far.
  */
-async function runCardBatches(job: CardJob, signal: AbortSignal): Promise<CardTaskResult> {
+async function runCardBatches(
+  job: CardJob,
+  signal: AbortSignal,
+  track: TrackUsage,
+): Promise<CardTaskResult> {
   const deadline = Date.now() + AUX_BUDGET_MS;
   const done: AuxResult[] = [];
   for (const batch of batchCards(job.cards)) {
     if (deadline - Date.now() < AUX_MIN_BATCH_MS) break;
     try {
-      done.push(...(await runBatch(job, batch, signal, deadline)));
+      done.push(...(await runBatch(job, batch, signal, deadline, track)));
     } catch (error) {
       if (!done.length || signal.aborted || !(error instanceof ApiError)) throw error;
       break;
@@ -183,6 +208,7 @@ async function runBatch(
   batch: AuxCard[],
   signal: AbortSignal,
   deadline: number,
+  track: TrackUsage,
 ): Promise<AuxResult[]> {
   const phonetics = job.task === "phonetics";
   const data = {
@@ -203,6 +229,7 @@ async function runBatch(
     phonetics ? getServerEnv().GROQ_TEXT_MODEL : "openai/gpt-oss-20b",
     { maxTokens: auxMaxTokens(job.task, batch.length), deadline },
   );
+  track(result.usage);
   const terms = new Map(batch.map((card) => [card.id, card.term]));
   return mapBatchOutput(batch, result.data.cards).map((card) => ({
     id: card.id,

@@ -85,6 +85,8 @@ it("sends a large set in batches of 40 with index ids, bounded output and a dead
   expect(result.cards.map((card) => card.id)).toEqual(set.cards.map((card) => card.id));
   expect(result.cards[89].text).toBe("ex word89");
   expect(await auxCount()).toBe(1);
+  // Every batch adds its provider tokens to the app-wide daily tally.
+  expect((await db.select().from(schema.aiAuxUsage))[0].tokens).toBe(3 * 150);
 });
 
 it("returns the finished batches as partial when a later batch fails, without a refund", async () => {

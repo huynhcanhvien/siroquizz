@@ -93,7 +93,13 @@ export async function createJob(db: Database, userId: string, input: unknown) {
     // keeps the heartbeat fresh, so it does not count.
     await tx
       .update(aiJobs)
-      .set({ status: "error", errorCode: "AI_TIMEOUT", finishedAt: new Date(), creditsReserved: 0 })
+      .set({
+        status: "error",
+        errorCode: "AI_TIMEOUT",
+        finishedAt: new Date(),
+        creditsReserved: 0,
+        tokensReserved: 0,
+      })
       .where(
         and(
           eq(aiJobs.userId, userId),

@@ -330,6 +330,8 @@ export const aiJobs = pgTable(
     creditsReserved: integer("credits_reserved").notNull().default(0),
     creditsCharged: integer("credits_charged").notNull().default(0),
     dailyCreditsCharged: integer("daily_credits_charged").notNull().default(0),
+    // WP2: provider tokens held against the app-wide daily cap while the job runs.
+    tokensReserved: integer("tokens_reserved").notNull().default(0),
   },
   (t) => [
     index("jobs_user_created_idx").on(t.userId, t.createdAt),
@@ -344,6 +346,8 @@ export const aiAuxUsage = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     day: varchar("day", { length: 10 }).notNull(),
     count: integer("count").notNull().default(0),
+    // WP2: provider tokens spent today by auxiliary tasks and moderation of this user's sets.
+    tokens: integer("tokens").notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.userId, t.day] })],
 );
