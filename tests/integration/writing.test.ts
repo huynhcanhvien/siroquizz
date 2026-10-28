@@ -205,6 +205,23 @@ describe("document access", () => {
     else await expect(attempt).rejects.toMatchObject({ status: 403, code: outcome });
   });
 
+  it("keeps a teacher's own document closed to student edits even with peer editing on", async () => {
+    const { sessionId } = await sessionWith({
+      status: "open",
+      peerVisibility: "open",
+      peerEditing: true,
+    });
+    const { id: teacherDoc } = await openOwnDoc(db, teacher, sessionId);
+    const { id: studentDoc } = await openOwnDoc(db, author, sessionId);
+    const intruder = new Client(peer, teacherDoc);
+    intruder.type(0, "x");
+    await expect(intruder.sync()).rejects.toMatchObject({ status: 403, code: "FORBIDDEN" });
+    expect(await getDocState(db, peer, teacherDoc)).toMatchObject({ readOnly: true });
+    const helper = new Client(peer, studentDoc);
+    helper.type(0, "y");
+    await expect(helper.sync()).resolves.toMatchObject({ version: 1, readOnly: false });
+  });
+
   it("lets students start a document only while the session is open", async () => {
     const { sessionId } = await sessionWith({ status: "closed" });
     await expect(openOwnDoc(db, author, sessionId)).rejects.toMatchObject({

@@ -42,12 +42,22 @@ describe("writing permissions", () => {
       it(`${viewer.name} with ${gate.status}/${gate.peerVisibility}/${gate.peerEditing ? "editing" : "no-editing"}`, () => {
         const rules = expected(viewer, gate);
         expect(canReadDoc(viewer.role, viewer.userId, AUTHOR, gate)).toBe(rules.read);
-        expect(canWriteDoc(viewer.role, viewer.userId, AUTHOR, gate)).toBe(rules.write);
+        expect(canWriteDoc(viewer.role, viewer.userId, AUTHOR, gate, "student")).toBe(rules.write);
         expect(canListDocs(viewer.role, gate)).toBe(rules.list);
       });
   it("never lets a peer write unless peers can also read", () => {
     for (const gate of gates)
-      if (canWriteDoc("student", PEER, AUTHOR, gate))
+      if (canWriteDoc("student", PEER, AUTHOR, gate, "student"))
         expect(canReadDoc("student", PEER, AUTHOR, gate)).toBe(true);
+  });
+  it("never lets students write in a teacher's own document, even with peer editing on", () => {
+    const gate: SessionGate = { status: "open", peerVisibility: "open", peerEditing: true };
+    expect(canWriteDoc("student", PEER, TEACHER, gate, "owner")).toBe(false);
+    expect(canWriteDoc("student", PEER, TEACHER, gate, "teacher")).toBe(false);
+    // Someone who left the class is not a classmate either.
+    expect(canWriteDoc("student", PEER, "gone", gate, null)).toBe(false);
+    // Teachers still write anywhere; the author still writes in their own.
+    expect(canWriteDoc("teacher", "co", TEACHER, gate, "owner")).toBe(true);
+    expect(canWriteDoc("owner", TEACHER, TEACHER, gate, "owner")).toBe(true);
   });
 });

@@ -1,5 +1,6 @@
 import "server-only";
 import { and, eq } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import {
   canReadDoc,
@@ -27,6 +28,8 @@ export const docColumns = {
 export type DocRow = Omit<typeof writingDocs.$inferSelect, "state" | "createdAt">;
 
 const notFound = () => new ApiError(404, "NOT_FOUND");
+/** The document author's membership, to tell a classmate's document from a teacher's own. */
+const authorMembers = alias(classMembers, "author_members");
 const parseId = (id: string) => {
   const parsed = z.uuid().safeParse(id);
   if (!parsed.success) throw notFound();
@@ -76,21 +79,39 @@ export async function requireDocAccess(
   userId: string,
   docId: string,
   mode: "read" | "write",
-): Promise<{ doc: DocRow; session: SessionRow; role: ClassRole; canWrite: boolean }> {
+): Promise<{
+  doc: DocRow;
+  session: SessionRow;
+  role: ClassRole;
+  authorRole: ClassRole | null;
+  canWrite: boolean;
+}> {
   const [row] = await db
-    .select({ doc: docColumns, session: writingSessions, role: classMembers.role })
+    .select({
+      doc: docColumns,
+      session: writingSessions,
+      role: classMembers.role,
+      authorRole: authorMembers.role,
+    })
     .from(writingDocs)
     .innerJoin(writingSessions, eq(writingSessions.id, writingDocs.sessionId))
     .innerJoin(
       classMembers,
       and(eq(classMembers.classId, writingSessions.classId), eq(classMembers.userId, userId)),
     )
+    .leftJoin(
+      authorMembers,
+      and(
+        eq(authorMembers.classId, writingSessions.classId),
+        eq(authorMembers.userId, writingDocs.authorId),
+      ),
+    )
     .where(eq(writingDocs.id, parseId(docId)))
     .limit(1);
   if (!row) throw notFound();
   const gate = gateOf(row.session);
   if (!canReadDoc(row.role, userId, row.doc.authorId, gate)) throw notFound();
-  const canWrite = canWriteDoc(row.role, userId, row.doc.authorId, gate);
+  const canWrite = canWriteDoc(row.role, userId, row.doc.authorId, gate, row.authorRole);
   if (mode === "write" && !canWrite)
     throw new ApiError(403, gate.status === "closed" ? "SESSION_CLOSED" : "FORBIDDEN");
   return { ...row, canWrite };

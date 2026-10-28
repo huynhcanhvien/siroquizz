@@ -27,17 +27,19 @@ export function canReadDoc(
 
 /**
  * Writing needs an open session. Teachers and the author may always write then; classmates only
- * when documents are open to peers and peer editing is on.
+ * when documents are open to peers and peer editing is on, and only in another student's
+ * document (`authorRole`; null when the author left the class), never in a teacher's own.
  */
 export function canWriteDoc(
   role: ClassRole,
   userId: string,
   authorId: string,
   session: SessionGate,
+  authorRole: ClassRole | null,
 ): boolean {
   if (session.status !== "open") return false;
   if (teaches(role) || userId === authorId) return true;
-  return session.peerVisibility === "open" && session.peerEditing;
+  return authorRole === "student" && session.peerVisibility === "open" && session.peerEditing;
 }
 
 /** Whether the viewer may see the list of everyone's documents. */
