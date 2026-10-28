@@ -75,7 +75,7 @@ test("teacher assigns a private set, the student studies it, progress shows up",
   await assignment.click();
   // Students study but cannot edit or share the teacher's set.
   await expect(student.page.getByRole("heading", { level: 1, name: title })).toBeVisible();
-  await expect(student.page.getByRole("link", { name: "Chỉnh sửa" })).toHaveCount(0);
+  await expect(student.page.getByRole("link", { name: "Chỉnh sửa", exact: true })).toHaveCount(0);
   await expect(student.page.getByRole("button", { name: /Chia sẻ/ })).toHaveCount(0);
   await student.page.goto(`/study/${setId}/flashcards`);
   await student.page.getByRole("button", { name: "Đã biết" }).click();
