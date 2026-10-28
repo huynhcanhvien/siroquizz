@@ -4,13 +4,13 @@ import { apiError, getSessionContext } from "@/server/api";
 import { ApiError } from "@/server/api-error";
 import { getDatabase } from "@/server/db/client";
 import { cardImages, cards, studySets, user } from "@/server/db/schema";
-import { canViewSet } from "@/server/services/access";
+import { canViewSet, requireStudySet } from "@/server/services/access";
 import { getUpload } from "@/server/ai/storage";
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
     z.uuid().parse(id);
-    // Guests may load images of shared sets; everything else needs the owner's session.
+    // Guests may load images of shared sets; everything else needs a session with study access.
     const viewerId = await getSessionContext(request.headers).then(
       (session) => session.user.id,
       () => null,
@@ -28,8 +28,12 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       .innerJoin(user, eq(user.id, studySets.ownerId))
       .where(eq(cardImages.id, id))
       .limit(1);
-    if (!row || !canViewSet(viewerId, row.set, { ownerBanned: row.ownerGone }))
-      throw new ApiError(404, "NOT_FOUND");
+    if (!row) throw new ApiError(404, "NOT_FOUND");
+    // Private sets are also studied through classes (assigned or shared) and by collaborators.
+    if (!canViewSet(viewerId, row.set, { ownerBanned: row.ownerGone })) {
+      if (!viewerId) throw new ApiError(404, "NOT_FOUND");
+      await requireStudySet(db, viewerId, row.set.id);
+    }
     const { image } = row;
     return new Response(new Uint8Array(await getUpload(image.key, image.size, request.signal)), {
       headers: {

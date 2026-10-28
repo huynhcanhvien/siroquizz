@@ -19,7 +19,9 @@ const SETS = "sets";
 function validate(input: SetInput): ValidSetInput {
   const result = setInputSchema.safeParse(input);
   if (!result.success) throw new RepositoryError("VALIDATION", result.error.issues[0]?.message);
-  return result.data;
+  // Conflict detection is a server feature; browser-stored sets keep only the set fields.
+  const { baseUpdatedAt: _base, ...data } = result.data;
+  return data;
 }
 
 /** Keeps ids of cards that already belong to the set so their progress survives edits. */

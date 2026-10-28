@@ -62,7 +62,7 @@ export const setChangeRequests = pgTable("set_change_requests", {
 Hằng số: `MAX_LIBRARY_ITEMS_PER_CLASS = 500`, `MAX_COLLABORATORS_PER_SET = 50`, `MAX_PENDING_REQUESTS_PER_SET = 20`, `MAX_OPS_PER_REQUEST = 200`.
 
 ## B2. Phân quyền — `src/server/services/access.ts` (TDD với `tests/integration/access.test.ts`)
-**Trạng thái:** todo
+**Trạng thái:** done — `requireStudySet` cũng mở cho collaborator (quyền sửa ngụ ý quyền xem); `dueCards` thêm `sharedToClassOf`; route ảnh thử `requireStudySet` khi `canViewSet` sai
 
 Thêm sau `ownerInGoodStanding` (L78-79):
 ```ts
@@ -83,7 +83,7 @@ export const collaboratorOn = (userId: string) => sql`exists(select 1 from set_c
 - Ảnh: `card-images.ts:26,54` `requireOwnedSet` → `requireEditableSet`; `src/app/api/v1/images/[id]/route.ts:31` thêm nhánh: nếu `canViewSet` sai và viewer đăng nhập thì thử `requireStudySet` (sửa luôn lỗi ảnh bộ private được giao cho lớp).
 
 ## B3. `src/server/services/sets.ts`
-**Trạng thái:** todo
+**Trạng thái:** done — `accessOf` export dùng chung với `setAcceptsContributions`; `applyCardOps` dùng safeParse → 400; viewer sửa nay nhận 403 (trước 404, cập nhật classes.test)
 - `setInputSchema` (`src/features/sets/schemas.ts:41-55`) thêm `baseUpdatedAt: z.iso.datetime().optional()`; `SetInput` (`src/lib/types.ts`) thêm `baseUpdatedAt?: string`; local repository bỏ qua.
 - `updateSet(db, userId, id, input)`: `requireEditableSet(tx, userId, id, "update")`; nếu có `baseUpdatedAt` và `current.updatedAt > baseUpdatedAt` → `ApiError(409, "SET_CHANGED")`; `replaceDeck` + `writeSetFields` (từ A6); `markEdited` sau tx; `.where(owned(...))` → `eq(studySets.id, id)`.
 - `applyCardOps(tx: Transaction, set: SetRow, ops: ChangeOps): Promise<void>`: load thẻ theo `position` → `applyOps(existing, ops.cards, v7)` (thuần, B7) → `setInputSchema.parse({ ...metadata(set), title: ops.title ?? set.title, description: ops.description ?? set.description, cards })` (2..500 → 400 trước khi ghi) → `replaceDeck` + `writeSetFields`. Caller gọi `markEdited` sau commit.
@@ -93,12 +93,12 @@ export const collaboratorOn = (userId: string) => sql`exists(select 1 from set_c
 - `studySetSchema` (L79-95) thêm `access: setAccessSchema.optional()`; `StudySet.access?`.
 
 ## B4. `classes.ts` / `folders.ts`
-**Trạng thái:** todo
+**Trạng thái:** done — `dropMember` dùng chung cho leave/remove; `loadFolder` dùng chung cho getFolder/folderStudySet
 - `classes.ts`: export `requireMembership` (L44), `requireTeaching` (L56). `leaveClass` (L205-211) và `removeMember` (L213-230) bọc tx, thêm `delete from class_library_items where class_id=? and shared_by=?`. `deleteClass` (L176-179) thêm `delete from set_collaborators where principal_type='class_teachers' and principal_id=classId`. `assignSet` (L265) giữ `requireOwnedSet`.
 - `folders.ts`: export `requireFolder` (L17). Mới `requireViewableFolder(db, userId, id): Promise<{ folder; isOwner: boolean }>`: owner, hoặc `exists class_library_items li join class_members cm … where li.item_type='folder' and li.item_id=id and (audience='class' or cm.role teaching)` và chủ thư mục không bị ban/xoá; 404 nếu không. `getFolder` (L139-154) dùng nó; viewer lọc `isNull(studySets.hiddenAt)`; trả `{ id, name, isOwner, sets }`; `FolderDetail.isOwner`, `folderDetailSchema` (`src/features/folders/schemas.ts:10-23`) thêm `isOwner: z.boolean()`. `folderStudySet` (L160) giữ, `ownerId` của bộ gộp = `folder.userId`. `deleteFolder` (L76-79) xoá item thư viện lớp của thư mục (tx). Rename/add/remove/`foldersOfSet` giữ owner-only. Route `/study/folder/[folderId]/*` tự nhận thư mục chia sẻ qua `getFolder`.
 
 ## B5. Service mới
-**Trạng thái:** todo
+**Trạng thái:** in-progress
 
 `src/server/services/class-library.ts`
 ```ts
@@ -154,7 +154,7 @@ Route đổi hành vi: `PUT /sets/:id` (editor + `baseUpdatedAt` → 409 `SET_CH
 Mã lỗi: `SET_CHANGED`, `CHANGE_REQUEST_LIMIT`, `NOT_CLASSMATE`, `CONTRIBUTIONS_CLOSED` → `src/lib/repository-error.ts` + `errors.*` (vi: "Bộ thẻ vừa được người khác sửa. Hãy tải lại rồi áp dụng lại thay đổi của bạn." / "Bộ thẻ này đã có 20 đề xuất chờ duyệt." / "Người này không học chung lớp nào với bạn." / "Chủ bộ thẻ đang tắt nhận đóng góp.").
 
 ## B7. Client
-**Trạng thái:** todo
+**Trạng thái:** in-progress
 
 `src/features/sets/collab/schemas.ts` (dùng chung client+server):
 ```ts

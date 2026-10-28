@@ -61,12 +61,31 @@ export interface StudySet {
   createdAt: string;
   updatedAt: string;
   sharing?: SetSharing;
+  /** The viewer's rights on the set; sent by the server only. */
+  access?: SetAccess;
   /** The public set this one was copied from, credited on the set page. */
   copiedFrom?: { title: string; slug: string | null; authorName: string } | null;
 }
 
+export interface SetAccess {
+  isOwner: boolean;
+  canEdit: boolean;
+  acceptsContributions: boolean;
+  /** Owner only: change requests waiting for review. */
+  pendingChangeRequests?: number;
+  /** Viewer only: the class through which the set was shared with them. */
+  sharedIn?: {
+    classId: string;
+    className: string;
+    sharedByName: string;
+    audience: "teachers" | "class";
+  } | null;
+}
+
 /** Payload used to create or replace a set. Server-owned fields are excluded. */
 export interface SetInput {
+  /** Server mode: the `updatedAt` the edit started from, to detect concurrent saves. */
+  baseUpdatedAt?: string;
   title: string;
   description: string;
   termLang: LangCode;

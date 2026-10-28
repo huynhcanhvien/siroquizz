@@ -39,6 +39,8 @@ export const cardInputSchema = z.object({
 });
 
 export const setInputSchema = z.object({
+  /** The `updatedAt` the editor started from; a newer save by someone else is a conflict. */
+  baseUpdatedAt: z.iso.datetime({ offset: true }).optional(),
   title: z
     .string()
     .trim()
@@ -76,6 +78,20 @@ export const setSharingSchema = z.object({
   moderationReason: z.string().nullable(),
   hidden: z.boolean(),
 });
+export const sharedInSchema = z.object({
+  classId: z.string(),
+  className: z.string(),
+  sharedByName: z.string(),
+  audience: z.enum(["teachers", "class"]),
+});
+/** What the viewer may do with a set (server mode only; absent for browser-stored sets). */
+export const setAccessSchema = z.object({
+  isOwner: z.boolean(),
+  canEdit: z.boolean(),
+  acceptsContributions: z.boolean(),
+  pendingChangeRequests: z.number().int().min(0).optional(),
+  sharedIn: sharedInSchema.nullable().optional(),
+});
 export const studySetSchema = z
   .object({
     id: z.string().min(1),
@@ -95,6 +111,7 @@ export const studySetSchema = z
     createdAt: z.string(),
     updatedAt: z.string(),
     sharing: setSharingSchema.optional(),
+    access: setAccessSchema.optional(),
     copiedFrom: z
       .object({ title: z.string(), slug: z.string().nullable(), authorName: z.string() })
       .nullable()

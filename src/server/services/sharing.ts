@@ -10,7 +10,7 @@ import { cardImages, cards, studySets, user } from "../db/schema";
 import { awardCopyCredit } from "../ai/credits";
 import { canViewSet, isAdmin, isListed } from "./access";
 import { moderateSet } from "./moderation";
-import { createSetInTransaction, requireOwnedSet, type Db } from "./sets";
+import { accessOf, createSetInTransaction, requireOwnedSet, type Db } from "./sets";
 import { buildSearchText, normalizeTags } from "@/features/community/lib/search";
 
 const SLUG_LENGTH = 10;
@@ -96,6 +96,24 @@ async function moderateThrottled(db: Database, ownerId: string, setId: string) {
     throw error;
   }
   await moderateSet(db, setId);
+}
+
+const contributionsSchema = z.object({ accepts: z.boolean() });
+/** The owner's switch for change requests; pending ones stay reviewable either way. */
+export async function setAcceptsContributions(
+  db: Database,
+  ownerId: string,
+  setId: string,
+  input: unknown,
+) {
+  const { accepts } = contributionsSchema.parse(input);
+  await requireOwnedSet(db, ownerId, setId);
+  const [set] = await db
+    .update(studySets)
+    .set({ acceptsContributions: accepts })
+    .where(eq(studySets.id, setId))
+    .returning();
+  return accessOf(db, ownerId, set);
 }
 
 const tagsSchema = z.object({ tags: z.array(z.string().max(100)).max(20) });

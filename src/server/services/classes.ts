@@ -7,10 +7,12 @@ import { ApiError } from "../api-error";
 import type { Database } from "../db/client";
 import {
   cardProgress,
+  classLibraryItems,
   classMembers,
   classSets,
   classes,
   studyActivity,
+  setCollaborators,
   studySets,
   testResults,
   user,
@@ -41,7 +43,7 @@ async function uniqueCode(db: Db) {
 }
 
 /** The person's role in a class, or 404 when they are not a member (no class enumeration). */
-async function requireMembership(db: Db, userId: string, classId: string) {
+export async function requireMembership(db: Db, userId: string, classId: string) {
   const [row] = await db
     .select({ class: classes, role: classMembers.role })
     .from(classMembers)
@@ -53,7 +55,7 @@ async function requireMembership(db: Db, userId: string, classId: string) {
 }
 /** Owner and co-teachers manage the class; students only study in it. */
 export const canManageClass = (role: ClassRole) => TEACHING.includes(role);
-async function requireTeaching(db: Db, userId: string, classId: string) {
+export async function requireTeaching(db: Db, userId: string, classId: string) {
   const membership = await requireMembership(db, userId, classId);
   if (!canManageClass(membership.role)) throw new ApiError(403, "FORBIDDEN");
   return membership;
@@ -175,7 +177,27 @@ export async function regenerateCode(db: Database, userId: string, classId: stri
 }
 export async function deleteClass(db: Database, userId: string, classId: string) {
   await requireOwner(db, userId, classId);
-  await db.delete(classes).where(eq(classes.id, classId));
+  await db.transaction(async (tx) => {
+    // Grants to "every teacher of this class" have no class left to resolve against.
+    await tx
+      .delete(setCollaborators)
+      .where(
+        and(
+          eq(setCollaborators.principalType, "class_teachers"),
+          eq(setCollaborators.principalId, classId),
+        ),
+      );
+    await tx.delete(classes).where(eq(classes.id, classId));
+  });
+}
+/** Drops a member and everything they shared into the class, in the caller's transaction. */
+async function dropMember(tx: Db, classId: string, memberId: string) {
+  await tx
+    .delete(classMembers)
+    .where(and(eq(classMembers.classId, classId), eq(classMembers.userId, memberId)));
+  await tx
+    .delete(classLibraryItems)
+    .where(and(eq(classLibraryItems.classId, classId), eq(classLibraryItems.sharedBy, memberId)));
 }
 
 /** Joins as a student with a class code (idempotent for existing members). */
@@ -205,9 +227,7 @@ export async function joinClass(db: Database, userId: string, input: unknown) {
 export async function leaveClass(db: Database, userId: string, classId: string) {
   const { role } = await requireMembership(db, userId, classId);
   if (role === "owner") throw new ApiError(400, "VALIDATION_ERROR");
-  await db
-    .delete(classMembers)
-    .where(and(eq(classMembers.classId, classId), eq(classMembers.userId, userId)));
+  await db.transaction((tx) => dropMember(tx, classId, userId));
 }
 /** Teachers remove students; only the owner removes or promotes co-teachers. */
 export async function removeMember(
@@ -224,9 +244,7 @@ export async function removeMember(
   if (!target) throw new ApiError(404, "NOT_FOUND");
   if (target.role === "owner" || (target.role === "teacher" && role !== "owner"))
     throw new ApiError(403, "FORBIDDEN");
-  await db
-    .delete(classMembers)
-    .where(and(eq(classMembers.classId, classId), eq(classMembers.userId, memberId)));
+  await db.transaction((tx) => dropMember(tx, classId, memberId));
 }
 export async function setMemberRole(
   db: Database,

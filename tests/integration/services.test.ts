@@ -240,7 +240,9 @@ describe("Postgres ownership and transactional updates", () => {
     const page = await listSets(db, a, new URLSearchParams());
     expect(page.data).toHaveLength(2);
     for (const set of page.data) {
-      const { cards, ...detail } = await getSet(db, a, set.id);
+      // Listings leave out the deck and the per-set access summary.
+      const { cards, access, ...detail } = await getSet(db, a, set.id);
+      expect(access?.isOwner).toBe(true);
       expect(detail.cardCount).toBe(cards.length);
       expect(set).toEqual({ ...detail, cards: [], progress: expect.any(Object) });
     }

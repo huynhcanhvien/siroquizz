@@ -3,16 +3,28 @@ import { and, asc, desc, eq, inArray, isNull, lt, gt, or, sql, ilike } from "dri
 import { v7 } from "uuid";
 import { z } from "zod";
 import { setInputSchema, type ValidSetInput } from "@/features/sets/schemas";
-import type { StudySet } from "@/lib/types";
+import type { SetAccess, StudySet } from "@/lib/types";
+import { applyOps } from "@/features/sets/lib/card-diff";
+import type { ChangeOps } from "@/features/sets/collab/schemas";
 import { ApiError } from "../api-error";
 import type { Database } from "../db/client";
 import { attributionOf, markEdited, sharingOf } from "./sharing";
-import { lockStrength, requireStudySet, type SetLock, type SetRow } from "./access";
+import {
+  isCollaborator,
+  lockStrength,
+  requireEditableSet,
+  requireStudySet,
+  sharedInContext,
+  type SetLock,
+  type SetRow,
+} from "./access";
 import { clawbackSetCredits } from "../ai/credits";
 import { buildSearchText } from "@/features/community/lib/search";
 import {
   cards,
   cardProgress,
+  classLibraryItems,
+  setChangeRequests,
   studySets,
   user,
   testResults,
@@ -66,13 +78,38 @@ const deckOf = (db: Db, setId: string) =>
     .where(eq(cards.setId, setId))
     .orderBy(asc(cards.position))
     .limit(500);
-/** A set for studying: the viewer's own, or one assigned to their class (read-only for them). */
+async function pendingCount(db: Db, setId: string) {
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(setChangeRequests)
+    .where(and(eq(setChangeRequests.setId, setId), eq(setChangeRequests.status, "pending")));
+  return count;
+}
+/** The viewer's rights: the owner learns of waiting proposals, others how the set reached them. */
+export async function accessOf(db: Db, viewerId: string, set: SetRow): Promise<SetAccess> {
+  const acceptsContributions = set.acceptsContributions;
+  if (set.ownerId === viewerId)
+    return {
+      isOwner: true,
+      canEdit: true,
+      acceptsContributions,
+      pendingChangeRequests: await pendingCount(db, set.id),
+    };
+  return {
+    isOwner: false,
+    canEdit: await isCollaborator(db, viewerId, set.id),
+    acceptsContributions,
+    sharedIn: await sharedInContext(db, viewerId, set.id),
+  };
+}
+/** A set for studying: the viewer's own, or one they reach through a class, a grant or a link. */
 export async function getSet(db: Db, viewerId: string, id: string): Promise<StudySet> {
   const set = await requireStudySet(db, viewerId, id);
   const isOwner = set.ownerId === viewerId;
   const rows = await deckOf(db, set.id);
   return {
     ...publicFields(set),
+    access: await accessOf(db, viewerId, set),
     // Sharing settings belong to the owner; a student studying an assigned set does not see them.
     ...(isOwner ? { sharing: sharingOf(set) } : {}),
     ...(isOwner && set.copiedFromId
@@ -189,15 +226,39 @@ export async function writeSetFields(
     })
     .where(eq(studySets.id, set.id));
 }
-export async function updateSet(db: Database, ownerId: string, id: string, input: unknown) {
+/**
+ * Saves the editor's version of a set, by its owner or a collaborator. With `baseUpdatedAt`, a
+ * save made since that version (by anyone) is a 409 SET_CHANGED instead of being overwritten.
+ */
+export async function updateSet(db: Database, userId: string, id: string, input: unknown) {
   const data = setInputSchema.parse(input);
   await db.transaction(async (tx) => {
-    const current = await requireOwnedSet(tx, ownerId, id, "update");
+    const current = await requireEditableSet(tx, userId, id, "update");
+    if (data.baseUpdatedAt && current.updatedAt.getTime() > Date.parse(data.baseUpdatedAt))
+      throw new ApiError(409, "SET_CHANGED");
     await writeSetFields(tx, current, data, await replaceDeck(tx, id, data.cards));
   });
   // New content needs a new moderation verdict (checked now if the set is public).
   await markEdited(db, id);
-  return getSet(db, ownerId, id);
+  return getSet(db, userId, id);
+}
+/**
+ * Applies an approved change request inside the caller's transaction (which holds the set lock).
+ * The result must still be a valid set (2..500 cards), else 400 and nothing is written. The
+ * caller runs markEdited after commit.
+ */
+export async function applyCardOps(tx: Transaction, set: SetRow, ops: ChangeOps) {
+  const existing = (await deckOf(tx, set.id)).map(toCardDto);
+  const parsed = setInputSchema.safeParse({
+    title: ops.title ?? set.title,
+    description: ops.description ?? set.description,
+    termLang: set.termLang,
+    definitionLang: set.definitionLang,
+    source: set.source,
+    cards: applyOps(existing, ops.cards, v7),
+  });
+  if (!parsed.success) throw new ApiError(400, "VALIDATION_ERROR");
+  await writeSetFields(tx, set, parsed.data, await replaceDeck(tx, set.id, parsed.data.cards));
 }
 export async function removeSet(db: Database, ownerId: string, id: string) {
   await db.transaction(async (tx) => {
@@ -211,6 +272,10 @@ export async function removeSet(db: Database, ownerId: string, id: string) {
     await tx.delete(testResults).where(eq(testResults.setId, id));
     await tx.delete(gameScores).where(eq(gameScores.setId, id));
     await tx.delete(studyActivity).where(eq(studyActivity.setId, id));
+    // Class libraries stop listing it (folders keep only live sets on their own).
+    await tx
+      .delete(classLibraryItems)
+      .where(and(eq(classLibraryItems.itemType, "set"), eq(classLibraryItems.itemId, id)));
   });
   // A reward for publishing this set does not outlive it (create-publish-delete farming).
   await clawbackSetCredits(db, ownerId, id);
