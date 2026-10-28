@@ -14,6 +14,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useErrorMessage } from "@/lib/use-messages";
 import { useDeleteFolder, useFolder, useFolderMembership, useRenameFolder } from "../hooks";
 import { FOLDER_NAME_MAX, type FolderDetail } from "../schemas";
+import { ShareFolderDialog } from "@/features/class-library/components/ShareFolderDialog";
 
 function RenameDialog({ folder }: { folder: FolderDetail }) {
   const t = useTranslations("folders");
@@ -133,11 +134,17 @@ export function FolderView({ id }: { id: string }) {
             <p className="text-muted">{t("sets", { count: data.sets.length })}</p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <RenameDialog key={data.name} folder={data} />
-          <DeleteFolder folder={data} />
-        </div>
+        {data.isOwner ? (
+          <div className="flex gap-2">
+            <ShareFolderDialog folderId={data.id} />
+            <RenameDialog key={data.name} folder={data} />
+            <DeleteFolder folder={data} />
+          </div>
+        ) : null}
       </header>
+      {data.isOwner ? null : (
+        <p className="rounded-md bg-surface-2 px-4 py-3 text-sm text-muted">{t("readOnly")}</p>
+      )}
 
       {data.sets.length ? (
         <section aria-labelledby="folder-study" className="flex flex-col gap-3">
@@ -177,23 +184,25 @@ export function FolderView({ id }: { id: string }) {
                     {tCommon("cards", { count: set.cardCount })}
                   </span>
                 </Link>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={t("removeSet", { title: set.title })}
-                  disabled={membership.isPending}
-                  onClick={() =>
-                    membership.mutate(
-                      { folderId: data.id, setId: set.id, member: false },
-                      {
-                        onSuccess: () => toast(t("removed")),
-                        onError: (error) => toast(errorMessage(error), "error"),
-                      },
-                    )
-                  }
-                >
-                  <X className="size-4" aria-hidden />
-                </Button>
+                {data.isOwner ? (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("removeSet", { title: set.title })}
+                    disabled={membership.isPending}
+                    onClick={() =>
+                      membership.mutate(
+                        { folderId: data.id, setId: set.id, member: false },
+                        {
+                          onSuccess: () => toast(t("removed")),
+                          onError: (error) => toast(errorMessage(error), "error"),
+                        },
+                      )
+                    }
+                  >
+                    <X className="size-4" aria-hidden />
+                  </Button>
+                ) : null}
               </li>
             ))}
           </ul>

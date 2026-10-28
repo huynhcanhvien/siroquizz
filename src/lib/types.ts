@@ -52,17 +52,42 @@ export interface StudySet {
   description: string;
   termLang: LangCode;
   definitionLang: LangCode;
+  /** Empty in listings, which carry `cardCount` and the viewer's `progress` instead. */
   cards: Card[];
+  cardCount: number;
+  /** The viewer's known/learning counts, sent with listings. */
+  progress?: { known: number; learning: number };
   source: SetSource;
   createdAt: string;
   updatedAt: string;
   sharing?: SetSharing;
+  /** The viewer's rights on the set; sent by the server only. */
+  access?: SetAccess;
   /** The public set this one was copied from, credited on the set page. */
   copiedFrom?: { title: string; slug: string | null; authorName: string } | null;
 }
 
+export interface SetAccess {
+  isOwner: boolean;
+  canEdit: boolean;
+  acceptsContributions: boolean;
+  /** Viewer only: the set reached them through a class, so they may propose edits. */
+  canPropose?: boolean;
+  /** Owner only: change requests waiting for review. */
+  pendingChangeRequests?: number;
+  /** Viewer only: the class through which the set was shared with them. */
+  sharedIn?: {
+    classId: string;
+    className: string;
+    sharedByName: string;
+    audience: "teachers" | "class";
+  } | null;
+}
+
 /** Payload used to create or replace a set. Server-owned fields are excluded. */
 export interface SetInput {
+  /** Server mode: the `updatedAt` the edit started from, to detect concurrent saves. */
+  baseUpdatedAt?: string;
   title: string;
   description: string;
   termLang: LangCode;

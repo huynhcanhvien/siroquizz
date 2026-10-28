@@ -1,3 +1,5 @@
+import { planRequests } from "./plan-requests";
+
 /**
  * AI credit accounting shared by the server (charging) and the browser (live estimates while the
  * user adjusts a request). People pay for what they get: the cards a generation produces, plus
@@ -20,7 +22,6 @@ const REQUEST_OVERHEAD_TOKENS = 1000;
 const REASONING_TOKENS = 150;
 const OUTPUT_TOKENS_PER_CARD = 50;
 const AVOID_TERM_TOKENS = 4;
-export const MAX_CARDS_PER_CALL = 40;
 
 /** Failures that are the service's fault; their credits are refunded. */
 export const SYSTEM_ERROR_CODES: ReadonlySet<string> = new Set([
@@ -52,39 +53,13 @@ export const jobCredits = (job: {
   (job.ocrPages ?? 0) * OCR_CREDITS_PER_PAGE +
   (job.cached || job.imported ? 0 : creditsForCards(job.cards));
 
-/** Every chunk is read, regardless of the requested output size. */
-export function planDocumentChunks(chunkCount: number): number[] {
-  return Array.from({ length: chunkCount }, (_, index) => index);
-}
-
-export interface PlannedRequest {
-  chunk: number;
-  part: number;
-  count: number;
-}
-/** Distributes candidates across every chunk, at most MAX_CARDS_PER_CALL per request. */
-export function planRequests(chunkCount: number, cardCount: number): PlannedRequest[] {
-  return planDocumentChunks(chunkCount).flatMap((chunk) => {
-    const count = Math.max(
-      1,
-      Math.floor(cardCount / chunkCount) + (chunk < cardCount % chunkCount ? 1 : 0),
-    );
-    const parts = Math.ceil(count / MAX_CARDS_PER_CALL);
-    return Array.from({ length: parts }, (_, part) => ({
-      chunk,
-      part,
-      count: Math.floor(count / parts) + (part < count % parts ? 1 : 0),
-    }));
-  });
-}
-
 /**
  * Upper-end provider tokens for generating `cardCount` cards from chunks of the given sizes; held
  * against the app-wide daily cap while the job runs.
  */
 export function estimateGenerationTokens(chunkTokens: readonly number[], cardCount: number) {
   let produced = 0;
-  const tokens = planRequests(chunkTokens.length, cardCount).reduce((total, request) => {
+  const tokens = planRequests(chunkTokens, cardCount).reduce((total, request) => {
     // Later parts of a chunk also send the terms created so far, so they are not repeated.
     const avoid = request.part > 0 ? produced * AVOID_TERM_TOKENS : 0;
     produced += request.count;

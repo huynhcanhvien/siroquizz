@@ -113,6 +113,34 @@
       "when": 1791679242960,
       "tag": "0015_gray_sabretooth",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793209465030,
+      "tag": "0016_mighty_steel_serpent",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793210529632,
+      "tag": "0017_great_mikhail_rasputin",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793213251481,
+      "tag": "0018_nasty_black_bird",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793213291788,
+      "tag": "0019_ancient_randall",
+      "breakpoints": true
     }
   ]
 }

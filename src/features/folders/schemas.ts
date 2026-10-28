@@ -10,6 +10,8 @@ export type FolderSummary = z.infer<typeof folderSummarySchema>;
 export const folderDetailSchema = z.object({
   id: z.uuid(),
   name: z.string(),
+  /** False for a folder opened from a class library (read-only). */
+  isOwner: z.boolean(),
   sets: z.array(
     z.object({
       id: z.uuid(),

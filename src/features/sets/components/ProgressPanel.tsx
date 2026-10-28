@@ -7,7 +7,7 @@ import { Surface } from "@/components/ui/misc";
 import { useToast } from "@/components/ui/Toast";
 import { useResetProgress, useSetProgress, useTestResults } from "@/features/progress/hooks";
 import type { CardStatus, StudySet } from "@/lib/types";
-import { summarizeProgress } from "../lib/set-utils";
+import { countProgress, summarizeProgress } from "../lib/set-utils";
 
 const SEGMENTS: ReadonlyArray<{ status: CardStatus; className: string }> = [
   { status: "known", className: "bg-success" },
@@ -21,7 +21,10 @@ export function ProgressPanel({ set }: { set: StudySet }) {
   const { data: progress = [] } = useSetProgress(set.id);
   const { data: results = [] } = useTestResults(set.id);
   const reset = useResetProgress(set.id);
-  const summary = summarizeProgress(set.cards, progress);
+  const summary = summarizeProgress(
+    set.cards.length,
+    countProgress(progress, new Set(set.cards.map((card) => card.id))),
+  );
   const lastResult = results[0];
 
   return (

@@ -3,8 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node scripts/copy-browser-ocr-assets.mjs && next dev --webpack",
-    "build": "node scripts/copy-browser-ocr-assets.mjs && next build --webpack",
+    "dev": "pnpm dev:webpack",
+    "dev:webpack": "node scripts/copy-browser-ocr-assets.mjs && next dev --webpack",
+    "dev:turbopack": "node scripts/copy-browser-ocr-assets.mjs && next dev",
+    "build": "pnpm build:webpack",
+    "build:webpack": "node scripts/copy-browser-ocr-assets.mjs && next build --webpack",
+    "build:turbopack": "node scripts/copy-browser-ocr-assets.mjs && next build",
     "start": "next start",
     "services:up": "docker compose up -d --wait",
     "services:down": "docker compose down",
@@ -50,6 +54,7 @@
     "pinyin-pro": "^3.29.5",
     "postgres": "^3.4.9",
     "qrcode": "1.5.4",
+    "quill": "2.0.3",
     "radix-ui": "^1.6.7",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -60,7 +65,9 @@
     "tailwind-merge": "^3.7.0",
     "ts-fsrs": "^5.4.2",
     "uuid": "^14.0.2",
+    "y-quill": "1.0.0",
     "yauzl": "^3.4.0",
+    "yjs": "13.6.33",
     "zod": "^4.6.5"
   },
   "devDependencies": {

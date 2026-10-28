@@ -44,6 +44,7 @@
 - Giao bộ thẻ cho lớp, có hạn chót tùy chọn. Học sinh thấy mục “Bài được giao” trên Home.
 - Bảng tiến độ của giáo viên: mỗi học sinh × mỗi bộ thẻ (% đã thuộc, điểm kiểm tra gần nhất, lần học cuối). Xuất được CSV.
 - Học sinh thấy được bộ thẻ được giao ngay cả khi bộ đó `private`. Quyền xem đi theo lớp.
+- Thư viện lớp (học sinh/giáo viên chia sẻ bộ thẻ, thư mục của mình), cộng tác bộ thẻ và viết bài trực tuyến: xem [phase-7-collab-writing.md](phase-7-collab-writing.md).
 
 ### 6. Bảng xếp hạng trò chơi
 - Bảng xếp hạng theo từng bộ thẻ cho Ghép thẻ (thời gian) và Rơi từ (điểm). Có các phạm vi: toàn bộ, trong lớp, bạn bè (tùy chọn sau).

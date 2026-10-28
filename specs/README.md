@@ -16,6 +16,7 @@ Thư mục này chứa đặc tả theo từng phase. Mỗi phase có thể bàn
 | [phase-4-learning-engine.md](phase-4-learning-engine.md) | Học thông minh: chế độ Học thích ứng, lặp lại ngắt quãng (FSRS), thống kê, streak, thẻ có ảnh        |
 | [phase-5-community.md](phase-5-community.md)             | Chia sẻ & cộng đồng: công khai bộ thẻ, khám phá, thư mục, lớp học, bảng xếp hạng                     |
 | [phase-6-production.md](phase-6-production.md)           | Sẵn sàng ra mắt: hạ tầng, CI/CD, giám sát, bảo mật, hiệu năng, PWA/offline, SEO, pháp lý             |
+| [phase-7-collab-writing.md](phase-7-collab-writing.md)   | Thư viện lớp, cộng tác bộ thẻ (đề xuất sửa, quyền sửa), viết bài trực tuyến, bộ thẻ tạm, tối ưu pipeline |
 | [adminpage.md](adminpage.md)                             | Khu quản trị `/admin`: tổng quan, kiểm duyệt, người dùng, AI & credit, bộ thẻ, nhật ký               |
 
 ## Đối tượng người dùng

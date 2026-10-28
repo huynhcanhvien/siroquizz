@@ -160,3 +160,19 @@ it("caps how long a throttled job is told to wait", async () => {
     retryAfterMs: 60_000,
   });
 });
+it("backs off 300ms, then 600ms, between retries after network failures", async () => {
+  vi.useFakeTimers();
+  fetcher
+    .mockRejectedValueOnce(new TypeError("fetch failed"))
+    .mockRejectedValueOnce(new TypeError("fetch failed"));
+  const promise = groqJson(schema, "x", new AbortController().signal);
+  await vi.advanceTimersByTimeAsync(299);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  await vi.advanceTimersByTimeAsync(599);
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  await vi.advanceTimersByTimeAsync(1);
+  await expect(promise).resolves.toMatchObject({ data: { text: "safe" } });
+  expect(fetcher).toHaveBeenCalledTimes(3);
+});

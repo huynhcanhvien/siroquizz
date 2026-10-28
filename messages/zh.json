@@ -46,7 +46,15 @@
     "USERNAME_COOLDOWN": "用户名每 30 天只能修改一次。",
     "CLASS_NOT_FOUND": "没有使用该代码的班级，请向老师核对。",
     "CLASS_LOCKED": "该班级已关闭加入，请联系老师重新开放。",
-    "CLASS_FULL": "该班级已满 200 人。"
+    "CLASS_FULL": "该班级已满 200 人。",
+    "SET_CHANGED": "其他人刚刚修改了这个学习集。请重新加载，然后再次应用你的修改。",
+    "CHANGE_REQUEST_LIMIT": "这个学习集已有 20 条待审核的修改建议。",
+    "NOT_CLASSMATE": "此人与你不在同一个班级。",
+    "CONTRIBUTIONS_CLOSED": "学习集的所有者已关闭修改建议。",
+    "DOC_TOO_LARGE": "文章太长，无法保存。请删减后重试。",
+    "SESSION_CLOSED": "写作课已结束，文章只能查看。",
+    "SCRATCH_LIMIT": "临时卡片已满（300 张）。请先创建学习集或删除一些卡片。",
+    "SCRATCH_INCOMPLETE": "有些卡片还没有释义。请补充完整后再创建学习集。"
   },
   "validation": {
     "required": "此项为必填项。",
@@ -64,7 +72,8 @@
     "maxCards": "学习集最多 500 张卡片。",
     "cardTermRequired": "请输入词语。",
     "cardDefinitionRequired": "请输入释义。",
-    "fieldTooLong": "内容太长。"
+    "fieldTooLong": "内容太长。",
+    "noChanges": "你还没有对学习集做任何修改。"
   },
   "nav": {
     "home": "首页",
@@ -248,7 +257,12 @@
     "noResults": "没有与“{query}”匹配的学习集。",
     "emptyTitle": "学习集还是空的",
     "emptyBody": "你创建的学习集会显示在这里。",
-    "updated": "更新于 {date}"
+    "updated": "更新于 {date}",
+    "tabMine": "我的",
+    "tabFromClass": "来自班级",
+    "fromClassEmpty": "你的班级中还没有分享的学习集。",
+    "fromClass": "班级 {class}",
+    "scratchCards": "临时卡片（{count}）"
   },
   "editor": {
     "createTitle": "新建学习集",
@@ -669,7 +683,9 @@
     "suggestedPhonetic": "AI建议（可编辑）",
     "noPhonetic": "尚未填写",
     "useSuggestedPhonetic": "使用建议音标",
-    "estimateSource": "已读取约{tokens}个文本token；AI处理全部内容来选择卡片。"
+    "estimateSource": "已读取约{tokens}个文本token；AI处理全部内容来选择卡片。",
+    "batchProgress": "已处理 {done}/{total} 张卡片…",
+    "batchIncomplete": "AI只处理了部分卡片；可以先保存已有结果，再为其余卡片重新运行。"
   },
   "settings": {
     "title": "设置",
@@ -953,7 +969,15 @@
       "saved": "主页已保存。",
       "view": "查看主页"
     },
-    "studyNow": "立即学习"
+    "studyNow": "立即学习",
+    "shareTabs": {
+      "link": "链接",
+      "classes": "班级"
+    },
+    "classShare": {
+      "hint": "老师始终可以看到你分享的内容。选择“全班”后同学也能查看。",
+      "none": "你还没有加入任何班级。"
+    }
   },
   "folders": {
     "title": "文件夹",
@@ -993,7 +1017,11 @@
     "practiceBadge": "练习：不保存进度",
     "reviewScope": "正在复习文件夹「{name}」。",
     "reviewAll": "复习全部卡组",
-    "notFound": "未找到文件夹。"
+    "notFound": "未找到文件夹。",
+    "share": "分享",
+    "shareTitle": "将文件夹分享到班级",
+    "readOnly": "此文件夹分享在班级中：你可以查看和学习，但不能修改。",
+    "sharedIn": "已在班级中分享"
   },
   "classes": {
     "title": "班级",
@@ -1081,7 +1109,29 @@
       "soon": "未来48小时内",
       "upcoming": "尚未到期",
       "studySet": "学习 {title}"
-    }
+    },
+    "library": {
+      "title": "班级资料库",
+      "share": "分享到班级",
+      "shareItem": "分享学习集或文件夹",
+      "chooseItem": "学习集或文件夹",
+      "noItems": "你还没有学习集或文件夹。",
+      "audience": "谁可以查看",
+      "audienceTeachers": "仅老师",
+      "audienceClass": "全班",
+      "empty": "班级资料库中还没有内容。",
+      "open": "打开",
+      "copy": "复制到我的资料库",
+      "copied": "已复制到你的资料库。",
+      "remove": "移除",
+      "removed": "已从班级资料库移除。",
+      "shared": "已分享到班级。",
+      "sharedBy": "由 {name} 分享",
+      "setItem": "学习集",
+      "folderItem": "文件夹",
+      "setCount": "{count, plural, other {# 个学习集}}"
+    },
+    "writing": "写作"
   },
   "admin": {
     "title": "管理",
@@ -1188,5 +1238,170 @@
     "runningJobs": "运行中 AI 任务",
     "tokenUsage": "今日 Groq Token / 上限",
     "openReports": "待处理举报"
+  },
+  "collab": {
+    "propose": "建议修改",
+    "proposeTitle": "建议修改",
+    "proposeHint": "所有者会审核你的修改。无法建议调整卡片顺序或图片。",
+    "note": "给所有者的备注",
+    "notePlaceholder": "为什么建议这项修改？",
+    "send": "发送建议",
+    "sent": "建议已发送。",
+    "noChanges": "你还没有做任何修改。",
+    "edit": "编辑",
+    "copyToLibrary": "复制到我的资料库",
+    "sharedIn": "由 {name} 分享在班级 {class}",
+    "pendingTitle": "待审核的建议（{count}）",
+    "pendingCount": "{count, plural, other {# 条待审核的建议}}",
+    "approve": "批准",
+    "reject": "拒绝",
+    "withdraw": "撤回",
+    "withdrawn": "已撤回建议。",
+    "approved": "已批准并应用修改。",
+    "rejected": "已拒绝建议。",
+    "reviewNote": "回复备注",
+    "stale": "建议发送后学习集已被修改。针对已删除卡片的修改将被跳过。",
+    "added": "添加",
+    "edited": "修改",
+    "deleted": "删除",
+    "titleChange": "新标题：{title}",
+    "descriptionChange": "新描述：{description}",
+    "opCount": "{count, plural, other {# 项修改}}",
+    "mine": "你的建议",
+    "status": {
+      "pending": "待审核",
+      "approved": "已批准",
+      "rejected": "已拒绝",
+      "withdrawn": "已撤回"
+    },
+    "collaborators": "协作者",
+    "collaboratorsTitle": "协作者",
+    "allTeachers": "所有老师",
+    "collaboratorsHint": "协作者可以直接编辑学习集，无需你审核。学生只能看到班级老师。",
+    "acceptContributions": "接受建议",
+    "acceptContributionsHint": "能查看学习集的人可以发送修改建议供你审核。",
+    "homeTitle": "等待你审核",
+    "by": "{name} 的建议",
+    "conflict": "其他人刚刚修改了这个学习集。请重新加载查看最新版本。",
+    "reload": "重新加载",
+    "noClasses": "你还没有加入任何班级。",
+    "empty": "没有待审核的建议。",
+    "details": "查看修改",
+    "unknownCard": "卡片已被删除",
+    "saved": "已保存。"
+  },
+  "writing": {
+    "sessions": {
+      "title": "写作课",
+      "subtitle": "老师出题，学生实时写作，老师可以边看边指导。",
+      "new": "新建写作课",
+      "titleLabel": "标题",
+      "promptLabel": "题目",
+      "promptPlaceholder": "例如：描写家乡的一个秋天早晨（150–200 字）。",
+      "create": "创建",
+      "created": "已创建写作课",
+      "empty": "还没有写作课。",
+      "emptyStudent": "老师还没有开放写作课。",
+      "open": "去写作",
+      "view": "查看",
+      "docCount": "{count, plural, other {# 篇}}",
+      "back": "返回班级",
+      "backToList": "写作课列表"
+    },
+    "status": {
+      "draft": "草稿",
+      "open": "进行中",
+      "closed": "已结束"
+    },
+    "editor": {
+      "placeholder": "开始写作…",
+      "loading": "正在加载编辑器…",
+      "bold": "加粗",
+      "italic": "斜体",
+      "underline": "下划线",
+      "color": "文字颜色",
+      "highlight": "背景高亮",
+      "clear": "清除格式",
+      "defaultColor": "默认",
+      "saveWord": "保存生词",
+      "selectWord": "在文中选中一个词，即可保存到临时卡片。",
+      "readOnly": "只读",
+      "longWarning": "文章已超过 {count} 个字符。",
+      "chars": "{count, plural, other {# 个字符}}",
+      "myDoc": "我的文章",
+      "docOf": "{name} 的文章",
+      "notStarted": "写作课尚未开放，老师开放后即可写作。",
+      "reloaded": "文章太长，刚输入的内容未能保存，已重新加载服务器上的版本。",
+      "toolbar": "文字格式",
+      "tooLarge": "刚写的内容太大，无法保存到服务器。文字仍保留在本设备上，请删减或复制到别处。",
+      "pasteTooLong": "粘贴的内容太长，请分成较小的部分粘贴。"
+    },
+    "panel": {
+      "prompt": "题目",
+      "legend": "文字颜色",
+      "legendAuthor": "作者的文字",
+      "legendTeacher": "老师",
+      "legendPeer": "同学",
+      "peers": "同学的文章",
+      "noPeers": "还没有其他文章。",
+      "toggle": "侧边栏"
+    },
+    "roster": {
+      "title": "正在写作的学生",
+      "openSession": "开放写作课",
+      "closeSession": "结束写作课",
+      "closeTitle": "结束这次写作课？",
+      "closeBody": "学生将无法再修改，文章变为只读。",
+      "reopen": "重新开放",
+      "peerVisibility": "允许互相查看",
+      "peerEditing": "允许在同学的文章上写",
+      "empty": "还没有学生开始写作。",
+      "updated": "{seconds, plural, other {# 秒前}}",
+      "updatedMinutes": "{minutes} 分钟前",
+      "delete": "删除写作课",
+      "deleteTitle": "删除这次写作课？",
+      "deleteBody": "写作课中的所有文章都将被永久删除。",
+      "justNow": "刚刚"
+    },
+    "sync": {
+      "idle": "已保存",
+      "saving": "正在保存…",
+      "offline": "连接中断，稍后重试",
+      "readonly": "只读",
+      "toolarge": "未保存：内容过长"
+    },
+    "scratch": {
+      "button": "临时卡片（{count}）",
+      "title": "临时卡片",
+      "description": "写作时保存的生词。补充释义后可生成学习集。",
+      "empty": "还没有保存生词。在文中选中一个词，然后点“保存生词”。",
+      "term": "词语",
+      "definition": "释义",
+      "phonetic": "注音（可选）",
+      "save": "保存",
+      "saved": "已保存到临时卡片",
+      "delete": "删除",
+      "selectAll": "全选",
+      "missingDefinition": "缺少释义",
+      "createSet": "生成学习集",
+      "clear": "全部删除",
+      "clearTitle": "删除所有临时卡片？",
+      "clearBody": "已保存的生词将被删除，无法恢复。",
+      "selected": "已选 {count}"
+    },
+    "materialize": {
+      "title": "用临时卡片生成学习集",
+      "name": "学习集名称",
+      "termLang": "词语语言",
+      "definitionLang": "释义语言",
+      "share": "分享到班级",
+      "class": "班级",
+      "audience": "可见范围",
+      "audienceClass": "全班",
+      "audienceTeachers": "仅老师",
+      "submit": "生成学习集（{count}）",
+      "created": "已生成学习集",
+      "needTwo": "请至少选择 2 张已有释义的卡片。"
+    }
   }
 }

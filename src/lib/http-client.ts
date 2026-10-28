@@ -42,6 +42,12 @@ function statusError(status: number): RepositoryErrorCode {
   );
 }
 
+const REQUEST_TIMEOUT_MS = 15_000;
+/** AI calls do bounded work for up to ~45s on the server (see AUX_BUDGET_MS), under the 60s limit. */
+export const LONG_REQUEST_TIMEOUT_MS = 55_000;
+const timeoutFor = (path: string) =>
+  path.startsWith("/api/v1/ai/") ? LONG_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
+
 export interface HttpResult<T> {
   data: T;
   nextCursor: string | null;
@@ -72,7 +78,7 @@ export function createHttpClient(fetcher: typeof fetch = globalThis.fetch): Http
           credentials: "same-origin",
           cache: "no-store",
           redirect: "error",
-          signal: AbortSignal.timeout(15_000),
+          signal: AbortSignal.timeout(timeoutFor(path)),
           ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}),
         });
       } catch {

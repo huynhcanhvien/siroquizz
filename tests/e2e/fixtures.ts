@@ -39,8 +39,15 @@ interface StoredSet {
 
 export async function readSets(page: Page): Promise<StoredSet[]> {
   if (process.env.NEXT_PUBLIC_DATA_SOURCE === "http") {
+    // The listing carries only card counts, so read each set for its cards.
     const response = await page.request.get("/api/v1/sets?limit=50");
-    return (await response.json()).data as StoredSet[];
+    const listed = (await response.json()).data as { id: string }[];
+    return Promise.all(
+      listed.map(
+        async ({ id }) =>
+          (await (await page.request.get(`/api/v1/sets/${id}`)).json()).data as StoredSet,
+      ),
+    );
   }
   return page.evaluate(() => JSON.parse(window.localStorage.getItem("siroquizz:v1:sets") ?? "[]"));
 }

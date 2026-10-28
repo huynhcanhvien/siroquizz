@@ -1,11 +1,11 @@
 import "server-only";
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { v7 } from "uuid";
 import { z } from "zod";
 import type { StudySet } from "@/lib/types";
 import { ApiError } from "../api-error";
 import type { Database } from "../db/client";
-import { cardImages, cards, folderSets, folders, studySets } from "../db/schema";
+import { cardImages, cards, classLibraryItems, folderSets, folders, studySets } from "../db/schema";
 import { requireOwnedSet, type Db } from "./sets";
 
 const MAX_FOLDERS = 100;
@@ -14,7 +14,7 @@ const MAX_SETS_PER_FOLDER = 500;
 export const MAX_FOLDER_STUDY_CARDS = 500;
 const nameSchema = z.object({ name: z.string().trim().min(1).max(60) });
 
-async function requireFolder(db: Db, userId: string, id: string) {
+export async function requireFolder(db: Db, userId: string, id: string) {
   const [folder] = await db
     .select()
     .from(folders)
@@ -22,6 +22,30 @@ async function requireFolder(db: Db, userId: string, id: string) {
     .limit(1);
   if (!folder) throw new ApiError(404, "NOT_FOUND");
   return folder;
+}
+/**
+ * A folder the person may open: their own, or one shared into a class they are in (teachers-only
+ * shares need a teaching role) whose owner is in good standing. 404 otherwise.
+ */
+export async function requireViewableFolder(db: Db, userId: string, id: string) {
+  const sharedWithViewer = sql`exists(select 1 from class_library_items li
+    inner join class_members cm on cm.class_id = li.class_id and cm.user_id = ${userId}
+    where li.item_type = 'folder' and li.item_id = ${folders.id}
+      and (li.audience = 'class' or cm.role in ('owner', 'teacher')))`;
+  const ownerInGoodStanding = sql`not exists(select 1 from "user" u where u.id = ${folders.userId}
+    and (u.banned_at is not null or u.deleted_at is not null))`;
+  const [folder] = await db
+    .select()
+    .from(folders)
+    .where(
+      and(
+        eq(folders.id, z.uuid().parse(id)),
+        or(eq(folders.userId, userId), and(sharedWithViewer, ownerInGoodStanding)),
+      ),
+    )
+    .limit(1);
+  if (!folder) throw new ApiError(404, "NOT_FOUND");
+  return { folder, isOwner: folder.userId === userId };
 }
 /** Sets in a folder that still exist, in the folder's order. */
 const liveFolderSets = (folderId: string) =>
@@ -75,7 +99,12 @@ export async function renameFolder(db: Database, userId: string, id: string, inp
 /** Deletes the folder only; its sets stay in the library. */
 export async function deleteFolder(db: Database, userId: string, id: string) {
   await requireFolder(db, userId, id);
-  await db.delete(folders).where(eq(folders.id, id));
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(classLibraryItems)
+      .where(and(eq(classLibraryItems.itemType, "folder"), eq(classLibraryItems.itemId, id)));
+    await tx.delete(folders).where(eq(folders.id, id));
+  });
 }
 
 /** Puts one of the person's own sets into one of their folders (idempotent). */
@@ -128,6 +157,8 @@ export async function foldersOfSet(db: Database, userId: string, setId: string) 
 export interface FolderDetail {
   id: string;
   name: string;
+  /** False when opened through a class library: read-only. */
+  isOwner: boolean;
   sets: {
     id: string;
     title: string;
@@ -136,8 +167,8 @@ export interface FolderDetail {
     definitionLang: string;
   }[];
 }
-export async function getFolder(db: Database, userId: string, id: string): Promise<FolderDetail> {
-  const folder = await requireFolder(db, userId, id);
+async function loadFolder(db: Database, userId: string, id: string) {
+  const { folder, isOwner } = await requireViewableFolder(db, userId, id);
   const sets = await db
     .select({
       id: studySets.id,
@@ -148,9 +179,14 @@ export async function getFolder(db: Database, userId: string, id: string): Promi
     })
     .from(folderSets)
     .innerJoin(studySets, eq(studySets.id, folderSets.setId))
-    .where(liveFolderSets(id))
+    // Others never see what a moderator took down.
+    .where(and(liveFolderSets(folder.id), isOwner ? undefined : isNull(studySets.hiddenAt)))
     .orderBy(asc(folderSets.position));
-  return { id: folder.id, name: folder.name, sets };
+  return { folder, isOwner, sets };
+}
+export async function getFolder(db: Database, userId: string, id: string): Promise<FolderDetail> {
+  const { folder, isOwner, sets } = await loadFolder(db, userId, id);
+  return { id: folder.id, name: folder.name, isOwner, sets };
 }
 
 /**
@@ -158,8 +194,8 @@ export async function getFolder(db: Database, userId: string, id: string): Promi
  * tests) that span sets. Languages come from the first set; progress is not saved per set here.
  */
 export async function folderStudySet(db: Database, userId: string, id: string): Promise<StudySet> {
-  const folder = await getFolder(db, userId, id);
-  if (!folder.sets.length) throw new ApiError(404, "NOT_FOUND");
+  const { folder, sets } = await loadFolder(db, userId, id);
+  if (!sets.length) throw new ApiError(404, "NOT_FOUND");
   const rows = await db
     .select({ card: cards, image: cardImages })
     .from(cards)
@@ -167,21 +203,22 @@ export async function folderStudySet(db: Database, userId: string, id: string): 
     .where(
       inArray(
         cards.setId,
-        folder.sets.map((set) => set.id),
+        sets.map((set) => set.id),
       ),
     )
     .orderBy(asc(cards.setId), asc(cards.position))
     .limit(MAX_FOLDER_STUDY_CARDS);
-  const order = new Map(folder.sets.map((set, index) => [set.id, index]));
+  const order = new Map(sets.map((set, index) => [set.id, index]));
   rows.sort(
     (a, b) =>
       order.get(a.card.setId)! - order.get(b.card.setId)! || a.card.position - b.card.position,
   );
-  const first = folder.sets[0];
+  const first = sets[0];
   const now = new Date().toISOString();
   return {
     id: folder.id,
-    ownerId: userId,
+    // The folder's owner: a viewer from a class sees no edit controls for this merged set.
+    ownerId: folder.userId,
     title: folder.name,
     description: "",
     termLang: first.termLang as StudySet["termLang"],
@@ -194,6 +231,7 @@ export async function folderStudySet(db: Database, userId: string, id: string): 
       ...(card.phonetic ? { phonetic: card.phonetic } : {}),
       ...(image ? { imageUrl: `/api/v1/images/${image.id}`, imageAlt: image.alt } : {}),
     })),
+    cardCount: rows.length,
     createdAt: now,
     updatedAt: now,
   };

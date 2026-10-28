@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  customType,
   index,
   integer,
   doublePrecision,
@@ -138,6 +139,8 @@ export const studySets = pgTable(
     // Accent-folded title, description, tags and cards for Explore (see community/lib/search).
     searchText: text("search_text").notNull().default(""),
     tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+    // The owner's switch for change requests from people who can see the set (WP3).
+    acceptsContributions: boolean("accepts_contributions").notNull().default(true),
     ...timestamps,
   },
   (t) => [
@@ -164,9 +167,9 @@ export const cards = pgTable(
     example: varchar("example", { length: 1000 }),
     ...timestamps,
   },
-  (t) => [index("cards_set_idx").on(t.setId)],
+  // Lookups by set use the deferrable (set_id, position) unique constraint added in SQL migration
+  // 0000, which also keeps reordering atomic; a separate set_id index would duplicate it.
 );
-// Deferrable position uniqueness is added in SQL migration, so reordering is atomic.
 export const cardProgress = pgTable(
   "card_progress",
   {
@@ -196,6 +199,9 @@ export const cardProgress = pgTable(
     primaryKey({ columns: [t.userId, t.cardId] }),
     index("progress_user_set_idx").on(t.userId, t.setId),
     index("progress_user_due_idx").on(t.userId, t.due),
+    // Foreign-key cascades from cards and sets look rows up by these columns alone.
+    index("progress_card_idx").on(t.cardId),
+    index("progress_set_idx").on(t.setId),
   ],
 );
 export const testResults = pgTable(
@@ -216,6 +222,7 @@ export const testResults = pgTable(
   },
   (t) => [
     index("tests_user_set_idx").on(t.userId, t.setId, t.takenAt),
+    index("tests_set_idx").on(t.setId),
     check(
       "test_score_valid",
       sql`${t.score} >= 0 and ${t.total} > 0 and ${t.score} <= ${t.total} and ${t.durationMs} >= 0`,
@@ -256,6 +263,7 @@ export const studyActivity = pgTable(
   (t) => [
     primaryKey({ columns: [t.userId, t.setId] }),
     index("activity_user_at_idx").on(t.userId, t.at),
+    index("activity_set_idx").on(t.setId),
   ],
 );
 export const localImports = pgTable(
@@ -323,6 +331,8 @@ export const aiJobs = pgTable(
     creditsReserved: integer("credits_reserved").notNull().default(0),
     creditsCharged: integer("credits_charged").notNull().default(0),
     dailyCreditsCharged: integer("daily_credits_charged").notNull().default(0),
+    // WP2: provider tokens held against the app-wide daily cap while the job runs.
+    tokensReserved: integer("tokens_reserved").notNull().default(0),
   },
   (t) => [
     index("jobs_user_created_idx").on(t.userId, t.createdAt),
@@ -337,6 +347,8 @@ export const aiAuxUsage = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     day: varchar("day", { length: 10 }).notNull(),
     count: integer("count").notNull().default(0),
+    // WP2: provider tokens spent today by auxiliary tasks and moderation of this user's sets.
+    tokens: integer("tokens").notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.userId, t.day] })],
 );
@@ -533,7 +545,10 @@ export const cardStars = pgTable(
       .notNull()
       .references(() => cards.id, { onDelete: "cascade" }),
   },
-  (t) => [primaryKey({ columns: [t.userId, t.cardId] })],
+  (t) => [
+    primaryKey({ columns: [t.userId, t.cardId] }),
+    index("card_stars_card_idx").on(t.cardId),
+  ],
 );
 export const reviewLogs = pgTable(
   "review_logs",
@@ -555,7 +570,11 @@ export const reviewLogs = pgTable(
     wasNew: boolean("was_new").notNull().default(false),
     snapshot: jsonb("snapshot").notNull(),
   },
-  (t) => [index("review_user_time_idx").on(t.userId, t.reviewedAt)],
+  (t) => [
+    index("review_user_time_idx").on(t.userId, t.reviewedAt),
+    index("review_card_idx").on(t.cardId),
+    index("review_set_idx").on(t.setId),
+  ],
 );
 export const studySessions = pgTable(
   "study_sessions",
@@ -604,4 +623,155 @@ export const cardImages = pgTable(
     createdAt: time("created_at").notNull().defaultNow(),
   },
   (t) => [uniqueIndex("card_image_card_idx").on(t.cardId)],
+);
+
+// --- WP3: class library and set collaboration ---------------------------------------------
+export const libraryItemType = pgEnum("library_item_type", ["set", "folder"]);
+export const libraryAudience = pgEnum("library_audience", ["teachers", "class"]);
+/** A set or folder a member shared into a class; `item_id` is polymorphic (checked in services). */
+export const classLibraryItems = pgTable(
+  "class_library_items",
+  {
+    id: uuid("id").primaryKey(),
+    classId: uuid("class_id")
+      .notNull()
+      .references(() => classes.id, { onDelete: "cascade" }),
+    itemType: libraryItemType("item_type").notNull(),
+    itemId: uuid("item_id").notNull(),
+    sharedBy: text("shared_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    audience: libraryAudience("audience").notNull().default("class"),
+    sharedAt: time("shared_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("class_library_once_idx").on(t.classId, t.itemType, t.itemId),
+    index("class_library_item_idx").on(t.itemId),
+  ],
+);
+export const collabPrincipal = pgEnum("collab_principal", ["user", "class_teachers"]);
+/** Lasting edit rights the owner grants: one person, or every current/future teacher of a class. */
+export const setCollaborators = pgTable(
+  "set_collaborators",
+  {
+    setId: uuid("set_id")
+      .notNull()
+      .references(() => studySets.id, { onDelete: "cascade" }),
+    principalType: collabPrincipal("principal_type").notNull(),
+    principalId: text("principal_id").notNull(),
+    grantedBy: text("granted_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: time("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.setId, t.principalType, t.principalId] }),
+    index("set_collab_principal_idx").on(t.principalType, t.principalId),
+  ],
+);
+export const changeRequestStatus = pgEnum("change_request_status", [
+  "pending",
+  "approved",
+  "rejected",
+  "withdrawn",
+]);
+/** A proposed edit to someone else's set, applied only when the owner approves it. */
+export const setChangeRequests = pgTable(
+  "set_change_requests",
+  {
+    id: uuid("id").primaryKey(),
+    setId: uuid("set_id")
+      .notNull()
+      .references(() => studySets.id, { onDelete: "cascade" }),
+    classId: uuid("class_id").references(() => classes.id, { onDelete: "set null" }),
+    authorId: text("author_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    status: changeRequestStatus("status").notNull().default("pending"),
+    ops: jsonb("ops").notNull(),
+    baseUpdatedAt: time("base_updated_at").notNull(),
+    note: varchar("note", { length: 500 }).notNull().default(""),
+    reviewNote: varchar("review_note", { length: 500 }).notNull().default(""),
+    reviewedBy: text("reviewed_by").references(() => user.id, { onDelete: "set null" }),
+    reviewedAt: time("reviewed_at"),
+    createdAt: time("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("change_requests_set_status_idx").on(t.setId, t.status, t.createdAt),
+    index("change_requests_author_idx").on(t.authorId, t.createdAt),
+  ],
+);
+
+// WP4: live writing sessions and scratch cards (plan/class-collab-writing/C-writing.md).
+/** Raw bytes; drizzle has no built-in bytea. Used for Yjs document state. */
+const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
+  dataType: () => "bytea",
+  toDriver: (value) => Buffer.from(value),
+  fromDriver: (value) => new Uint8Array(value),
+});
+export const writingSessionStatus = pgEnum("writing_session_status", ["draft", "open", "closed"]);
+export const writingPeerVisibility = pgEnum("writing_peer_visibility", ["hidden", "open"]);
+/** A writing assignment for a class; each student writes one document in it. */
+export const writingSessions = pgTable(
+  "writing_sessions",
+  {
+    id: uuid("id").primaryKey(),
+    classId: uuid("class_id")
+      .notNull()
+      .references(() => classes.id, { onDelete: "cascade" }),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    title: varchar("title", { length: 120 }).notNull(),
+    prompt: text("prompt").notNull().default(""),
+    status: writingSessionStatus("status").notNull().default("draft"),
+    peerVisibility: writingPeerVisibility("peer_visibility").notNull().default("hidden"),
+    peerEditing: boolean("peer_editing").notNull().default(false),
+    openedAt: time("opened_at"),
+    closedAt: time("closed_at"),
+    ...timestamps,
+  },
+  (t) => [
+    index("writing_sessions_class_idx").on(t.classId, t.createdAt),
+    index("writing_sessions_closed_idx").on(t.status, t.closedAt),
+  ],
+);
+/** One author's document in a session, stored as a compacted Yjs update. */
+export const writingDocs = pgTable(
+  "writing_docs",
+  {
+    id: uuid("id").primaryKey(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => writingSessions.id, { onDelete: "cascade" }),
+    authorId: text("author_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    // Null until the first sync; Y.encodeStateAsUpdate of the whole document.
+    state: bytea("state"),
+    version: integer("version").notNull().default(0),
+    textPreview: varchar("text_preview", { length: 300 }).notNull().default(""),
+    charCount: integer("char_count").notNull().default(0),
+    lastEditorId: text("last_editor_id").references(() => user.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("writing_docs_author_idx").on(t.sessionId, t.authorId),
+    index("writing_docs_session_updated_idx").on(t.sessionId, t.updatedAt),
+  ],
+);
+/** Words saved while writing, kept until the person turns them into a set. */
+export const scratchCards = pgTable(
+  "scratch_cards",
+  {
+    id: uuid("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    term: varchar("term", { length: 1000 }).notNull(),
+    definition: varchar("definition", { length: 1000 }).notNull().default(""),
+    phonetic: varchar("phonetic", { length: 200 }),
+    example: varchar("example", { length: 1000 }),
+    sourceDocId: uuid("source_doc_id").references(() => writingDocs.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [index("scratch_cards_user_idx").on(t.userId, t.createdAt)],
 );

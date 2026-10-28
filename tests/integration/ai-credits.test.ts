@@ -2,19 +2,22 @@ import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { v7 } from "uuid";
 import * as schema from "@/server/db/schema";
 import type { Database } from "@/server/db/client";
 import {
   MAX_COPY_REWARDS_PER_DAY,
+  assertGlobalCapacity,
   awardCopyCredit,
   awardPublishCredit,
   chargeColumns,
   chargeJob,
   clawbackSetCredits,
   creditStatus,
+  globalTokensToday,
   lockUser,
+  recordAuxTokens,
   reserveCredits,
 } from "@/server/ai/credits";
 
@@ -146,6 +149,41 @@ it("reserves credits for accepted jobs and rejects what cannot be paid", async (
   await expect(reserve(6)).rejects.toMatchObject({ code: "AI_CREDITS_EXCEEDED" });
   await expect(reserve(51)).rejects.toMatchObject({ code: "AI_JOB_TOO_LARGE" });
   await expect(reserve(5)).resolves.toBeUndefined();
+});
+
+it("counts the tokens running jobs reserved and today's auxiliary tokens against the app cap", async () => {
+  const reserve = (jobId: string, tokens: number) =>
+    db.transaction(async (tx) => {
+      await lockUser(tx, author);
+      await reserveCredits(tx, author, jobId, 5, tokens);
+    });
+  // Two large documents accepted at the same time: each estimate is held in full.
+  const first = await openJob(author),
+    second = await openJob(reader);
+  await reserve(first, 150_000);
+  await expect(reserve(second, 150_000)).resolves.toBeUndefined();
+  await db
+    .update(schema.aiJobs)
+    .set({ status: "generating" })
+    .where(inArray(schema.aiJobs.id, [first, second]));
+  expect(await globalTokensToday(db)).toBe(300_000);
+  await expect(assertGlobalCapacity(db, 60_000)).rejects.toMatchObject({ code: "AI_GLOBAL_LIMIT" });
+  await expect(assertGlobalCapacity(db, 50_000)).resolves.toBeUndefined();
+  // Phonetics, examples, grading and moderation spend tokens on the same key.
+  await recordAuxTokens(db, reader, 20_000);
+  await recordAuxTokens(db, reader, 5_000);
+  expect(await globalTokensToday(db)).toBe(325_000);
+  const [aux] = await db
+    .select()
+    .from(schema.aiAuxUsage)
+    .where(eq(schema.aiAuxUsage.userId, reader));
+  expect(aux).toMatchObject({ count: 0, tokens: 25_000 });
+  // Finishing a job releases its reservation.
+  await db
+    .update(schema.aiJobs)
+    .set({ status: "done", finishedAt: new Date(), inputTokens: 1000, outputTokens: 500 })
+    .where(eq(schema.aiJobs.id, first));
+  expect(await globalTokensToday(db)).toBe(150_000 + 1500 + 25_000);
 });
 
 it("rewards publishing once per original set with enough cards", async () => {

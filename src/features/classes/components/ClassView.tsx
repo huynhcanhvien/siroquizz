@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, LogOut, RefreshCw, Trash, UserCog, X } from "lucide-react";
+import { Copy, LogOut, PenLine, RefreshCw, Trash, UserCog, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
@@ -19,6 +19,7 @@ import { useClass, useClassAction } from "../hooks";
 import { isTeaching, type ClassDetail } from "../schemas";
 import { ClassProgress } from "./ClassProgress";
 import { DeadlineCalendar } from "./DeadlineCalendar";
+import { ClassLibrarySection } from "@/features/class-library/components/ClassLibrarySection";
 
 function Section({
   id,
@@ -52,14 +53,16 @@ function useRun() {
   const { toast } = useToast();
   const errorMessage = useErrorMessage();
   const action = useClassAction();
+  // mutateAsync settles even when the refetch after leaving/deleting unmounts this component,
+  // so the toast and the redirect still happen (mutate callbacks would be dropped).
   const run = (request: Parameters<typeof action.mutate>[0], done: string, then?: () => void) =>
-    action.mutate(request, {
-      onSuccess: () => {
+    action.mutateAsync(request).then(
+      () => {
         toast(done);
         then?.();
       },
-      onError: (error) => toast(errorMessage(error), "error"),
-    });
+      (error: unknown) => toast(errorMessage(error), "error"),
+    );
   return { run, pending: action.isPending };
 }
 
@@ -338,7 +341,15 @@ export function ClassView({ id }: { id: string }) {
             {teaching ? "" : ` · ${t("teachers")}: ${teachers.join(", ")}`}
           </p>
         </div>
-        <ExitClass klass={klass} />
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="secondary" size="sm">
+            <Link href={`/classes/${klass.id}/writing`}>
+              <PenLine className="size-4" aria-hidden />
+              {t("writing")}
+            </Link>
+          </Button>
+          <ExitClass klass={klass} />
+        </div>
       </header>
       {teaching ? <InviteCard klass={klass} /> : null}
       <Section id="class-calendar" title={t("calendar.title")}>
@@ -348,6 +359,7 @@ export function ClassView({ id }: { id: string }) {
         {teaching ? <AssignForm klass={klass} /> : null}
         <AssignedList klass={klass} />
       </Section>
+      <ClassLibrarySection classId={klass.id} />
       {teaching ? (
         <>
           <Section id="class-progress" title={t("progressTitle")}>

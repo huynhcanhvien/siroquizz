@@ -9,6 +9,7 @@ import * as schema from "./db/schema";
 import { getServerEnv } from "./env";
 import { authBaseUrl, trustedOrigins } from "./env-schema";
 import { sendAccountEmail } from "./email";
+import { createAuthRateLimitStorage } from "./auth-rate-limit";
 import { registerSchema, profileUpdateSchema, passwordSchema } from "@/features/auth/schemas";
 import { after } from "next/server";
 
@@ -92,6 +93,10 @@ function makeAuth() {
       enabled: true,
       window: 60,
       max: 100,
+      // Shared across Vercel instances via Upstash when configured (production requires it, see
+      // rate-limit.ts); otherwise one process (local, CI) is served by the in-memory store.
+      storage: "memory",
+      customStorage: createAuthRateLimitStorage(env),
       customRules: {
         "/sign-in/email": { window: 60, max: 5 },
         "/sign-up/email": { window: 3600, max: 3 },

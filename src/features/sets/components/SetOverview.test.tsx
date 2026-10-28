@@ -21,6 +21,7 @@ const set: StudySet = {
   source: "manual",
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
+  cardCount: 2,
   cards: [
     {
       id: "c1",
@@ -81,5 +82,70 @@ describe("SetOverview phonetic placement", () => {
       />,
     );
     expect(screen.queryByRole("button", { name: /Phiên âm:/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("SetOverview access", () => {
+  it("offers a classmate who sees a shared set to suggest edits or copy it", () => {
+    renderWithProviders(
+      <SetOverview
+        set={{
+          ...set,
+          id: "shared-overview",
+          access: {
+            isOwner: false,
+            canEdit: false,
+            acceptsContributions: true,
+            sharedIn: { classId: "k1", className: "10A", sharedByName: "An", audience: "class" },
+          },
+        }}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Đề xuất chỉnh sửa" })).toHaveAttribute(
+      "href",
+      "/sets/shared-overview/propose?class=k1",
+    );
+    expect(screen.getByRole("link", { name: "Chia sẻ trong lớp 10A bởi An" })).toHaveAttribute(
+      "href",
+      "/classes/k1",
+    );
+    expect(screen.getByRole("button", { name: "Sao chép vào thư viện" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Chia sẻ/ })).not.toBeInTheDocument();
+  });
+
+  it("hides the suggestion when the owner closed contributions", () => {
+    renderWithProviders(
+      <SetOverview
+        set={{ ...set, access: { isOwner: false, canEdit: false, acceptsContributions: false } }}
+      />,
+    );
+    expect(screen.queryByRole("link", { name: "Đề xuất chỉnh sửa" })).not.toBeInTheDocument();
+  });
+
+  it("hides the suggestion from a viewer who only has the link", () => {
+    renderWithProviders(
+      <SetOverview
+        set={{
+          ...set,
+          access: { isOwner: false, canEdit: false, acceptsContributions: true, canPropose: false },
+        }}
+      />,
+    );
+    expect(screen.queryByRole("link", { name: "Đề xuất chỉnh sửa" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sao chép vào thư viện" })).toBeInTheDocument();
+  });
+
+  it("lets a collaborator edit but not share or delete", () => {
+    renderWithProviders(
+      <SetOverview
+        set={{ ...set, access: { isOwner: false, canEdit: true, acceptsContributions: true } }}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Chỉnh sửa" })).toHaveAttribute(
+      "href",
+      `/sets/${set.id}/edit`,
+    );
+    expect(screen.queryByRole("button", { name: "Tùy chọn khác" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Đề xuất chỉnh sửa" })).not.toBeInTheDocument();
   });
 });

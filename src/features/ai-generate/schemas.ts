@@ -77,6 +77,17 @@ export const aiJobStateSchema = z.object({
   imported: z.boolean().optional(),
   /** Estimated tokens of each chunk, used to price the generation for any card count. */
   chunkTokens: z.array(z.number().int().min(0)).optional(),
+  /** Estimated tokens extracted so far, kept running instead of re-estimating all text. */
+  runningTokens: z.number().int().min(0).optional(),
+  /** Where page inspection resumes when the files took more than one step to inspect. */
+  inspect: z
+    .object({
+      index: z.number().int().min(0),
+      page: z.number().int().min(1),
+      ocrPages: z.number().int().min(0),
+      hashes: z.array(z.string()),
+    })
+    .optional(),
 });
 export type AiJobState = z.infer<typeof aiJobStateSchema>;
 

@@ -22,6 +22,7 @@ const set: StudySet = {
   source: "manual",
   createdAt: "",
   updatedAt: "",
+  cardCount: 2,
   cards: [
     { id: "one", term: "学习", definition: "học tập", phonetic: "old" },
     { id: "two", term: "谢谢", definition: "cảm ơn", phonetic: "xiè xie" },
@@ -124,6 +125,7 @@ it("lets the user correct a transcription before applying it and preserves other
   await user.click(screen.getByRole("button", { name: messages.ai.applyPhonetics }));
   expect(mutate.mock.calls[0][0]).toEqual({
     ...set,
+    baseUpdatedAt: set.updatedAt,
     cards: [{ ...set.cards[0], phonetic: "xué xí" }, set.cards[1]],
   });
 });
@@ -147,6 +149,7 @@ it("lets the user edit and save examples without changing phonetics or other car
   await user.click(save);
   expect(mutate.mock.calls[0][0]).toEqual({
     ...set,
+    baseUpdatedAt: set.updatedAt,
     cards: [{ ...set.cards[0], example: "我学习中文。 Tôi học tiếng Trung." }, set.cards[1]],
   });
 });
@@ -244,4 +247,40 @@ it("reviews all cards in a mixed set and saves only the suggestions the user sel
     set.cards[1],
     mixed.cards[2],
   ]);
+});
+
+it("keeps asking for the remaining cards while the server answers partially", async () => {
+  const big = {
+    ...set,
+    cards: [...set.cards, { id: "three", term: "朋友", definition: "bạn bè" }],
+  };
+  request
+    .mockResolvedValueOnce({
+      data: { cards: [{ id: "one", text: "a" }], partial: true, remainingIds: ["two", "three"] },
+    })
+    .mockResolvedValueOnce({
+      data: { cards: [{ id: "two", text: "b" }], partial: true, remainingIds: ["three"] },
+    })
+    .mockResolvedValueOnce({
+      data: { cards: [{ id: "three", text: "c" }], partial: false, remainingIds: [] },
+    });
+  renderWithProviders(<AiSetTools set={big} />);
+  await userEvent.setup().click(screen.getByRole("button", { name: messages.ai.createExamples }));
+  expect(await screen.findAllByRole("textbox")).toHaveLength(3);
+  expect(request).toHaveBeenCalledTimes(3);
+  expect(request.mock.calls[1][2]).toEqual({
+    method: "POST",
+    body: { setId: set.id, ids: ["two", "three"] },
+  });
+  expect(request.mock.calls[2][2].body.ids).toEqual(["three"]);
+});
+
+it("stops continuing when a partial answer makes no progress", async () => {
+  request.mockResolvedValue({
+    data: { cards: [{ id: "one", text: "a" }], partial: true, remainingIds: ["two"] },
+  });
+  renderWithProviders(<AiSetTools set={set} />);
+  await userEvent.setup().click(screen.getByRole("button", { name: messages.ai.createExamples }));
+  await screen.findAllByRole("textbox");
+  expect(request).toHaveBeenCalledTimes(2);
 });

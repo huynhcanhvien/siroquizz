@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { z } from "zod";
 import { Button } from "@/components/ui/Button";
 import { Checkbox, Input, Textarea } from "@/components/ui/fields";
 import { Dialog } from "@/components/ui/Dialog";
@@ -11,8 +10,8 @@ import { SET_LIMITS } from "@/features/sets/schemas";
 import { createHttpClient } from "@/lib/http-client";
 import type { StudySet } from "@/lib/types";
 import { useErrorMessage } from "@/lib/use-messages";
-const client = createHttpClient(),
-  schema = z.object({ cards: z.array(z.object({ id: z.string(), text: z.string() })) });
+import { fetchSuggestions, type AiKind } from "../lib/aux-suggestions";
+const client = createHttpClient();
 export function AiSetTools({ set }: { set: StudySet }) {
   const t = useTranslations("ai"),
     tEditor = useTranslations("editor"),
@@ -20,20 +19,20 @@ export function AiSetTools({ set }: { set: StudySet }) {
     errorMessage = useErrorMessage(),
     update = useUpdateSet(set.id);
   const [busy, setBusy] = useState(false),
+    [progress, setProgress] = useState(0),
     [result, setResult] = useState<{
-      kind: "phonetics" | "examples";
+      kind: AiKind;
       cards: { id: string; text: string; selected: boolean }[];
     } | null>(null);
-  const run = async (kind: "phonetics" | "examples") => {
+  const run = async (kind: AiKind) => {
     setBusy(true);
+    setProgress(0);
     try {
-      const { data } = await client.request(`/api/v1/ai/${kind}`, schema, {
-        method: "POST",
-        body: { setId: set.id, ...(kind === "phonetics" ? { scope: "all" } : {}) },
-      });
+      const { cards, incomplete } = await fetchSuggestions(client, kind, set.id, setProgress);
+      if (incomplete) toast(`${t("batchIncomplete")} ${errorMessage(incomplete)}`, "error");
       setResult({
         kind,
-        cards: data.cards.map((card) => ({
+        cards: cards.map((card) => ({
           ...card,
           selected:
             kind === "examples" || !set.cards.find((c) => c.id === card.id)?.phonetic?.trim(),
@@ -53,6 +52,8 @@ export function AiSetTools({ set }: { set: StudySet }) {
     update.mutate(
       {
         ...set,
+        // A collaborator may have saved while the AI ran: the server answers 409 SET_CHANGED.
+        baseUpdatedAt: set.updatedAt,
         cards: set.cards.map((card) => ({
           ...card,
           ...(result.kind === "phonetics"
@@ -79,6 +80,11 @@ export function AiSetTools({ set }: { set: StudySet }) {
           {t("createExamples")}
         </Button>
       </div>
+      {busy && progress > 0 ? (
+        <p role="status" className="mt-3 text-sm text-muted">
+          {t("batchProgress", { done: progress, total: set.cards.length })}
+        </p>
+      ) : null}
       <Dialog
         open={Boolean(result)}
         onOpenChange={(open) => {

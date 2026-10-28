@@ -15,6 +15,7 @@ const set: StudySet = {
   source: "manual",
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
+  cardCount: 2,
   cards: [
     { id: "c1", term: "你好", definition: "xin chào", phonetic: "nǐ hǎo" },
     { id: "c2", term: "谢谢", definition: "cảm ơn", phonetic: "xièxie" },

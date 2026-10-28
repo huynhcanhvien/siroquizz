@@ -2,7 +2,7 @@ import { loadEnvConfig } from "@next/env";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { lt } from "drizzle-orm";
-import { cleanupAi } from "../src/server/ai/cleanup";
+import { cleanupAi, cleanupOrphanCardImages } from "../src/server/ai/cleanup";
 import { user, studySets } from "../src/server/db/schema";
 import * as schema from "../src/server/db/schema";
 async function main() {
@@ -16,6 +16,7 @@ async function main() {
       await tx.delete(studySets).where(lt(studySets.deletedAt, cutoff));
     });
     await cleanupAi(db);
+    await cleanupOrphanCardImages(db);
     console.log("Removed account and set tombstones older than 30 days.");
   } finally {
     await connection.end();

@@ -2,21 +2,20 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeftRight, ClipboardPaste, Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useState, type KeyboardEvent } from "react";
+import { useId, useState, type KeyboardEvent } from "react";
 import { useFieldArray, useForm, useWatch, type UseFormReturn } from "react-hook-form";
 import { Button } from "@/components/ui/Button";
-import { Field, Input, Select, Textarea } from "@/components/ui/fields";
+import { Field, Input, Label, Select, Textarea } from "@/components/ui/fields";
 import { Switch } from "@/components/ui/Switch";
 import { useToast } from "@/components/ui/Toast";
 import { CONTENT_LANGUAGE_OPTIONS } from "@/lib/languages";
 import type { SetSource, StudySet } from "@/lib/types";
-import { useErrorMessage, useValidationMessage } from "@/lib/use-messages";
-import { useCreateSet, useUpdateSet } from "../hooks";
+import { useValidationMessage } from "@/lib/use-messages";
 import type { ParsedPair } from "../lib/import-parser";
 import { isBlankCardRow, swapSides } from "../lib/set-utils";
 import { dropBlankRows, editorSchema, type EditorValues } from "../schemas";
+import { useEditorSubmit, type EditorMode } from "./use-editor-submit";
 import { CardRowEditor } from "./CardRowEditor";
 import { ImportDialog } from "./ImportDialog";
 
@@ -92,26 +91,66 @@ function EditorDetails({ form }: { form: UseFormReturn<EditorValues> }) {
   );
 }
 
+/** Propose mode: why the change is suggested, plus the reload prompt after a conflicting save. */
+function ProposalNote({ note, onChange }: { note: string; onChange: (note: string) => void }) {
+  const t = useTranslations("collab");
+  const id = useId();
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p className="rounded-md bg-primary-soft px-4 py-3 text-sm">{t("proposeHint")}</p>
+      <Label htmlFor={id}>{t("note")}</Label>
+      <Textarea
+        id={id}
+        maxLength={500}
+        value={note}
+        placeholder={t("notePlaceholder")}
+        onChange={(event) => onChange(event.target.value)}
+        className="min-h-20"
+      />
+    </div>
+  );
+}
+function ConflictNotice() {
+  const t = useTranslations("collab");
+  return (
+    <div
+      role="alert"
+      className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-danger-soft px-4 py-3 font-medium text-danger"
+    >
+      {t("conflict")}
+      <Button variant="secondary" size="sm" onClick={() => window.location.reload()}>
+        {t("reload")}
+      </Button>
+    </div>
+  );
+}
+
 interface SetEditorProps {
   set?: StudySet;
   openImportOnMount?: boolean;
+  /** "propose" sends the changes to the owner for review instead of saving them. */
+  mode?: EditorMode;
+  /** The class the proposal is made from (propose mode). */
+  classId?: string | null;
 }
 
-export function SetEditor({ set, openImportOnMount = false }: SetEditorProps) {
+export function SetEditor({
+  set,
+  openImportOnMount = false,
+  mode = "edit",
+  classId = null,
+}: SetEditorProps) {
   const t = useTranslations("editor");
+  const tCollab = useTranslations("collab");
   const tImport = useTranslations("importDialog");
-  const router = useRouter();
   const { toast } = useToast();
   const validationMessage = useValidationMessage();
-  const errorMessage = useErrorMessage();
-  const createSet = useCreateSet();
-  const updateSet = useUpdateSet(set?.id ?? "");
-  const mutation = set ? updateSet : createSet;
-  // Stay busy until navigation happens so a double click cannot create the set twice.
-  const busy = mutation.isPending || mutation.isSuccess;
+  const proposing = mode === "propose" && Boolean(set);
+  const [note, setNote] = useState("");
 
   const [importOpen, setImportOpen] = useState(openImportOnMount);
   const [source, setSource] = useState<SetSource>(set?.source ?? "manual");
+  const { submit, busy, conflict } = useEditorSubmit({ set, mode, source, note, classId });
   const [showPhonetic, setShowPhonetic] = useState(
     Boolean(set?.cards.some((card) => card.phonetic)),
   );
@@ -153,20 +192,7 @@ export function SetEditor({ set, openImportOnMount = false }: SetEditorProps) {
     return true;
   };
 
-  const onSubmit = handleSubmit(
-    (values) =>
-      mutation.mutate(
-        { ...values, source, cards: dropBlankRows(values.cards) },
-        {
-          onSuccess: (saved) => {
-            toast(set ? t("saved") : t("created"));
-            router.push(`/sets/${saved.id}`);
-          },
-          onError: (error) => toast(errorMessage(error), "error"),
-        },
-      ),
-    () => toast(t("fixErrors"), "error"),
-  );
+  const onSubmit = handleSubmit(submit, () => toast(t("fixErrors"), "error"));
 
   const submitOnShortcut = (event: KeyboardEvent<HTMLFormElement>) => {
     if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
@@ -175,7 +201,8 @@ export function SetEditor({ set, openImportOnMount = false }: SetEditorProps) {
     }
   };
 
-  const submitLabel = set ? t("saveChanges") : t("create");
+  const submitLabel = proposing ? tCollab("send") : set ? t("saveChanges") : t("create");
+  const heading = proposing ? tCollab("proposeTitle") : set ? t("editTitle") : t("createTitle");
 
   return (
     <form
@@ -185,14 +212,14 @@ export function SetEditor({ set, openImportOnMount = false }: SetEditorProps) {
       className="flex flex-col gap-8"
     >
       <div className="sticky top-16 z-30 -mx-4 flex items-center justify-between gap-4 border-b border-border bg-bg/90 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10">
-        <h1 className="text-xl font-extrabold sm:text-2xl">
-          {set ? t("editTitle") : t("createTitle")}
-        </h1>
+        <h1 className="text-xl font-extrabold sm:text-2xl">{heading}</h1>
         <Button type="submit" loading={busy}>
           {submitLabel}
         </Button>
       </div>
 
+      {conflict ? <ConflictNotice /> : null}
+      {proposing ? <ProposalNote note={note} onChange={setNote} /> : null}
       <EditorDetails form={form} />
 
       <div className="flex flex-wrap items-center gap-2">

@@ -46,7 +46,15 @@
     "USERNAME_COOLDOWN": "You can change your username once every 30 days.",
     "CLASS_NOT_FOUND": "No class uses that code. Check it with your teacher.",
     "CLASS_LOCKED": "This class isn't accepting new members. Ask your teacher to reopen it.",
-    "CLASS_FULL": "This class already has 200 members."
+    "CLASS_FULL": "This class already has 200 members.",
+    "SET_CHANGED": "Someone else just edited this set. Reload it, then apply your changes again.",
+    "CHANGE_REQUEST_LIMIT": "This set already has 20 suggestions waiting for review.",
+    "NOT_CLASSMATE": "This person is not in any of your classes.",
+    "CONTRIBUTIONS_CLOSED": "The owner of this set is not accepting suggestions.",
+    "DOC_TOO_LARGE": "This document is too long to save. Shorten it and try again.",
+    "SESSION_CLOSED": "This writing session is closed; documents are read-only.",
+    "SCRATCH_LIMIT": "Your scratch cards are full (300). Create a set or delete some before saving more.",
+    "SCRATCH_INCOMPLETE": "Some cards have no definition yet. Fill them in, then create the set."
   },
   "validation": {
     "required": "This field is required.",
@@ -64,7 +72,8 @@
     "maxCards": "A set can have at most 500 cards.",
     "cardTermRequired": "Enter a term.",
     "cardDefinitionRequired": "Enter a definition.",
-    "fieldTooLong": "This is too long."
+    "fieldTooLong": "This is too long.",
+    "noChanges": "You have not changed anything in this set."
   },
   "nav": {
     "home": "Home",
@@ -248,7 +257,12 @@
     "noResults": "No sets match “{query}”.",
     "emptyTitle": "Your library is empty",
     "emptyBody": "Sets you create will show up here.",
-    "updated": "Updated {date}"
+    "updated": "Updated {date}",
+    "tabMine": "Mine",
+    "tabFromClass": "From classes",
+    "fromClassEmpty": "No sets have been shared in your classes yet.",
+    "fromClass": "Class {class}",
+    "scratchCards": "Scratch cards ({count})"
   },
   "editor": {
     "createTitle": "Create a new set",
@@ -669,7 +683,9 @@
     "suggestedPhonetic": "AI suggestion (editable)",
     "noPhonetic": "None yet",
     "useSuggestedPhonetic": "Use suggested phonetic",
-    "estimateSource": "Read approximately {tokens} text tokens; AI processes all content to select cards."
+    "estimateSource": "Read approximately {tokens} text tokens; AI processes all content to select cards.",
+    "batchProgress": "Processed {done}/{total} cards…",
+    "batchIncomplete": "AI could only process some of the cards; save what is there and run it again for the rest."
   },
   "settings": {
     "title": "Settings",
@@ -953,7 +969,15 @@
       "saved": "Profile saved.",
       "view": "View profile"
     },
-    "studyNow": "Study now"
+    "studyNow": "Study now",
+    "shareTabs": {
+      "link": "Link",
+      "classes": "Classes"
+    },
+    "classShare": {
+      "hint": "Teachers always see what you share. Choose \"Whole class\" so classmates can see it too.",
+      "none": "You have not joined any class yet."
+    }
   },
   "folders": {
     "title": "Folders",
@@ -993,7 +1017,11 @@
     "practiceBadge": "Practice: progress isn't saved",
     "reviewScope": "Reviewing the folder “{name}”.",
     "reviewAll": "Review all sets",
-    "notFound": "Folder not found."
+    "notFound": "Folder not found.",
+    "share": "Share",
+    "shareTitle": "Share folder to a class",
+    "readOnly": "This folder is shared in a class: you can view and study it but not change it.",
+    "sharedIn": "Shared in a class"
   },
   "classes": {
     "title": "Classes",
@@ -1081,7 +1109,29 @@
       "soon": "Within 48 hours",
       "upcoming": "Upcoming",
       "studySet": "Study {title}"
-    }
+    },
+    "library": {
+      "title": "Class library",
+      "share": "Share to class",
+      "shareItem": "Share a set or folder",
+      "chooseItem": "Set or folder",
+      "noItems": "You have no sets or folders yet.",
+      "audience": "Who can see it",
+      "audienceTeachers": "Teachers only",
+      "audienceClass": "Whole class",
+      "empty": "Nothing has been shared in this class yet.",
+      "open": "Open",
+      "copy": "Copy to my library",
+      "copied": "Copied to your library.",
+      "remove": "Remove",
+      "removed": "Removed from the class library.",
+      "shared": "Shared with the class.",
+      "sharedBy": "Shared by {name}",
+      "setItem": "Set",
+      "folderItem": "Folder",
+      "setCount": "{count, plural, one {# set} other {# sets}}"
+    },
+    "writing": "Writing"
   },
   "admin": {
     "title": "Administration",
@@ -1188,5 +1238,170 @@
     "runningJobs": "Active AI jobs",
     "tokenUsage": "Groq tokens today / limit",
     "openReports": "Open reports"
+  },
+  "collab": {
+    "propose": "Suggest edits",
+    "proposeTitle": "Suggest edits",
+    "proposeHint": "The owner reviews your changes. Reordering cards and images cannot be suggested.",
+    "note": "Note for the owner",
+    "notePlaceholder": "Why do you suggest this change?",
+    "send": "Send suggestion",
+    "sent": "Suggestion sent.",
+    "noChanges": "You have not changed anything.",
+    "edit": "Edit",
+    "copyToLibrary": "Copy to my library",
+    "sharedIn": "Shared in {class} by {name}",
+    "pendingTitle": "Suggestions to review ({count})",
+    "pendingCount": "{count, plural, one {# suggestion to review} other {# suggestions to review}}",
+    "approve": "Approve",
+    "reject": "Decline",
+    "withdraw": "Withdraw",
+    "withdrawn": "Suggestion withdrawn.",
+    "approved": "Approved and applied.",
+    "rejected": "Suggestion declined.",
+    "reviewNote": "Reply note",
+    "stale": "The set changed after this suggestion was sent. Changes to deleted cards will be skipped.",
+    "added": "Add",
+    "edited": "Edit",
+    "deleted": "Delete",
+    "titleChange": "New title: {title}",
+    "descriptionChange": "New description: {description}",
+    "opCount": "{count, plural, one {# change} other {# changes}}",
+    "mine": "Your suggestions",
+    "status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Declined",
+      "withdrawn": "Withdrawn"
+    },
+    "collaborators": "Collaborators",
+    "collaboratorsTitle": "Collaborators",
+    "allTeachers": "All teachers",
+    "collaboratorsHint": "Collaborators edit the set directly, without your review. Students only see their class teachers.",
+    "acceptContributions": "Accept suggestions",
+    "acceptContributionsHint": "People who can see the set may send edits for you to review.",
+    "homeTitle": "Waiting for your review",
+    "by": "Suggested by {name}",
+    "conflict": "Someone else just edited this set. Reload to see the latest version.",
+    "reload": "Reload",
+    "noClasses": "You have not joined any class yet.",
+    "empty": "No suggestions are waiting.",
+    "details": "Show changes",
+    "unknownCard": "Card was deleted",
+    "saved": "Saved."
+  },
+  "writing": {
+    "sessions": {
+      "title": "Writing sessions",
+      "subtitle": "The teacher sets a prompt, students write live and the teacher sees their work as they type.",
+      "new": "New session",
+      "titleLabel": "Title",
+      "promptLabel": "Prompt",
+      "promptPlaceholder": "For example: Describe an autumn morning in your hometown (150–200 words).",
+      "create": "Create session",
+      "created": "Writing session created",
+      "empty": "No writing sessions yet.",
+      "emptyStudent": "Your teacher has not opened a writing session yet.",
+      "open": "Write",
+      "view": "View",
+      "docCount": "{count, plural, one {# document} other {# documents}}",
+      "back": "Back to class",
+      "backToList": "Sessions"
+    },
+    "status": {
+      "draft": "Draft",
+      "open": "Open",
+      "closed": "Closed"
+    },
+    "editor": {
+      "placeholder": "Start writing…",
+      "loading": "Loading the editor…",
+      "bold": "Bold",
+      "italic": "Italic",
+      "underline": "Underline",
+      "color": "Text colour",
+      "highlight": "Highlight",
+      "clear": "Clear formatting",
+      "defaultColor": "Default",
+      "saveWord": "Save word",
+      "selectWord": "Select a word in the text to save it to your scratch cards.",
+      "readOnly": "Read-only",
+      "longWarning": "This text is longer than {count} characters.",
+      "chars": "{count, plural, one {# character} other {# characters}}",
+      "myDoc": "My document",
+      "docOf": "{name}'s document",
+      "notStarted": "The session is not open yet. You can write once your teacher opens it.",
+      "reloaded": "The text got too long, so your latest typing was not saved; the server copy was reloaded.",
+      "toolbar": "Text formatting",
+      "tooLarge": "What you just wrote is too large to save to the server. The text is still on this device; shorten it or copy it elsewhere.",
+      "pasteTooLong": "That paste is too long. Paste it in smaller parts."
+    },
+    "panel": {
+      "prompt": "Prompt",
+      "legend": "Text colours",
+      "legendAuthor": "Author's text",
+      "legendTeacher": "Teacher",
+      "legendPeer": "Classmate",
+      "peers": "Classmates' documents",
+      "noPeers": "No other documents yet.",
+      "toggle": "Side panel"
+    },
+    "roster": {
+      "title": "Students writing",
+      "openSession": "Open session",
+      "closeSession": "Close session",
+      "closeTitle": "Close this writing session?",
+      "closeBody": "Students will no longer be able to edit; documents become read-only.",
+      "reopen": "Reopen",
+      "peerVisibility": "Let students see each other's work",
+      "peerEditing": "Let students write in each other's work",
+      "empty": "No student has started writing yet.",
+      "updated": "{seconds, plural, one {# second ago} other {# seconds ago}}",
+      "updatedMinutes": "{minutes} min ago",
+      "delete": "Delete session",
+      "deleteTitle": "Delete this writing session?",
+      "deleteBody": "Every document in the session will be deleted permanently.",
+      "justNow": "just now"
+    },
+    "sync": {
+      "idle": "Saved",
+      "saving": "Saving…",
+      "offline": "Offline, will retry",
+      "readonly": "Read-only",
+      "toolarge": "Not saved: too long"
+    },
+    "scratch": {
+      "button": "Scratch cards ({count})",
+      "title": "Scratch cards",
+      "description": "Words saved while writing. Add meanings, then turn them into a set.",
+      "empty": "No words saved yet. Select a word in the text and press “Save word”.",
+      "term": "Word",
+      "definition": "Meaning",
+      "phonetic": "Phonetic (optional)",
+      "save": "Save",
+      "saved": "Saved to scratch cards",
+      "delete": "Delete",
+      "selectAll": "Select all",
+      "missingDefinition": "Meaning missing",
+      "createSet": "Create set",
+      "clear": "Clear all",
+      "clearTitle": "Delete all scratch cards?",
+      "clearBody": "Saved words will be deleted and cannot be restored.",
+      "selected": "{count} selected"
+    },
+    "materialize": {
+      "title": "Create a set from scratch cards",
+      "name": "Set name",
+      "termLang": "Word language",
+      "definitionLang": "Meaning language",
+      "share": "Share with a class",
+      "class": "Class",
+      "audience": "Who can see it",
+      "audienceClass": "Whole class",
+      "audienceTeachers": "Teachers only",
+      "submit": "Create set ({count})",
+      "created": "Set created",
+      "needTwo": "Select at least 2 cards that have a meaning."
+    }
   }
 }

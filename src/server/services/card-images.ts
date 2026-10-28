@@ -8,7 +8,7 @@ import { ApiError } from "../api-error";
 import { aiUploads, cardImages } from "../db/schema";
 import { getUpload, putStoredFile, deleteUpload } from "../ai/storage";
 import { validateMagic } from "../ai/extract";
-import {requireOwnedSet} from "./sets";
+import { requireEditableSet } from "./access";
 import { markEdited } from "./sharing";
 import { requireCard } from "./learning";
 export async function attachCardImage(
@@ -22,8 +22,8 @@ export async function attachCardImage(
       .object({ uploadId: z.uuid(), alt: z.string().trim().max(1000).default("") })
       .parse(input),
     card = await requireCard(db, userId, cardId);
-  // Only the owner adds images; check before doing any work on the upload.
-  await requireOwnedSet(db, userId, card.setId);
+  // Only the owner or a collaborator adds images; check before doing any work on the upload.
+  const { ownerId } = await requireEditableSet(db, userId, card.setId);
   const [upload] = await db
     .select()
     .from(aiUploads)
@@ -51,7 +51,7 @@ export async function attachCardImage(
   await putStoredFile(key, image, "image/webp", signal);
   try {
     await db.transaction(async (tx) => {
-      await requireOwnedSet(tx,userId,card.setId,true);
+      await requireEditableSet(tx, userId, card.setId, "update");
       await requireCard(tx, userId, cardId);
       await tx.update(cardImages).set({ cardId: null }).where(eq(cardImages.cardId, cardId));
       await tx.insert(cardImages).values({ id, key, userId, cardId, alt, size: image.length });
@@ -61,6 +61,6 @@ export async function attachCardImage(
     throw error;
   }
   // An image is content too: a shared set needs a fresh moderation verdict.
-  await markEdited(db, card.setId);
+  await markEdited(db, card.setId, { byOwner: ownerId === userId });
   return { imageUrl: `/api/v1/images/${id}`, imageAlt: alt };
 }

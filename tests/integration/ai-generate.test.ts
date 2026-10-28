@@ -2,6 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import type { AiJobState } from "@/features/ai-generate/schemas";
 import { ApiError } from "@/server/api-error";
 import { advanceGeneration, planTasks } from "@/server/ai/generate";
+import { estimateTokens } from "@/features/ai-generate/lib/output";
 
 const provider = vi.hoisted(() => vi.fn());
 vi.mock("@/server/ai/groq", async () => {
@@ -11,7 +12,7 @@ vi.mock("@/server/ai/groq", async () => {
       super(429, "RATE_LIMITED");
     }
   }
-  return { groqJson: provider, RateLimitError };
+  return { groqJson: provider, RateLimitError, SYSTEM_PROMPT: "Base flashcard rules." };
 });
 vi.mock("@/server/env", () => ({
   getServerEnv: () => ({
@@ -19,7 +20,7 @@ vi.mock("@/server/env", () => ({
     GROQ_FALLBACK_MODEL: "openai/gpt-oss-20b",
   }),
 }));
-const { RateLimitError } = await import("@/server/ai/groq");
+const { RateLimitError, SYSTEM_PROMPT } = await import("@/server/ai/groq");
 
 const options = {
   cardCount: 4,
@@ -35,7 +36,7 @@ const cards = (...terms: string[]) => ({
 });
 const budget = () => ({ launchUntil: Date.now() + 60_000, deadline: Date.now() + 60_000 });
 function stateFor(chunks: string[], cardCount: number = options.cardCount): AiJobState {
-  const tasks = planTasks(chunks.length, cardCount);
+  const tasks = planTasks(chunks.map(estimateTokens), cardCount);
   return {
     phase: "generate",
     texts: [],
@@ -56,7 +57,7 @@ beforeEach(() => {
 });
 
 it("plans at most 40 cards per request and spreads cards over chunks", () => {
-  const big = planTasks(1, 200);
+  const big = planTasks([2500], 200);
   expect(big).toHaveLength(5);
   expect(big.map((t) => [t.chunk, t.part, t.count])).toEqual([
     [0, 0, 40],
@@ -65,11 +66,11 @@ it("plans at most 40 cards per request and spreads cards over chunks", () => {
     [0, 3, 40],
     [0, 4, 40],
   ]);
-  const spread = planTasks(10, 20);
+  const spread = planTasks(Array<number>(10).fill(500), 20);
   expect(spread.map((t) => [t.chunk, t.count])).toEqual(
     Array.from({ length: 10 }, (_, i) => [i, 2]),
   );
-  expect(planTasks(3, 200).reduce((sum, task) => sum + task.count, 0)).toBe(200);
+  expect(planTasks([2500, 2500, 100], 200).reduce((sum, task) => sum + task.count, 0)).toBe(200);
 });
 
 it("runs every task, collects cards and usage, and tells later parts what exists", async () => {
@@ -86,6 +87,15 @@ it("runs every task, collects cards and usage, and tells later parts what exists
   expect(first.alreadyCreatedTerms).toBeUndefined();
   expect(second.alreadyCreatedTerms).toEqual(["cat", "dog"]);
   expect(provider.mock.calls[0][5].maxTokens).toBeLessThan(8000);
+  // Static instructions lead every request (system message) so the provider can reuse the cached
+  // prefix; the document part, which changes per request, comes last.
+  const systems = provider.mock.calls.map((call) => call[5].system as string);
+  expect(systems[0]).toContain(SYSTEM_PROMPT);
+  expect(systems[0]).toContain("distinct cards");
+  expect(systems[1]).toBe(systems[0]);
+  expect(first.instructions).toBeUndefined();
+  expect(Object.keys(first).at(-1)).toBe("document");
+  expect(Object.keys(second).at(-1)).toBe("document");
 });
 
 it("runs different chunks concurrently", async () => {
@@ -173,10 +183,12 @@ it("starts nothing once the step's launch budget is spent", async () => {
   expect(provider).not.toHaveBeenCalled();
 });
 it("reads every chunk even when the final card count is smaller", () => {
-  expect(planTasks(12, 5).map((t) => [t.chunk, t.count])).toEqual(
+  expect(planTasks(Array<number>(12).fill(100), 5).map((t) => [t.chunk, t.count])).toEqual(
     Array.from({ length: 12 }, (_, i) => [i, 1]),
   );
-  expect(planTasks(12, 40).map((t) => t.chunk)).toEqual(Array.from({ length: 12 }, (_, i) => i));
+  expect(planTasks(Array<number>(12).fill(100), 40).map((t) => t.chunk)).toEqual(
+    Array.from({ length: 12 }, (_, i) => i),
+  );
 });
 it("splits the text first when the request itself is too large", async () => {
   provider

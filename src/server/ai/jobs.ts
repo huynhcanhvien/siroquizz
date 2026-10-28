@@ -44,12 +44,14 @@ import {
   finalizeStep,
   generateStep,
   initialState,
+  stepJobColumns,
   type Job,
   type Owned,
   type StepContext,
   type StepResult,
 } from "./job-steps";
 import { planTasks } from "./generate";
+import { estimateTokens } from "@/features/ai-generate/lib/output";
 
 export { quotaWindow } from "./credits";
 export type { StepResult } from "./job-steps";
@@ -68,8 +70,10 @@ const QUEUED_STALE_MS = 15_000;
 // An unfinished job untouched for this long releases its credit reservation.
 const ABANDONED_JOB_MS = 600_000;
 const QUEUE_POLL_MS = 3_000;
-// Outlives the 60s function limit, so a lease left by a killed invocation frees itself.
-const STEP_LEASE_MS = 65_000;
+// Outlives a step's hard budget (48s) plus the work that runs after it (saving state, finishing)
+// but stays under the 60s function limit, so a lease left by a killed invocation frees itself
+// soon; a late write from that invocation is refused because it no longer holds the lease token.
+const STEP_LEASE_MS = 58_000;
 const BUSY_POLL_MS = 2_000;
 /** Generations one person may have running (or awaiting their go-ahead) at once. */
 const MAX_OPEN_JOBS_PER_USER = 2;
@@ -93,7 +97,14 @@ export async function createJob(db: Database, userId: string, input: unknown) {
     // keeps the heartbeat fresh, so it does not count.
     await tx
       .update(aiJobs)
-      .set({ status: "error", errorCode: "AI_TIMEOUT", finishedAt: new Date(), creditsReserved: 0 })
+      .set({
+        status: "error",
+        errorCode: "AI_TIMEOUT",
+        finishedAt: new Date(),
+        state: null,
+        creditsReserved: 0,
+        tokensReserved: 0,
+      })
       .where(
         and(
           eq(aiJobs.userId, userId),
@@ -136,18 +147,20 @@ export async function createJob(db: Database, userId: string, input: unknown) {
     return { jobId: id };
   });
 }
+/** The user's own job from the last day. */
+const ownJob = (userId: string, id: string) =>
+  and(
+    eq(aiJobs.id, id),
+    eq(aiJobs.userId, userId),
+    gt(aiJobs.createdAt, new Date(Date.now() - 86400_000)),
+  );
+/** Checks the job is the user's and recent; returns only its id and status. */
 export async function requireJob(db: Database, userId: string, id: string) {
   z.uuid().parse(id);
   const [job] = await db
-    .select()
+    .select({ id: aiJobs.id, status: aiJobs.status })
     .from(aiJobs)
-    .where(
-      and(
-        eq(aiJobs.id, id),
-        eq(aiJobs.userId, userId),
-        gt(aiJobs.createdAt, new Date(Date.now() - 86400_000)),
-      ),
-    )
+    .where(ownJob(userId, id))
     .limit(1);
   if (!job) throw new ApiError(404, "NOT_FOUND");
   return job;
@@ -155,7 +168,17 @@ export async function requireJob(db: Database, userId: string, id: string) {
 export async function listJobs(db: Database, userId: string, limit = 10) {
   return (
     await db
-      .select()
+      .select({
+        id: aiJobs.id,
+        status: aiJobs.status,
+        prompt: aiJobs.prompt,
+        createdAt: aiJobs.createdAt,
+        finishedAt: aiJobs.finishedAt,
+        options: aiJobs.options,
+        result: aiJobs.result,
+        errorCode: aiJobs.errorCode,
+        creditsCharged: aiJobs.creditsCharged,
+      })
       .from(aiJobs)
       .where(and(eq(aiJobs.userId, userId), gt(aiJobs.createdAt, new Date(Date.now() - 86400_000))))
       .orderBy(desc(aiJobs.createdAt))
@@ -207,6 +230,7 @@ export async function stopJob(
       .update(aiJobs)
       .set({
         status: "cancelled",
+        state: null,
         finishedAt: new Date(),
         ...(state ? { inputTokens: state.usage.input, outputTokens: state.usage.output } : {}),
         ...chargeColumns(charge),
@@ -234,8 +258,8 @@ export async function confirmJob(db: Database, userId: string, id: string, input
     const state = aiJobStateSchema.parse(job.state);
     const options = generationOptionsSchema.parse(job.options);
     const count = cardCount ?? options.cardCount;
-    const chunks = state.chunks ?? [""];
-    state.tasks = planTasks(chunks.length, count);
+    const chunkTokens = state.chunkTokens ?? (state.chunks ?? [""]).map(estimateTokens);
+    state.tasks = planTasks(chunkTokens, count);
     state.totalTasks = state.tasks.length;
     const used = (state.ocrPages ?? 0) * OCR_CREDITS_PER_PAGE;
     await reserveCredits(
@@ -243,7 +267,7 @@ export async function confirmJob(db: Database, userId: string, id: string, input
       userId,
       id,
       used + creditsForCards(count),
-      estimateGenerationTokens(state.chunkTokens ?? [], count),
+      estimateGenerationTokens(chunkTokens, count),
     );
     await tx
       .update(aiJobs)
@@ -252,10 +276,17 @@ export async function confirmJob(db: Database, userId: string, id: string, input
   });
 }
 
-/** Claims a queued job, keeping the state of one that was paused for confirmation. */
+/**
+ * Reads the job's saved state, the one large column, only once the step will work on it. Claims
+ * a queued job, keeping the state of one that was paused for confirmation.
+ */
 async function loadState(db: Database, job: Job, owned: Owned) {
-  if (job.status !== "queued") return aiJobStateSchema.parse(job.state);
-  const state = job.state ? aiJobStateSchema.parse(job.state) : initialState();
+  const [saved] = await db
+    .select({ state: aiJobs.state })
+    .from(aiJobs)
+    .where(eq(aiJobs.id, job.id));
+  if (job.status !== "queued") return aiJobStateSchema.parse(saved?.state);
+  const state = saved?.state ? aiJobStateSchema.parse(saved.state) : initialState();
   const claimed = await db
     .update(aiJobs)
     .set({ status: state.phase === "extract" ? "extracting" : "generating", state })
@@ -284,7 +315,7 @@ async function acquireLease(db: Database, id: string) {
         sql`(${aiJobs.stepLeaseUntil} is null or ${aiJobs.stepLeaseUntil} < now())`,
       ),
     )
-    .returning();
+    .returning(stepJobColumns);
   if (leased) return { token, job: leased };
   await db.update(aiJobs).set({ heartbeatAt: new Date() }).where(eq(aiJobs.id, id));
   return null;
@@ -300,9 +331,33 @@ const STAGE_OF_STATUS: Record<string, GenerationStage> = {
   generating: "generating",
   validating: "validating",
 };
+/**
+ * The columns that report a job's outcome; the state only while it awaits confirmation and the
+ * result only once it is done, so polling a running job stays small.
+ */
+const outcomeColumns = {
+  status: aiJobs.status,
+  options: aiJobs.options,
+  errorCode: aiJobs.errorCode,
+  creditsCharged: aiJobs.creditsCharged,
+  state: sql`case when ${aiJobs.status} = 'awaiting' then ${aiJobs.state} end`.mapWith(
+    aiJobs.state,
+  ),
+  result: sql`case when ${aiJobs.status} = 'done' then ${aiJobs.result} end`.mapWith(aiJobs.result),
+};
+type Outcome = Pick<
+  typeof aiJobs.$inferSelect,
+  "status" | "options" | "errorCode" | "creditsCharged" | "state" | "result"
+>;
 /** What a step reports when it could not do work itself: the job's outcome, or "try again". */
 async function currentResult(db: Database, userId: string, id: string): Promise<StepResult> {
-  const job = await requireJob(db, userId, id);
+  z.uuid().parse(id);
+  const [job]: Outcome[] = await db
+    .select(outcomeColumns)
+    .from(aiJobs)
+    .where(ownJob(userId, id))
+    .limit(1);
+  if (!job) throw new ApiError(404, "NOT_FOUND");
   if (job.status === "awaiting")
     return awaitingResult(
       db,
@@ -336,7 +391,7 @@ async function jobsAhead(db: Database, job: Job) {
     );
   return row.count;
 }
-function terminalResult(job: Job): StepResult {
+function terminalResult(job: Outcome): StepResult {
   const credits = { creditsCharged: job.creditsCharged };
   if (job.status === "done")
     return {

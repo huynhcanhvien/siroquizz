@@ -1,6 +1,6 @@
 "use client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef } from "react";
 import { v7 } from "uuid";
 import type { z } from "zod";
 import { useCountStudyAnswer, type SessionCounts } from "@/features/study/session-context";
@@ -15,11 +15,31 @@ export const learningKeys = {
   stats: ["stats"] as const,
 };
 const isHttp = process.env.NEXT_PUBLIC_DATA_SOURCE === "http";
-export function useDue(starred = false, folderId?: string) {
+/** Queries that change whenever an answer is graded or a card's status is saved. */
+const STUDY_DATA_KEYS = [learningKeys.due, learningKeys.stats, ["progress"]] as const;
+/**
+ * Marks study data stale without refetching it: an answer must not reload the review queue,
+ * stats and progress mid-session. Sessions refresh once at the end (`useRefreshLearning`), and
+ * any page mounted later refetches the stale data itself.
+ */
+export function markStudyDataStale(client: QueryClient) {
+  for (const queryKey of STUDY_DATA_KEYS)
+    void client.invalidateQueries({ queryKey, refetchType: "none" });
+}
+/** Refetches the study data a finished session changed. */
+export function useRefreshLearning() {
+  const client = useQueryClient();
+  return useCallback(
+    () => Promise.all(STUDY_DATA_KEYS.map((queryKey) => client.invalidateQueries({ queryKey }))),
+    [client],
+  );
+}
+/** `enabled: false` pauses the queue while a review session works on its own snapshot. */
+export function useDue(starred = false, folderId?: string, enabled = true) {
   return useQuery({
     queryKey: [...learningKeys.due, starred, folderId ?? null],
     queryFn: () => repository.due(starred, folderId),
-    enabled: isHttp,
+    enabled: isHttp && enabled,
   });
 }
 export function useStars(setId: string) {
@@ -62,9 +82,7 @@ export function useReview() {
     }) => repository.review({ ...input, eventId: input.eventId ?? v7() }),
     onSuccess: (_data, input) => {
       count?.(input.rating >= 2);
-      void client.invalidateQueries({ queryKey: learningKeys.due });
-      void client.invalidateQueries({ queryKey: learningKeys.stats });
-      void client.invalidateQueries({ queryKey: ["progress"] });
+      markStudyDataStale(client);
     },
   });
 }

@@ -102,10 +102,10 @@ it("teacher assigns a private set, the student studies it and the board shows pr
   ]);
   // The student's progress is theirs; the teacher's own progress is untouched.
   expect(await getProgress(db, teacher, set.id)).toEqual([]);
-  // Students can study but never edit the teacher's set.
+  // Students can study but never edit the teacher's set (they can see it, so 403 not 404).
   await expect(
     updateSet(db, student, set.id, { ...studying, cards: studying.cards }),
-  ).rejects.toMatchObject({ status: 404 });
+  ).rejects.toMatchObject({ status: 403 });
 });
 
 it("assigned sets join the student's review queue", async () => {

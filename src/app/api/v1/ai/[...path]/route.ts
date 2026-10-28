@@ -16,6 +16,8 @@ import {
 import { validateMagic } from "@/server/ai/extract";
 import { auxiliaryTask } from "@/server/ai/auxiliary";
 import { enforceLimit } from "@/server/rate-limit";
+import { writePolicy } from "@/server/write-policy";
+import type { User } from "@/lib/types";
 export const runtime = "nodejs";
 // Each request advances a job by one bounded slice; stays under the free-plan 60s function limit.
 export const maxDuration = 60;
@@ -44,7 +46,7 @@ async function handle(request: Request, context: Context) {
   const { path } = await context.params;
   const [domain, id, sub] = path;
   const db = getDatabase();
-  return api(request, async (current) => {
+  const action = async (current: User) => {
     if (domain === "quota" && path.length === 1 && request.method === "GET")
       return { data: await getQuota(db, current.id) };
     if (domain === "uploads" && path.length === 1 && request.method === "POST") {
@@ -147,6 +149,7 @@ async function handle(request: Request, context: Context) {
         data: await auxiliaryTask(db, current.id, domain, await readJson(request), request.signal),
       };
     throw new ApiError(404, "NOT_FOUND");
-  });
+  };
+  return api(request, action, { writeLimit: writePolicy(["ai", ...path]) });
 }
 export { handle as GET, handle as POST, handle as PUT };

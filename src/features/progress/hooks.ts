@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useCountStudyAnswer } from "@/features/study/session-context";
+import { markStudyDataStale } from "@/features/srs/hooks";
 import { useRepositories } from "@/lib/data-provider";
 import type { CardProgress, CardStatus } from "@/lib/types";
 import type { GameScoreInput, TestResultInput } from "./schemas";
@@ -14,15 +15,19 @@ export const progressKeys = {
   activity: ["activity"] as const,
 };
 
-export function useSetProgress(setId: string) {
+export function useSetProgress(setId: string, { enabled = true }: { enabled?: boolean } = {}) {
   const { progress } = useRepositories();
   return useQuery({
     queryKey: progressKeys.set(setId),
     queryFn: () => progress.getSetProgress(setId),
+    enabled,
   });
 }
 
-/** Optimistically updates card status and rolls back if the write fails. */
+/**
+ * Optimistically updates card status and rolls back if the write fails. A swipe only touches the
+ * local cache: refetching progress, due and stats after every card made a session N round trips.
+ */
 export function useSaveCardStatus(setId: string) {
   const count = useCountStudyAnswer();
   const { progress } = useRepositories();
@@ -44,10 +49,8 @@ export function useSaveCardStatus(setId: string) {
     onError: (_error, _variables, context) => queryClient.setQueryData(key, context?.previous),
     onSuccess: (_data, input) => {
       count?.(input.status === "known");
-      void queryClient.invalidateQueries({ queryKey: ["due"] });
-      void queryClient.invalidateQueries({ queryKey: ["stats"] });
+      markStudyDataStale(queryClient);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
   });
 }
 

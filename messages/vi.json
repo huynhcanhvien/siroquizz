@@ -46,7 +46,15 @@
     "USERNAME_COOLDOWN": "Bạn chỉ được đổi tên người dùng 30 ngày một lần.",
     "CLASS_NOT_FOUND": "Không có lớp nào dùng mã này. Hãy kiểm tra lại mã với giáo viên.",
     "CLASS_LOCKED": "Lớp đang khóa đăng ký. Hãy nhờ giáo viên mở lại.",
-    "CLASS_FULL": "Lớp đã đủ 200 thành viên."
+    "CLASS_FULL": "Lớp đã đủ 200 thành viên.",
+    "SET_CHANGED": "Bộ thẻ vừa được người khác sửa. Hãy tải lại rồi áp dụng lại thay đổi của bạn.",
+    "CHANGE_REQUEST_LIMIT": "Bộ thẻ này đã có 20 đề xuất chờ duyệt.",
+    "NOT_CLASSMATE": "Người này không học chung lớp nào với bạn.",
+    "CONTRIBUTIONS_CLOSED": "Chủ bộ thẻ đang tắt nhận đóng góp.",
+    "DOC_TOO_LARGE": "Bài viết quá dài để lưu. Hãy rút gọn bớt rồi thử lại.",
+    "SESSION_CLOSED": "Phiên viết bài đã đóng; bài chỉ còn xem được.",
+    "SCRATCH_LIMIT": "Bộ thẻ tạm đã đủ 300 thẻ. Hãy tạo bộ thẻ hoặc xoá bớt trước khi lưu thêm.",
+    "SCRATCH_INCOMPLETE": "Một số thẻ chưa có định nghĩa. Hãy điền đủ rồi tạo bộ thẻ."
   },
   "validation": {
     "required": "Trường này là bắt buộc.",
@@ -64,7 +72,8 @@
     "maxCards": "Bộ thẻ tối đa 500 thẻ.",
     "cardTermRequired": "Nhập thuật ngữ.",
     "cardDefinitionRequired": "Nhập định nghĩa.",
-    "fieldTooLong": "Nội dung quá dài."
+    "fieldTooLong": "Nội dung quá dài.",
+    "noChanges": "Bạn chưa thay đổi gì so với bộ thẻ."
   },
   "nav": {
     "home": "Trang chủ",
@@ -248,7 +257,12 @@
     "noResults": "Không có bộ thẻ nào khớp với “{query}”.",
     "emptyTitle": "Thư viện còn trống",
     "emptyBody": "Bộ thẻ bạn tạo sẽ xuất hiện ở đây.",
-    "updated": "Cập nhật {date}"
+    "updated": "Cập nhật {date}",
+    "tabMine": "Của tôi",
+    "tabFromClass": "Từ lớp",
+    "fromClassEmpty": "Chưa có bộ thẻ nào được chia sẻ trong các lớp của bạn.",
+    "fromClass": "Lớp {class}",
+    "scratchCards": "Bộ thẻ tạm ({count})"
   },
   "editor": {
     "createTitle": "Tạo bộ thẻ mới",
@@ -669,7 +683,9 @@
     "suggestedPhonetic": "AI đề xuất (có thể chỉnh sửa)",
     "noPhonetic": "Chưa có",
     "useSuggestedPhonetic": "Dùng phiên âm đề xuất",
-    "estimateSource": "Đã đọc khoảng {tokens} token văn bản; AI xử lý toàn bộ nội dung để chọn thẻ."
+    "estimateSource": "Đã đọc khoảng {tokens} token văn bản; AI xử lý toàn bộ nội dung để chọn thẻ.",
+    "batchProgress": "Đã xử lý {done}/{total} thẻ…",
+    "batchIncomplete": "AI chỉ xử lý được một phần thẻ; bạn có thể lưu phần đã có rồi chạy lại cho các thẻ còn lại."
   },
   "settings": {
     "title": "Cài đặt",
@@ -953,7 +969,15 @@
       "saved": "Đã lưu hồ sơ.",
       "view": "Xem hồ sơ"
     },
-    "studyNow": "Học ngay"
+    "studyNow": "Học ngay",
+    "shareTabs": {
+      "link": "Liên kết",
+      "classes": "Lớp học"
+    },
+    "classShare": {
+      "hint": "Giáo viên luôn thấy mục bạn chia sẻ. Chọn \"Cả lớp\" để bạn cùng lớp cũng xem được.",
+      "none": "Bạn chưa tham gia lớp nào."
+    }
   },
   "folders": {
     "title": "Thư mục",
@@ -993,7 +1017,11 @@
     "practiceBadge": "Luyện tập: không lưu tiến độ",
     "reviewScope": "Đang ôn thư mục “{name}”.",
     "reviewAll": "Ôn tất cả bộ thẻ",
-    "notFound": "Không tìm thấy thư mục."
+    "notFound": "Không tìm thấy thư mục.",
+    "share": "Chia sẻ",
+    "shareTitle": "Chia sẻ thư mục vào lớp",
+    "readOnly": "Thư mục được chia sẻ trong lớp: bạn xem và học được nhưng không sửa được.",
+    "sharedIn": "Chia sẻ trong lớp"
   },
   "classes": {
     "title": "Lớp học",
@@ -1081,7 +1109,29 @@
       "soon": "Trong 48 giờ tới",
       "upcoming": "Còn hạn",
       "studySet": "Học bộ thẻ {title}"
-    }
+    },
+    "library": {
+      "title": "Thư viện lớp",
+      "share": "Chia sẻ vào lớp",
+      "shareItem": "Chia sẻ bộ thẻ hoặc thư mục",
+      "chooseItem": "Bộ thẻ hoặc thư mục",
+      "noItems": "Bạn chưa có bộ thẻ hoặc thư mục nào.",
+      "audience": "Ai được xem",
+      "audienceTeachers": "Chỉ giáo viên",
+      "audienceClass": "Cả lớp",
+      "empty": "Chưa có gì trong thư viện lớp.",
+      "open": "Mở",
+      "copy": "Sao chép vào thư viện",
+      "copied": "Đã sao chép vào thư viện của bạn.",
+      "remove": "Gỡ",
+      "removed": "Đã gỡ khỏi thư viện lớp.",
+      "shared": "Đã chia sẻ vào lớp.",
+      "sharedBy": "Chia sẻ bởi {name}",
+      "setItem": "Bộ thẻ",
+      "folderItem": "Thư mục",
+      "setCount": "{count, plural, other {# bộ}}"
+    },
+    "writing": "Viết bài"
   },
   "admin": {
     "title": "Quản trị",
@@ -1188,5 +1238,170 @@
     "runningJobs": "Job AI đang chạy",
     "tokenUsage": "Token Groq hôm nay / giới hạn",
     "openReports": "Báo cáo đang mở"
+  },
+  "collab": {
+    "propose": "Đề xuất chỉnh sửa",
+    "proposeTitle": "Đề xuất chỉnh sửa",
+    "proposeHint": "Chủ bộ thẻ sẽ duyệt thay đổi của bạn. Đổi thứ tự thẻ hay ảnh không đề xuất được.",
+    "note": "Ghi chú cho chủ bộ thẻ",
+    "notePlaceholder": "Vì sao bạn đề xuất thay đổi này?",
+    "send": "Gửi đề xuất",
+    "sent": "Đã gửi đề xuất.",
+    "noChanges": "Bạn chưa thay đổi gì.",
+    "edit": "Chỉnh sửa",
+    "copyToLibrary": "Sao chép vào thư viện",
+    "sharedIn": "Chia sẻ trong lớp {class} bởi {name}",
+    "pendingTitle": "Đề xuất chờ duyệt ({count})",
+    "pendingCount": "{count, plural, other {# đề xuất chờ duyệt}}",
+    "approve": "Duyệt",
+    "reject": "Từ chối",
+    "withdraw": "Rút lại",
+    "withdrawn": "Đã rút lại đề xuất.",
+    "approved": "Đã duyệt và áp dụng thay đổi.",
+    "rejected": "Đã từ chối đề xuất.",
+    "reviewNote": "Ghi chú phản hồi",
+    "stale": "Bộ thẻ đã thay đổi sau khi đề xuất được gửi. Thay đổi trên thẻ đã bị xoá sẽ được bỏ qua.",
+    "added": "Thêm",
+    "edited": "Sửa",
+    "deleted": "Xoá",
+    "titleChange": "Tiêu đề mới: {title}",
+    "descriptionChange": "Mô tả mới: {description}",
+    "opCount": "{count, plural, other {# thay đổi}}",
+    "mine": "Đề xuất của bạn",
+    "status": {
+      "pending": "Chờ duyệt",
+      "approved": "Đã duyệt",
+      "rejected": "Bị từ chối",
+      "withdrawn": "Đã rút lại"
+    },
+    "collaborators": "Cộng tác viên",
+    "collaboratorsTitle": "Cộng tác viên",
+    "allTeachers": "Tất cả giáo viên",
+    "collaboratorsHint": "Cộng tác viên sửa trực tiếp bộ thẻ mà không cần bạn duyệt. Học sinh chỉ thấy giáo viên của lớp.",
+    "acceptContributions": "Nhận đóng góp",
+    "acceptContributionsHint": "Người xem được bộ thẻ có thể gửi đề xuất chỉnh sửa để bạn duyệt.",
+    "homeTitle": "Chờ bạn duyệt",
+    "by": "{name} đề xuất",
+    "conflict": "Bộ thẻ vừa được người khác sửa. Tải lại để xem bản mới nhất.",
+    "reload": "Tải lại",
+    "noClasses": "Bạn chưa tham gia lớp nào.",
+    "empty": "Không có đề xuất nào chờ duyệt.",
+    "details": "Xem thay đổi",
+    "unknownCard": "Thẻ đã bị xoá",
+    "saved": "Đã lưu."
+  },
+  "writing": {
+    "sessions": {
+      "title": "Phiên viết bài",
+      "subtitle": "Giáo viên tạo đề, học sinh viết trực tiếp và giáo viên xem bài ngay khi đang viết.",
+      "new": "Tạo phiên mới",
+      "titleLabel": "Tiêu đề",
+      "promptLabel": "Đề bài",
+      "promptPlaceholder": "Ví dụ: Tả một buổi sáng mùa thu ở quê em (150–200 từ).",
+      "create": "Tạo phiên",
+      "created": "Đã tạo phiên viết bài",
+      "empty": "Chưa có phiên viết bài nào.",
+      "emptyStudent": "Giáo viên chưa mở phiên viết bài nào.",
+      "open": "Vào viết",
+      "view": "Xem",
+      "docCount": "{count, plural, other {# bài}}",
+      "back": "Về lớp",
+      "backToList": "Danh sách phiên"
+    },
+    "status": {
+      "draft": "Nháp",
+      "open": "Đang mở",
+      "closed": "Đã đóng"
+    },
+    "editor": {
+      "placeholder": "Bắt đầu viết…",
+      "loading": "Đang tải trình soạn thảo…",
+      "bold": "In đậm",
+      "italic": "In nghiêng",
+      "underline": "Gạch chân",
+      "color": "Màu chữ",
+      "highlight": "Tô nền",
+      "clear": "Xoá định dạng",
+      "defaultColor": "Mặc định",
+      "saveWord": "Lưu từ vựng",
+      "selectWord": "Bôi đen một từ trong bài để lưu vào bộ thẻ tạm.",
+      "readOnly": "Chỉ xem",
+      "longWarning": "Bài đã dài hơn {count} ký tự.",
+      "chars": "{count, plural, other {# ký tự}}",
+      "myDoc": "Bài của tôi",
+      "docOf": "Bài của {name}",
+      "notStarted": "Phiên chưa mở. Bài sẽ viết được khi giáo viên mở phiên.",
+      "reloaded": "Bài quá dài nên phần vừa gõ chưa được lưu; đã tải lại bản trên máy chủ.",
+      "toolbar": "Định dạng chữ",
+      "tooLarge": "Phần vừa viết quá lớn để lưu lên máy chủ. Chữ vẫn còn trên máy này; hãy rút gọn hoặc sao chép ra ngoài.",
+      "pasteTooLong": "Đoạn dán quá dài. Hãy dán từng phần nhỏ hơn."
+    },
+    "panel": {
+      "prompt": "Đề bài",
+      "legend": "Màu chữ",
+      "legendAuthor": "Chữ của tác giả",
+      "legendTeacher": "Giáo viên",
+      "legendPeer": "Bạn cùng lớp",
+      "peers": "Bài của các bạn",
+      "noPeers": "Chưa có bài nào khác.",
+      "toggle": "Bảng bên"
+    },
+    "roster": {
+      "title": "Học sinh đang viết",
+      "openSession": "Mở phiên",
+      "closeSession": "Đóng phiên",
+      "closeTitle": "Đóng phiên viết bài?",
+      "closeBody": "Học sinh sẽ không sửa bài được nữa, chỉ còn xem.",
+      "reopen": "Mở lại",
+      "peerVisibility": "Cho phép xem bài nhau",
+      "peerEditing": "Cho phép viết lên bài nhau",
+      "empty": "Chưa có học sinh nào bắt đầu viết.",
+      "updated": "{seconds, plural, other {# giây trước}}",
+      "updatedMinutes": "{minutes} phút trước",
+      "delete": "Xoá phiên",
+      "deleteTitle": "Xoá phiên viết bài?",
+      "deleteBody": "Mọi bài viết trong phiên sẽ bị xoá vĩnh viễn.",
+      "justNow": "vừa xong"
+    },
+    "sync": {
+      "idle": "Đã lưu",
+      "saving": "Đang lưu…",
+      "offline": "Mất kết nối, sẽ thử lại",
+      "readonly": "Chỉ xem",
+      "toolarge": "Chưa lưu được: bài quá dài"
+    },
+    "scratch": {
+      "button": "Bộ thẻ tạm ({count})",
+      "title": "Bộ thẻ tạm",
+      "description": "Từ vựng đã lưu khi viết bài. Điền nghĩa rồi tạo thành bộ thẻ.",
+      "empty": "Chưa lưu từ nào. Bôi đen một từ trong bài rồi bấm “Lưu từ vựng”.",
+      "term": "Từ",
+      "definition": "Nghĩa",
+      "phonetic": "Phiên âm (tuỳ chọn)",
+      "save": "Lưu",
+      "saved": "Đã lưu vào bộ thẻ tạm",
+      "delete": "Xoá",
+      "selectAll": "Chọn tất cả",
+      "missingDefinition": "Thiếu nghĩa",
+      "createSet": "Tạo bộ thẻ",
+      "clear": "Xoá hết",
+      "clearTitle": "Xoá toàn bộ thẻ tạm?",
+      "clearBody": "Các từ đã lưu sẽ bị xoá và không khôi phục được.",
+      "selected": "Đã chọn {count}"
+    },
+    "materialize": {
+      "title": "Tạo bộ thẻ từ thẻ tạm",
+      "name": "Tên bộ thẻ",
+      "termLang": "Ngôn ngữ của từ",
+      "definitionLang": "Ngôn ngữ của nghĩa",
+      "share": "Chia sẻ vào lớp",
+      "class": "Lớp",
+      "audience": "Ai được xem",
+      "audienceClass": "Cả lớp",
+      "audienceTeachers": "Chỉ giáo viên",
+      "submit": "Tạo bộ thẻ ({count})",
+      "created": "Đã tạo bộ thẻ",
+      "needTwo": "Chọn ít nhất 2 thẻ đã có nghĩa."
+    }
   }
 }

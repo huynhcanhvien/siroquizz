@@ -14,7 +14,27 @@ import { useSets } from "../hooks";
 import { filterAndSortSets, type LibrarySort, type LibrarySourceFilter } from "../lib/set-utils";
 import { FolderDropBar, dragSet } from "@/features/folders/components/FolderDropBar";
 import { NewFolderButton } from "@/features/folders/components/FoldersView";
+import { ScratchLibraryCard } from "@/features/writing/components/ScratchLibraryCard";
 import { SetCard } from "./SetCard";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { FromClassLibrary } from "@/features/class-library/components/FromClassLibrary";
+
+type LibraryTab = "mine" | "class";
+/** "Mine | From classes", kept in the `tab` URL parameter like the other library filters. */
+function useLibraryTab() {
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<LibraryTab>(() =>
+    searchParams.get("tab") === "class" ? "class" : "mine",
+  );
+  const change = (next: LibraryTab) => {
+    setTab(next);
+    const params = new URLSearchParams(window.location.search);
+    if (next === "class") params.set("tab", next);
+    else params.delete("tab");
+    window.history.replaceState(null, "", params.size ? `?${params}` : window.location.pathname);
+  };
+  return [tab, change] as const;
+}
 
 const SORTS: readonly LibrarySort[] = ["recent", "title", "cards"];
 const SORT_LABEL = { recent: "sortRecent", title: "sortTitle", cards: "sortCards" } as const;
@@ -64,6 +84,7 @@ export function LibraryView() {
   const tNav = useTranslations("nav");
   const { data: sets, isPending, isError, error, refetch } = useSets();
   const { filter, update } = useLibraryParams();
+  const [tab, setTab] = useLibraryTab();
   const visible = useMemo(() => filterAndSortSets(sets ?? [], filter), [sets, filter]);
 
   return (
@@ -73,8 +94,21 @@ export function LibraryView() {
           <h1 className="text-title font-extrabold">{t("title")}</h1>
           {sets ? <p className="mt-1 text-muted">{t("count", { count: sets.length })}</p> : null}
         </div>
+        {isHttp ? (
+          <SegmentedControl
+            label={t("title")}
+            hideLabel
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: "mine", label: t("tabMine") },
+              { value: "class", label: t("tabFromClass") },
+            ]}
+          />
+        ) : null}
         <div className="flex flex-wrap gap-3">
           {isHttp ? <NewFolderButton /> : null}
+          {isHttp ? <ScratchLibraryCard /> : null}
           <Button asChild>
             <Link href="/sets/new">
               <Plus className="size-4" aria-hidden />
@@ -84,7 +118,11 @@ export function LibraryView() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3 shadow-sm sm:flex-row sm:items-center">
+      {isHttp && tab === "class" ? <FromClassLibrary /> : null}
+      <div
+        hidden={isHttp && tab === "class"}
+        className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3 shadow-sm sm:flex-row sm:items-center"
+      >
         <div className="relative flex-1">
           <Search
             className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-subtle"
@@ -128,8 +166,8 @@ export function LibraryView() {
         </div>
       </div>
 
-      {isHttp ? <FolderDropBar /> : null}
-      {isPending ? (
+      {isHttp && tab === "mine" ? <FolderDropBar /> : null}
+      {isHttp && tab === "class" ? null : isPending ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }, (_, index) => (
             <Skeleton key={index} className="h-40 rounded-xl" />

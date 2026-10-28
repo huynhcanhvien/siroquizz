@@ -100,6 +100,9 @@ beforeEach(async () => {
   queue.slots = 20;
   queue.globalTokens = 350_000;
 });
+/** The job's full row, for checks beyond what requireJob returns. */
+const jobRow = async (id: string) =>
+  (await db.select().from(schema.aiJobs).where(eq(schema.aiJobs.id, id)))[0];
 /** Today's free credits left for a user. */
 const daily = async (userId: string) => (await getQuota(db, userId)).dailyRemaining;
 /** A job that already used `credits` of today's free credits. */
@@ -245,8 +248,9 @@ it("imports clear pairs without a provider call and validates upload ownership",
   expect(provider).not.toHaveBeenCalled();
   expect((await requireJob(db, a, job.jobId)).status).toBe("done");
 });
+const auxUsage = { input: 10, output: 5, cached: 0, cost: 0 };
 it("enforces auxiliary limits and refunds failures", async () => {
-  provider.mockResolvedValue({ data: { correct: true, reason: "Same meaning" } });
+  provider.mockResolvedValue({ usage: auxUsage, data: { correct: true, reason: "Same meaning" } });
   const args = { expected: "cat", answer: "a cat", lang: "en" };
   expect(await auxiliaryTask(db, a, "grade", args, new AbortController().signal)).toMatchObject({
     correct: true,
@@ -261,7 +265,10 @@ it("enforces auxiliary limits and refunds failures", async () => {
   expect((await db.select().from(schema.aiAuxUsage))[0].count).toBe(1);
 });
 it("validates auxiliary card IDs and cleans plain-text output", async () => {
-  provider.mockResolvedValue({ data: { cards: [{ id: "a", text: "<b>kæt</b>" }] } });
+  provider.mockResolvedValue({
+    usage: auxUsage,
+    data: { cards: [{ id: "0", text: "<b>kæt</b>" }] },
+  });
   expect(
     await auxiliaryTask(
       db,
@@ -270,8 +277,8 @@ it("validates auxiliary card IDs and cleans plain-text output", async () => {
       { cards: [{ id: "a", term: "cat", definition: "mèo" }] },
       new AbortController().signal,
     ),
-  ).toEqual({ cards: [{ id: "a", text: "kæt" }] });
-  provider.mockResolvedValue({ data: { cards: [{ id: "foreign", text: "x" }] } });
+  ).toEqual({ cards: [{ id: "a", text: "kæt" }], partial: false, remainingIds: [] });
+  provider.mockResolvedValue({ usage: auxUsage, data: { cards: [{ id: "foreign", text: "x" }] } });
   await expect(
     auxiliaryTask(
       db,
@@ -284,10 +291,11 @@ it("validates auxiliary card IDs and cleans plain-text output", async () => {
 });
 it("checks Chinese auxiliary tones against the dictionary and preserves returned card IDs", async () => {
   provider.mockResolvedValue({
+    usage: auxUsage,
     data: {
       cards: [
-        { id: "second", text: "xié xié" },
-        { id: "first", text: "xuè xǐ" },
+        { id: "1", text: "xié xié" },
+        { id: "0", text: "xuè xǐ" },
       ],
     },
   });
@@ -309,6 +317,8 @@ it("checks Chinese auxiliary tones against the dictionary and preserves returned
       { id: "second", text: "xiè xie" },
       { id: "first", text: "xué xí" },
     ],
+    partial: false,
+    remainingIds: [],
   });
   const request = JSON.parse(provider.mock.calls[0][1]);
   expect(request.data.language).toBe("zh");
@@ -316,7 +326,7 @@ it("checks Chinese auxiliary tones against the dictionary and preserves returned
   expect(provider.mock.calls[0][4]).toBe("openai/gpt-oss-120b");
 });
 it("rejects blank auxiliary transcriptions and refunds their usage", async () => {
-  provider.mockResolvedValue({ data: { cards: [{ id: "a", text: "<b></b>" }] } });
+  provider.mockResolvedValue({ usage: auxUsage, data: { cards: [{ id: "0", text: "<b></b>" }] } });
   await expect(
     auxiliaryTask(
       db,
@@ -346,7 +356,8 @@ it("fills newly added Chinese cards after a previous fill without overwriting sa
     }),
   );
   provider.mockResolvedValueOnce({
-    data: { cards: set.cards.map((card, i) => ({ id: card.id, text: ["xué xí", "xiè xie"][i] })) },
+    usage: auxUsage,
+    data: { cards: set.cards.map((_, i) => ({ id: String(i), text: ["xué xí", "xiè xie"][i] })) },
   });
   const first = await auxiliaryTask(
     db,
@@ -371,9 +382,10 @@ it("fills newly added Chinese cards after a previous fill without overwriting sa
   const added = set.cards[2];
   // The user can also compare new AI readings for every card, including saved ones.
   provider.mockResolvedValueOnce({
+    usage: auxUsage,
     data: {
-      cards: set.cards.map((card, i) => ({
-        id: card.id,
+      cards: set.cards.map((_, i) => ({
+        id: String(i),
         text: ["xué xí", "xiè xie", "péng you"][i],
       })),
     },
@@ -387,7 +399,10 @@ it("fills newly added Chinese cards after a previous fill without overwriting sa
   );
   expect(JSON.parse(provider.mock.calls[1][1]).data.cards).toHaveLength(3);
   expect((await getSet(db, a, set.id)).cards).toEqual(set.cards);
-  provider.mockResolvedValueOnce({ data: { cards: [{ id: added.id, text: "péng you" }] } });
+  provider.mockResolvedValueOnce({
+    usage: auxUsage,
+    data: { cards: [{ id: "0", text: "péng you" }] },
+  });
   const next = await auxiliaryTask(
     db,
     a,
@@ -395,9 +410,13 @@ it("fills newly added Chinese cards after a previous fill without overwriting sa
     { setId: set.id },
     new AbortController().signal,
   );
-  expect(next).toEqual({ cards: [{ id: added.id, text: "péng you" }] });
+  expect(next).toEqual({
+    cards: [{ id: added.id, text: "péng you" }],
+    partial: false,
+    remainingIds: [],
+  });
   expect(JSON.parse(provider.mock.calls[2][1]).data.cards).toEqual([
-    expect.objectContaining({ id: added.id, term: "朋友" }),
+    expect.objectContaining({ id: "0", term: "朋友" }),
   ]);
   set = await updateSet(db, a, set.id, {
     ...set,
@@ -412,7 +431,8 @@ it("fills newly added Chinese cards after a previous fill without overwriting sa
   ]);
   // Explicitly regenerating a complete set remains supported.
   provider.mockResolvedValueOnce({
-    data: { cards: set.cards.map((card) => ({ id: card.id, text: card.phonetic })) },
+    usage: auxUsage,
+    data: { cards: set.cards.map((card, i) => ({ id: String(i), text: card.phonetic })) },
   });
   await auxiliaryTask(db, a, "phonetics", { setId: set.id }, new AbortController().signal);
   expect(JSON.parse(provider.mock.calls[3][1]).data.cards).toHaveLength(3);
@@ -437,7 +457,7 @@ it("corrects Chinese transcriptions before generated cards are finalized", async
   });
   const result = await runToEnd(db, a, job.jobId);
   expect(result.status).toBe("done");
-  expect((await requireJob(db, a, job.jobId)).result).toMatchObject({
+  expect((await jobRow(job.jobId)).result).toMatchObject({
     cards: [
       { term: "学习", phonetic: "xué xí" },
       { term: "谢谢", phonetic: "xiè xie" },
@@ -526,7 +546,7 @@ it("recovers the lease of a step that died and ignores its late writes", async (
   expect(final.status).toBe("done");
   release();
   await expect(stale).resolves.toMatchObject({ status: "done" });
-  const saved = await requireJob(db, a, job.jobId);
+  const saved = await jobRow(job.jobId);
   expect(saved.status).toBe("done");
   expect(saved.stepLease).toBeNull();
   expect(final.result?.cards).toHaveLength(2);
@@ -557,7 +577,7 @@ it("asks before an expensive generation and reserves what the user accepts", asy
     status: "awaiting",
   });
   await confirmJob(db, a, job.jobId, { cardCount: 40 });
-  const saved = await requireJob(db, a, job.jobId);
+  const saved = await jobRow(job.jobId);
   expect(saved.status).toBe("queued");
   expect(saved.creditsReserved).toBeLessThan(step.estimate!.credits);
   expect((saved.options as { cardCount: number }).cardCount).toBe(40);

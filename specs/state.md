@@ -3,7 +3,7 @@
 > File này ghi lại **đã làm gì, đang làm dở gì, làm tiếp thế nào** để bất kỳ ai (người hoặc agent) cũng có thể tiếp tục.
 > Thời gian theo giờ Việt Nam (UTC+7). Mục mới nhất ở trên cùng của phần Nhật ký.
 
-**Cập nhật lần cuối:** 2026-10-06 14:03 +07
+**Cập nhật lần cuối:** 2026-10-29 03:05 +07
 **Phase hiện tại:** AI (tốc độ + credit) xong trên nhánh `feat/ai-pipeline-speed` (PR #1 vào `main`, **chưa merge**). Phase 5 cộng đồng **hoàn tất (đợt 1–6)** trên nhánh `feat/phase5-community` (tách từ nhánh AI, chưa push/PR). Phase 4 (SRS) vẫn đang dở.
 **Tình trạng:** Người dùng yêu cầu hoàn thành toàn bộ Phase 2–6 và cập nhật state khi từng phase xong. Không coi credentials, deployment hay beta bên ngoài đã hoàn tất nếu chưa thực hiện.
 
@@ -50,6 +50,36 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 **Bước tiếp theo:** (1) user merge PR #1 sau khi chạy migration 0006–0008 trên Neon; (2) push `feat/phase5-community` + tạo PR (migration 0009–0013); (3) các mục bảo mật còn để lại (xem nhật ký đợt 6); (4) quay lại Phase 4 (SRS) phần còn dở.
 
 ## Nhật ký
+
+### 2026-10-29 03:05 +07: ✅ WP6 nghiệm thu & review xong trên nhánh `wp6-acceptance` (tách từ `feat/class-collab-writing` e270bd3, chưa merge)
+
+- **Kiểm thử:** lint/typecheck sạch; unit 678 (dòng 95,9%, nhánh 90,3%); integration 306 (dòng 94,0%, nhánh 84,0%) trên DB riêng `siroquizz_wp6_test`; `pnpm build` xanh. E2E toàn bộ 2 lần liên tiếp trên `siroquizz_wp6` (`DEPLOYMENT_ENV=local E2E_PORT=3240 RESEND_API_KEY= PW_CHANNEL=chrome`): **138 pass, 2 skip** (Groq live, credit publish) mỗi lần. `study`/`starred-flashcards`/`flashcard-corrections` xanh sau khi `readSets` đọc chi tiết bộ. Lần đầu `class-library` timeout lúc đăng ký khi server vừa khởi động lạnh, chạy lại xanh (10s).
+- **E2E mới `collab-quality.spec.ts`:** `/classes/[id]` (GV + HS), `/classes/[id]/writing`, `/sets/[id]/propose`, `/sets/[id]` (viewer), `/library?tab=class`, `/study/writing/[sessionId]` (GV + HS) ở 375/1440, sáng/tối: không tràn ngang, axe WCAG 2.1 AA sạch. Tìm ra trang viết bài không có `<main id="main">` (skip link hỏng) và không có lề trên điện thoại → đã sửa.
+- **Review (code + bảo mật), không có CRITICAL/HIGH. MEDIUM đã sửa kèm test:** cộng tác viên sửa bộ public không còn đưa verdict `flagged`/`rejected` về `pending` (mở lại link + tiêu quota kiểm duyệt của chủ); quyền sửa cấp đích danh hết hiệu lực khi không còn chung lớp với chủ; token continuation AI aux ký kèm digest các thẻ còn lại (trước đó replay được 15 phút để làm miễn phí bộ khác); bộ chia sẻ vào thư viện lớp chỉ vào hàng ôn tập chung khi đã học (trước đó mọi bộ chia sẻ đổ thẻ mới vào); GV đổi cài đặt phiên không còn dựng lại editor đang mở; nhãn editor không dựng lại Quill; `syncNow` không để lại timer thừa; tab mở ở nền bắt đầu ở trạng thái tạm dừng.
+- **Còn để lại (MEDIUM/LOW, ghi ở `specs/phase-7-collab-writing.md` §Review):** người xem qua link (không cùng lớp) vẫn gửi được đề xuất (đúng quyết định #3 nhưng có thể spam hàng chờ 20; note không qua kiểm duyệt); học sinh nhận danh sách thành viên đầy đủ qua phiên viết (để tô màu); `baseUpdatedAt` là tuỳ chọn; duyệt đề xuất cũ ghi đè thay đổi mới (chỉ báo `stale`); GET doc/ảnh/list chưa có rate limit riêng; chưa đo CPU của update Yjs độc hại; token của batch AI lỗi không cộng vào trần ngày; migration 0016 tạo index không `CONCURRENTLY` (khoá ghi vài giây).
+- **Tài liệu:** `specs/phase-7-collab-writing.md` mới (schema, phân quyền, route, giao thức sync, giới hạn, ngân sách polling, migration 0016–0019, ghi chú deploy); `specs/README.md` thêm Phase 7; `specs/phase-5-community.md` §5 trỏ sang Phase 7.
+- **Deploy:** chạy `DATABASE_URL=<neon-direct> pnpm db:migrate` **trước** khi merge vào `main`; không có biến env mới. Chưa làm: kịch bản tay 3 trình duyệt (D §2) và số liệu trước/sau (D §3).
+
+### 2026-10-29 02:40 +07: 🧱 WP2 (A7–A13) + WP4 (C1–C13) xong trên nhánh `wp2-wp4-ai-writing` (đã rebase lên `feat/class-collab-writing`, chưa merge)
+
+- **WP2:** tác vụ phụ AI chia lô 40 thẻ, id theo chỉ số, deadline 45s, trả `partial`/`remainingIds`/`retryAfterMs` + continuation ký HMAC (lượt tiếp không trừ quota); token job đặt trước (`tokens_reserved`) và token aux/kiểm duyệt (`ai_aux_usage.tokens`) tính vào trần ngày (migration `0018_nasty_black_bird`); tài liệu dài/ít thẻ đọc theo phần ≤ 6.500 token (100k token/10 thẻ: 40 → ≤ 16 request); state job không giữ text 2 lần, poll queued không đọc state; PDF đọc mọi trang text trong 1 step, inspect tiếp tục được qua nhiều step; hướng dẫn tĩnh vào system prompt; cron kiểm duyệt không vỡ khi timeout, lease 58s, backoff mạng. `pnpm ai:eval`: trước/sau đều 1.0 mọi chỉ số; sau: 13.725 token prompt, 1.536 cached.
+- **WP4:** phiên viết bài trực tuyến (Quill 2 + Yjs + y-quill nạp động chỉ ở `/study/writing/[sessionId]`, ~78 KB gz), đồng bộ polling 2s/10s có fast path 1 select, mirror localStorage + keepalive, màu chữ theo vai trò, roster giáo viên, bộ thẻ tạm → tạo bộ thẻ và chia sẻ vào thư viện lớp qua `shareToClass`. Migration `0019_ancient_randall`.
+- Kiểm thử: unit 658 (dòng 95,9%), integration 293 (dòng 94,0%), e2e `writing` (2) + `classes` xanh; lint/typecheck sạch; build xanh.
+
+### 2026-10-29 02:09 +07: 🧹 WP5 (A14–A19) xong trên nhánh `wp5-cleanup-ci` (chưa merge)
+
+- **Dọn dẹp:** cron xoá `card_images` mồ côi > 24h kèm object S3 (`cleanupOrphanCardImages`); upload AI hết hạn xoá theo lô `DeleteObjects` ≤ 1000 + một `DELETE … IN (…)` (`deleteStoredObjects` trong `storage.ts`). Không migration.
+- **Rate limit đăng nhập:** Better Auth dùng `customStorage` Upstash (`src/server/auth-rate-limit.ts`) khi có `UPSTASH_REDIS_*`, không thì memory. Không dùng `secondaryStorage` vì nó kéo session sang Redis.
+- **CI:** job `quality` 1 lần, job `build` upload `.next`, `e2e` 3 shard chạy `next start` với `E2E_PREBUILT=1`; cache `.next/cache` và trình duyệt Playwright.
+- **Turbopack:** `next build` không flag nay build được trên máy này (không còn panic PostCSS), nhưng compile 3,7 phút so với 17 giây webpack → `build`/`dev` vẫn webpack; thêm `build:turbopack`/`dev:turbopack` để thử trên Vercel Preview.
+- **Ôn tập/Học/Thẻ ghi nhớ:** mỗi câu chỉ đánh dấu `due`/`stats`/`progress` stale (không refetch); làm mới 1 lần sau lần lưu cuối của phiên.
+- **Kiểm thử:** unit 560, integration 252 (dòng 92,5%), e2e `learning.spec.ts` xanh (cả chế độ `E2E_PREBUILT=1`). **Lưu ý:** `study.spec`, `starred-flashcards.spec`, `flashcard-corrections.spec` đỏ từ trước WP5 vì fixture `findSet` đọc `set.cards` từ `GET /sets` mà WP1 đã bỏ thẻ khỏi danh sách.
+
+### 2026-10-29 01:55 +07: 🧱 WP1 (A1–A6) + WP3 (B1–B10) xong trên nhánh `wp1-wp3-foundation-collab` (chưa merge)
+
+- **WP1:** rate limit ghi theo đường dẫn (`src/server/write-policy.ts`: tiến độ/ôn tập 120/phút, AI upload/step bỏ qua bucket chung); index FK cascade (migration `0016_mighty_steel_serpent`; xoá bộ 500 thẻ trên 100k progress+logs: 13 ms có index so với 4.400 ms không index); `listSets` trả `cardCount` + `progress` thay vì thẻ; khoá `FOR KEY SHARE` khi ghi tiến độ; `putProgress` 500 thẻ từ 4.003 xuống ≤ 10 query; tách `replaceDeck`/`writeSetFields`/`toCardDto`.
+- **WP3:** thư viện lớp (chia sẻ bộ/thư mục, audience giáo viên | cả lớp), cộng tác viên (người hoặc mọi giáo viên của lớp), đề xuất sửa chờ duyệt, công tắc "Nhận đóng góp", phát hiện xung đột `baseUpdatedAt` → 409 `SET_CHANGED`. Migration `0017_great_mikhail_rasputin`. Router mới `src/server/collab-api.ts` gọi đầu `communityApi`.
+- Kiểm thử: unit 551 (coverage dòng 95,5%), integration 247 (dòng 92,6%), e2e `class-library`, `classes`, `folders` xanh.
 
 ### 2026-10-06 14:03 +07: ✅ Khu quản trị hoàn tất, mọi kiểm tra pass
 

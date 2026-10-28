@@ -14,8 +14,8 @@ import {
   testResults,
   studySets,
 } from "../db/schema";
-import { lockLearner, reviewInTransaction } from "./learning";
-import { uuidSchema } from "./sets";
+import { lockLearner, reviewBatchInTransaction, toSnapshot } from "./learning";
+import { uuidSchema, type Transaction } from "./sets";
 import { requireStudySet } from "./access";
 
 export async function getProgress(db: Database, ownerId: string, setId: string) {
@@ -26,6 +26,26 @@ export async function getProgress(db: Database, ownerId: string, setId: string) 
     .where(and(eq(cardProgress.userId, ownerId), eq(cardProgress.setId, setId)))
     .limit(500);
   return rows.map((row) => ({ ...row, updatedAt: row.updatedAt.toISOString() }));
+}
+/** Marks cards new again in one upsert; their scheduling state stays for the next review. */
+async function resetCards(
+  tx: Transaction,
+  userId: string,
+  setId: string,
+  cardIds: string[],
+  now: Date,
+) {
+  if (!cardIds.length) return [];
+  return tx
+    .insert(cardProgress)
+    .values(
+      cardIds.map((cardId) => ({ cardId, status: "new" as const, userId, setId, updatedAt: now })),
+    )
+    .onConflictDoUpdate({
+      target: [cardProgress.userId, cardProgress.cardId],
+      set: { status: sql`excluded.status`, updatedAt: sql`excluded.updated_at` },
+    })
+    .returning();
 }
 export async function putProgress(db: Database, ownerId: string, setId: string, input: unknown) {
   const data = z
@@ -38,7 +58,7 @@ export async function putProgress(db: Database, ownerId: string, setId: string, 
     .parse(input);
   return db.transaction(async (tx) => {
     await lockLearner(tx, ownerId);
-    await requireStudySet(tx, ownerId, setId, true);
+    await requireStudySet(tx, ownerId, setId, "share");
     const ids = data.cards.map((c) => c.cardId);
     const found = await tx
       .select({ id: cards.id })
@@ -47,35 +67,35 @@ export async function putProgress(db: Database, ownerId: string, setId: string, 
       .limit(500);
     if (found.length !== ids.length || new Set(ids).size !== ids.length)
       throw new ApiError(404, "NOT_FOUND");
-    const rows = [];
-    for (const card of data.cards) {
-      if (card.status === "new") {
-        const [row] = await tx
-          .insert(cardProgress)
-          .values({ ...card, userId: ownerId, setId, updatedAt: new Date() })
-          .onConflictDoUpdate({
-            target: [cardProgress.userId, cardProgress.cardId],
-            set: { status: card.status, updatedAt: new Date() },
-          })
-          .returning();
-        rows.push({ ...row, updatedAt: row.updatedAt.toISOString() });
-      } else
-        rows.push(
-          await reviewInTransaction(tx, ownerId, {
-            eventId: v7(),
-            cardId: card.cardId,
-            rating: card.status === "known" ? 3 : 1,
-            mode: "flashcards",
-            durationMs: 0,
-          }),
-        );
-    }
-    return rows;
+    const now = new Date();
+    const reset = await resetCards(
+      tx,
+      ownerId,
+      setId,
+      data.cards.filter((card) => card.status === "new").map((card) => card.cardId),
+      now,
+    );
+    const reviews = data.cards
+      .filter((card) => card.status !== "new")
+      .map((card) => ({
+        eventId: v7(),
+        cardId: card.cardId,
+        rating: card.status === "known" ? 3 : 1,
+        mode: "flashcards" as const,
+        durationMs: 0,
+      }));
+    const reviewed = reviews.length
+      ? await reviewBatchInTransaction(tx, ownerId, reviews, now, setId)
+      : [];
+    const byCard = new Map(
+      [...reset.map(toSnapshot), ...reviewed].map((row) => [row.cardId, row] as const),
+    );
+    return data.cards.map((card) => byCard.get(card.cardId)!);
   });
 }
 export async function resetProgress(db: Database, ownerId: string, setId: string) {
   await db.transaction(async (tx) => {
-    await requireStudySet(tx, ownerId, setId, true);
+    await requireStudySet(tx, ownerId, setId, "share");
     await tx
       .delete(cardProgress)
       .where(and(eq(cardProgress.userId, ownerId), eq(cardProgress.setId, setId)));
@@ -120,7 +140,7 @@ export async function saveTest(db: Database, ownerId: string, setId: string, inp
     .refine((v) => v.score <= v.total && v.setId === setId)
     .parse(input);
   return db.transaction(async (tx) => {
-    await requireStudySet(tx, ownerId, setId, true);
+    await requireStudySet(tx, ownerId, setId, "share");
     const [row] = await tx
       .insert(testResults)
       .values({ ...data, id: v7(), userId: ownerId })
@@ -153,7 +173,7 @@ export async function saveGame(db: Database, ownerId: string, setId: string, inp
     .refine((v) => v.setId === setId)
     .parse(input);
   return db.transaction(async (tx) => {
-    await requireStudySet(tx, ownerId, setId, true);
+    await requireStudySet(tx, ownerId, setId, "share");
     const [row] = await tx
       .insert(gameScores)
       .values({ ...data, id: v7(), userId: ownerId })
@@ -163,7 +183,7 @@ export async function saveGame(db: Database, ownerId: string, setId: string, inp
 }
 export async function recordActivity(db: Database, ownerId: string, setId: string) {
   await db.transaction(async (tx) => {
-    await requireStudySet(tx, ownerId, setId, true);
+    await requireStudySet(tx, ownerId, setId, "share");
     await tx
       .insert(studyActivity)
       .values({ userId: ownerId, setId, at: new Date() })

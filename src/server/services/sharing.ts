@@ -10,7 +10,7 @@ import { cardImages, cards, studySets, user } from "../db/schema";
 import { awardCopyCredit } from "../ai/credits";
 import { canViewSet, isAdmin, isListed } from "./access";
 import { moderateSet } from "./moderation";
-import { createSetInTransaction, requireOwnedSet, type Db } from "./sets";
+import { accessOf, createSetInTransaction, requireOwnedSet, type Db } from "./sets";
 import { buildSearchText, normalizeTags } from "@/features/community/lib/search";
 
 const SLUG_LENGTH = 10;
@@ -32,7 +32,7 @@ const visibilitySchema = z.object({ visibility: z.enum(["private", "unlisted", "
 export async function setVisibility(db: Database, ownerId: string, setId: string, input: unknown) {
   const { visibility } = visibilitySchema.parse(input);
   const set = await db.transaction(async (tx) => {
-    const current = await requireOwnedSet(tx, ownerId, setId, true);
+    const current = await requireOwnedSet(tx, ownerId, setId, "update");
     const slug = current.slug ?? (visibility === "private" ? null : await uniqueSlug(tx));
     // A first publication needs a check; an approved, flagged or rejected verdict stands until
     // the content changes (see markEdited).
@@ -72,16 +72,26 @@ export async function retryModeration(db: Database, ownerId: string, setId: stri
  * content it judged: a public set is checked again, any other set loses its old verdict, so
  * making it public later starts a fresh check (approval cannot be kept across an edit).
  */
-export async function markEdited(db: Database, setId: string) {
+export async function markEdited(db: Database, setId: string, { byOwner = true } = {}) {
+  // A collaborator's edit must not clear a flagged/rejected verdict that keeps a link closed.
+  const keepVerdict = byOwner
+    ? sql`false`
+    : sql`${studySets.moderationStatus} in ('flagged', 'rejected')`;
   const [set] = await db
     .update(studySets)
     .set({
-      moderationStatus: sql`case when ${studySets.visibility} = 'public' then 'pending'::moderation_status else 'none'::moderation_status end`,
-      moderationReason: null,
+      // keepVerdict is tested first: a collaborator must not reopen a flagged public link either.
+      moderationStatus: sql`case when ${keepVerdict} then ${studySets.moderationStatus} when ${studySets.visibility} = 'public' then 'pending'::moderation_status else 'none'::moderation_status end`,
+      moderationReason: sql`case when ${keepVerdict} then ${studySets.moderationReason} else null end`,
     })
     .where(eq(studySets.id, setId))
-    .returning({ ownerId: studySets.ownerId, visibility: studySets.visibility });
-  if (set?.visibility === "public") await moderateThrottled(db, set.ownerId, setId);
+    .returning({
+      ownerId: studySets.ownerId,
+      visibility: studySets.visibility,
+      moderationStatus: studySets.moderationStatus,
+    });
+  if (set?.visibility === "public" && set.moderationStatus === "pending")
+    await moderateThrottled(db, set.ownerId, setId);
 }
 
 // Each check uses the shared safeguard model (2,000 tokens a minute); beyond this a set waits
@@ -98,12 +108,30 @@ async function moderateThrottled(db: Database, ownerId: string, setId: string) {
   await moderateSet(db, setId);
 }
 
+const contributionsSchema = z.object({ accepts: z.boolean() });
+/** The owner's switch for change requests; pending ones stay reviewable either way. */
+export async function setAcceptsContributions(
+  db: Database,
+  ownerId: string,
+  setId: string,
+  input: unknown,
+) {
+  const { accepts } = contributionsSchema.parse(input);
+  await requireOwnedSet(db, ownerId, setId);
+  const [set] = await db
+    .update(studySets)
+    .set({ acceptsContributions: accepts })
+    .where(eq(studySets.id, setId))
+    .returning();
+  return accessOf(db, ownerId, set);
+}
+
 const tagsSchema = z.object({ tags: z.array(z.string().max(100)).max(20) });
 /** Topic tags shown on Explore. Changing them on a public set sends it through moderation. */
 export async function setTags(db: Database, ownerId: string, setId: string, input: unknown) {
   const tags = normalizeTags(tagsSchema.parse(input).tags);
   await db.transaction(async (tx) => {
-    const set = await requireOwnedSet(tx, ownerId, setId, true);
+    const set = await requireOwnedSet(tx, ownerId, setId, "update");
     const setCards = await tx
       .select({ term: cards.term, definition: cards.definition })
       .from(cards)
