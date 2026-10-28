@@ -233,6 +233,34 @@ describe("document access", () => {
 });
 
 describe("sync", () => {
+  it("refuses an edit that raced the session closing, re-checked under the row lock", async () => {
+    const { sessionId } = await sessionWith();
+    const { id: docId } = await openOwnDoc(db, author, sessionId);
+    const writer = new Client(author, docId);
+    writer.type(0, "kịp không?");
+    let finishClose: () => void = () => undefined;
+    let closeStarted: () => void = () => undefined;
+    const started = new Promise<void>((resolve) => (closeStarted = resolve));
+    // The teacher's close holds the session row until we let it commit.
+    const closing = db.transaction(async (tx) => {
+      await tx
+        .update(schema.writingSessions)
+        .set({ status: "closed", closedAt: new Date() })
+        .where(eq(schema.writingSessions.id, sessionId));
+      closeStarted();
+      await new Promise<void>((resolve) => (finishClose = resolve));
+    });
+    await started;
+    // The access check still sees the committed (open) session; the merge must wait and re-check.
+    const sync = writer.sync();
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    finishClose();
+    await closing;
+    await expect(sync).rejects.toMatchObject({ status: 403, code: "SESSION_CLOSED" });
+    const [row] = await db.select().from(schema.writingDocs);
+    expect(row.version).toBe(0);
+  });
+
   it("merges concurrent edits from two replicas and converges", async () => {
     const { sessionId } = await sessionWith({
       status: "open",

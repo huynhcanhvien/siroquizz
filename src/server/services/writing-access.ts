@@ -70,6 +70,10 @@ export async function requireSessionTeacher(db: Db, userId: string, sessionId: s
   return access;
 }
 
+/** The error for a refused write: a closed session says so, anything else is FORBIDDEN. */
+export const writeRefused = (gate: SessionGate) =>
+  new ApiError(403, gate.status === "closed" ? "SESSION_CLOSED" : "FORBIDDEN");
+
 /**
  * A document the viewer may read (404 otherwise) or write: writing to a closed session is
  * SESSION_CLOSED, anything else not allowed is FORBIDDEN.
@@ -112,7 +116,6 @@ export async function requireDocAccess(
   const gate = gateOf(row.session);
   if (!canReadDoc(row.role, userId, row.doc.authorId, gate)) throw notFound();
   const canWrite = canWriteDoc(row.role, userId, row.doc.authorId, gate, row.authorRole);
-  if (mode === "write" && !canWrite)
-    throw new ApiError(403, gate.status === "closed" ? "SESSION_CLOSED" : "FORBIDDEN");
+  if (mode === "write" && !canWrite) throw writeRefused(gate);
   return { ...row, canWrite };
 }
