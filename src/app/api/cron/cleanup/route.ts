@@ -2,7 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { lt } from "drizzle-orm";
 import { getDatabase } from "@/server/db/client";
 import { user, studySets } from "@/server/db/schema";
-import { cleanupAi } from "@/server/ai/cleanup";
+import { cleanupAi, cleanupOrphanCardImages } from "@/server/ai/cleanup";
 import { moderatePending } from "@/server/services/moderation";
 import { getServerEnv } from "@/server/env";
 
@@ -32,10 +32,11 @@ async function handle(request: Request) {
     await tx.delete(studySets).where(lt(studySets.deletedAt, cutoff));
   });
   const removedUploads = await cleanupAi(db);
+  const removedImages = await cleanupOrphanCardImages(db);
   // Public sets the moderation model could not check yet (it allows 2,000 tokens a minute).
   const moderated = (await moderatePending(db)).length;
   return Response.json(
-    { success: true, data: { removedUploads, moderated } },
+    { success: true, data: { removedUploads, removedImages, moderated } },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

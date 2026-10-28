@@ -87,7 +87,7 @@
 ## M4 — Build/CI/dọn dẹp (gói WP5)
 
 ### A14. Ảnh thẻ mồ côi không bao giờ xoá
-**Trạng thái:** todo
+**Trạng thái:** done — `cleanupOrphanCardImages` (ai/cleanup.ts) xoá tối đa 1000 `card_images` có `card_id null` và `created_at` > 24h mỗi lần cron, object S3 xoá bằng 1 lô `DeleteObjects`, chỉ xoá dòng có object đã đi; cron trả `removedImages`, `pnpm db:cleanup` cũng gọi. Test S3 giả ở `storage-cleanup.test.ts`. Còn lại (ngoài phạm vi): xoá hẳn user cascade xoá dòng `card_images` nên object S3 của user đó vẫn rò.
 - `card-images.ts:56` set `cardId = null` khi thay ảnh; `schema.ts:597` `onDelete: "set null"`; `ai/cleanup.ts` chỉ dọn `ai_uploads`. → Cron xoá `card_images` có `card_id null` và `created_at < now - 24h` kèm object S3 (`DeleteObjects` lô 1000). Test integration với adapter S3 giả.
 
 ### A15. Cleanup upload từng cái một

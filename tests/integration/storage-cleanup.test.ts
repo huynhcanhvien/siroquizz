@@ -7,7 +7,8 @@ import { v7 } from "uuid";
 import { DeleteObjectsCommand, S3Client } from "@aws-sdk/client-s3";
 import * as schema from "@/server/db/schema";
 import type { Database } from "@/server/db/client";
-import { cleanupAi } from "@/server/ai/cleanup";
+import { cleanupAi, cleanupOrphanCardImages } from "@/server/ai/cleanup";
+import { createSetInTransaction } from "@/server/services/sets";
 import { deleteStoredObjects } from "@/server/ai/storage";
 
 vi.mock("@/server/env", () => ({
@@ -105,5 +106,57 @@ describe("cleanupAi", () => {
     expect(await cleanupAi(db, now)).toBe(2);
     expect(deleteCalls()).toEqual([3]);
     expect((await uploadKeys()).sort()).toEqual([expired[1], fresh].sort());
+  });
+});
+
+describe("cleanupOrphanCardImages", () => {
+  async function firstCardId() {
+    await db.transaction((tx) =>
+      createSetInTransaction(tx, owner, {
+        title: "Images",
+        description: "",
+        termLang: "en",
+        definitionLang: "vi",
+        source: "manual",
+        cards: [
+          { term: "cat", definition: "mèo" },
+          { term: "dog", definition: "chó" },
+        ],
+      }),
+    );
+    const [card] = await db.select({ id: schema.cards.id }).from(schema.cards).limit(1);
+    return card.id;
+  }
+  async function insertImage(cardId: string | null, ageMs: number) {
+    const id = v7();
+    const createdAt = new Date(Date.now() - ageMs);
+    await db
+      .insert(schema.cardImages)
+      .values({ id, key: `uploads/${id}`, userId: owner, cardId, alt: "", size: 1, createdAt });
+    return `uploads/${id}`;
+  }
+  const imageKeys = async () =>
+    (await db.select({ key: schema.cardImages.key }).from(schema.cardImages)).map((r) => r.key);
+
+  it("deletes detached images older than a day together with their stored objects", async () => {
+    const cardId = await firstCardId();
+    const attached = await insertImage(cardId, 3 * DAY);
+    const recentOrphan = await insertImage(null, DAY / 2);
+    const oldOrphans = await Promise.all([insertImage(null, 2 * DAY), insertImage(null, 5 * DAY)]);
+    const stuck = await insertImage(null, 2 * DAY);
+    fakeS3([stuck]);
+    expect(await cleanupOrphanCardImages(db)).toBe(2);
+    expect(deleteCalls()).toEqual([3]);
+    const deletedKeys = (send.mock.calls[0][0].input as DeleteInput).Delete.Objects.map(
+      (object) => object.Key,
+    );
+    expect(deletedKeys.sort()).toEqual([...oldOrphans, stuck].sort());
+    expect((await imageKeys()).sort()).toEqual([attached, recentOrphan, stuck].sort());
+  });
+
+  it("does not call storage when there is nothing to delete", async () => {
+    fakeS3();
+    expect(await cleanupOrphanCardImages(db)).toBe(0);
+    expect(send).not.toHaveBeenCalled();
   });
 });
