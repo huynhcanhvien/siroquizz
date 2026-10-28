@@ -9,6 +9,7 @@ import type { Database } from "@/server/db/client";
 import { auxiliaryTask, type CardTaskResult } from "@/server/ai/auxiliary";
 import { createSetInTransaction } from "@/server/services/sets";
 import { ApiError } from "@/server/api-error";
+import { RateLimitError } from "@/server/ai/groq";
 
 const provider = vi.hoisted(() => vi.fn());
 vi.mock("@/server/ai/groq", async (importOriginal) => ({
@@ -16,7 +17,11 @@ vi.mock("@/server/ai/groq", async (importOriginal) => ({
   groqJson: provider,
 }));
 vi.mock("@/server/env", () => ({
-  getServerEnv: () => ({ AI_ENABLED: "true", GROQ_TEXT_MODEL: "openai/gpt-oss-120b" }),
+  getServerEnv: () => ({
+    AI_ENABLED: "true",
+    GROQ_TEXT_MODEL: "openai/gpt-oss-120b",
+    BETTER_AUTH_SECRET: "s".repeat(40),
+  }),
 }));
 const url =
   process.env.TEST_DATABASE_URL ??
@@ -154,4 +159,45 @@ it("rejects continuation ids that match no card and unknown tasks", async () => 
   ).rejects.toMatchObject({ status: 400 });
   await expect(auxiliaryTask(db, owner, "summary", { setId: set.id }, signal())).rejects.toThrow();
   expect(provider).not.toHaveBeenCalled();
+});
+
+it("does not charge a follow-up that presents the continuation, and passes on throttling", async () => {
+  const set = await setWith(90);
+  provider.mockImplementationOnce(answer).mockRejectedValueOnce(new RateLimitError(12_000));
+  const first = (await auxiliaryTask(
+    db,
+    owner,
+    "examples",
+    { setId: set.id },
+    signal(),
+  )) as CardTaskResult;
+  expect(first).toMatchObject({ partial: true, retryAfterMs: 12_000 });
+  expect(first.continuation).toEqual(expect.any(String));
+  expect(await auxCount()).toBe(1);
+  const next = (await auxiliaryTask(
+    db,
+    owner,
+    "examples",
+    { setId: set.id, ids: first.remainingIds, continuation: first.continuation },
+    signal(),
+  )) as CardTaskResult;
+  expect(next.partial).toBe(false);
+  expect(next.continuation).toBeUndefined();
+  expect(await auxCount()).toBe(1);
+  // A forged or reused-for-another-task token is charged like any request.
+  await auxiliaryTask(
+    db,
+    owner,
+    "phonetics",
+    { setId: set.id, ids: first.remainingIds, continuation: first.continuation },
+    signal(),
+  );
+  await auxiliaryTask(
+    db,
+    owner,
+    "examples",
+    { setId: set.id, ids: first.remainingIds, continuation: "1.1.forged" },
+    signal(),
+  );
+  expect(await auxCount()).toBe(3);
 });

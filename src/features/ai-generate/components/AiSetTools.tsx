@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { z } from "zod";
 import { Button } from "@/components/ui/Button";
 import { Checkbox, Input, Textarea } from "@/components/ui/fields";
 import { Dialog } from "@/components/ui/Dialog";
@@ -11,38 +10,8 @@ import { SET_LIMITS } from "@/features/sets/schemas";
 import { createHttpClient } from "@/lib/http-client";
 import type { StudySet } from "@/lib/types";
 import { useErrorMessage } from "@/lib/use-messages";
-const client = createHttpClient(),
-  schema = z.object({
-    cards: z.array(z.object({ id: z.string(), text: z.string() })),
-    partial: z.boolean().default(false),
-    remainingIds: z.array(z.string()).default([]),
-  });
-type AiKind = "phonetics" | "examples";
-// The server answers within its time budget and returns the rest as remainingIds (500 cards ≈ 13
-// batches of 40); this bounds the follow-up requests for one click.
-const MAX_REQUESTS = 20;
-
-/** Asks the server again with the remaining cards until it has answered for all of them. */
-async function fetchSuggestions(kind: AiKind, setId: string, onProgress: (done: number) => void) {
-  let found = new Map<string, string>();
-  let ids: string[] | undefined;
-  for (let attempt = 0; attempt < MAX_REQUESTS; attempt++) {
-    const { data } = await client.request(`/api/v1/ai/${kind}`, schema, {
-      method: "POST",
-      body: { setId, ...(ids ? { ids } : kind === "phonetics" ? { scope: "all" } : {}) },
-    });
-    found = new Map([
-      ...found,
-      ...data.cards.map((card): [string, string] => [card.id, card.text]),
-    ]);
-    onProgress(found.size);
-    const remaining = data.remainingIds ?? [];
-    // Stop on a complete answer, or when a continuation made no progress.
-    if (!data.partial || !remaining.length || (ids && remaining.length >= ids.length)) break;
-    ids = remaining;
-  }
-  return [...found].map(([id, text]) => ({ id, text }));
-}
+import { fetchSuggestions, type AiKind } from "../lib/aux-suggestions";
+const client = createHttpClient();
 export function AiSetTools({ set }: { set: StudySet }) {
   const t = useTranslations("ai"),
     tEditor = useTranslations("editor"),
@@ -59,7 +28,8 @@ export function AiSetTools({ set }: { set: StudySet }) {
     setBusy(true);
     setProgress(0);
     try {
-      const cards = await fetchSuggestions(kind, set.id, setProgress);
+      const { cards, incomplete } = await fetchSuggestions(client, kind, set.id, setProgress);
+      if (incomplete) toast(`${t("batchIncomplete")} ${errorMessage(incomplete)}`, "error");
       setResult({
         kind,
         cards: cards.map((card) => ({

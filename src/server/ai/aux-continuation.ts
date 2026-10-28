@@ -1,0 +1,40 @@
+import "server-only";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { getServerEnv } from "../env";
+
+/** A click's follow-up requests stay free for this long after the first one. */
+const CONTINUATION_TTL_MS = 15 * 60_000;
+/** Follow-ups one click may make (500 cards need at most 13 batches). */
+const MAX_CONTINUATIONS = 20;
+
+const sign = (payload: string) =>
+  createHmac("sha256", getServerEnv().BETTER_AUTH_SECRET!).update(payload).digest("base64url");
+const payloadOf = (userId: string, task: string, started: number, count: number) =>
+  `aux:${userId}:${task}:${started}:${count}`;
+
+/**
+ * Proof that a follow-up request continues a click the user was already charged for. It carries
+ * when that click started and how many follow-ups it made, so it cannot be reused for ever.
+ */
+export function issueContinuation(userId: string, task: string, started: number, count: number) {
+  if (count >= MAX_CONTINUATIONS) return undefined;
+  return `${started}.${count}.${sign(payloadOf(userId, task, started, count))}`;
+}
+
+/** The click a continuation belongs to, or null when it is forged, expired or used up. */
+export function readContinuation(
+  token: string,
+  userId: string,
+  task: string,
+  now = Date.now(),
+): { started: number; count: number } | null {
+  const [startedText, countText, signature] = token.split(".");
+  const started = Number(startedText),
+    count = Number(countText);
+  if (!signature || !Number.isSafeInteger(started) || !Number.isSafeInteger(count)) return null;
+  const expected = Buffer.from(sign(payloadOf(userId, task, started, count)));
+  const received = Buffer.from(signature);
+  if (expected.length !== received.length || !timingSafeEqual(expected, received)) return null;
+  if (now - started > CONTINUATION_TTL_MS || count >= MAX_CONTINUATIONS) return null;
+  return { started, count };
+}

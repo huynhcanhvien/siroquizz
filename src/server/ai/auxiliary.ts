@@ -6,8 +6,9 @@ import { ApiError } from "../api-error";
 import type { Database } from "../db/client";
 import { aiAuxUsage, user } from "../db/schema";
 import { getSet } from "../services/sets";
-import { groqJson, type Usage } from "./groq";
-import { recordAuxTokens } from "./credits";
+import { groqJson, RateLimitError, type Usage } from "./groq";
+import { tallyAuxTokens } from "./credits";
+import { issueContinuation, readContinuation } from "./aux-continuation";
 import { quotaWindow } from "./jobs";
 import { phoneticReference, verifyPhonetic } from "./phonetics";
 import { getServerEnv } from "../env";
@@ -36,6 +37,8 @@ const cardTaskSchema = z
     lang: lang.optional(),
     /** Continue an earlier partial answer: only these cards (its `remainingIds`). */
     ids: z.array(z.string().min(1).max(100)).min(1).max(500).optional(),
+    /** From the previous partial answer: the follow-up is not charged again. */
+    continuation: z.string().max(200).optional(),
     cards: z
       .array(
         z.object({
@@ -59,6 +62,7 @@ const PROMPTS: Record<AuxCardTask, string> = {
 
 interface CardJob {
   task: AuxCardTask;
+  continuation?: string;
   cards: AuxCard[];
   language: string;
   definitionLanguage?: string;
@@ -68,6 +72,10 @@ export interface CardTaskResult {
   /** True when the time budget ran out or a later batch failed; ask again with `remainingIds`. */
   partial: boolean;
   remainingIds: string[];
+  /** Wait this long before continuing (the provider throttled a batch). */
+  retryAfterMs?: number;
+  /** Send back with the follow-up request so it is not charged again. */
+  continuation?: string;
 }
 
 export async function auxiliaryTask(
@@ -82,7 +90,17 @@ export async function auxiliaryTask(
     return withAuxQuota(db, userId, (track) => gradeAnswer(payload, signal, track));
   }
   const job = await selectCards(db, userId, z.enum(["phonetics", "examples"]).parse(task), input);
-  return withAuxQuota(db, userId, (track) => runCardBatches(job, signal, track));
+  const click = job.continuation ? readContinuation(job.continuation, userId, task) : null;
+  const result = await withAuxQuota(
+    db,
+    userId,
+    (track) => runCardBatches(job, signal, track),
+    !click,
+  );
+  if (!result.partial) return result;
+  const started = click?.started ?? Date.now();
+  const continuation = issueContinuation(userId, task, started, (click?.count ?? 0) + 1);
+  return continuation ? { ...result, continuation } : result;
 }
 
 /** The cards to work on: a set's (missing or all, or a continuation's ids) or the posted ones. */
@@ -107,6 +125,7 @@ async function selectCards(
   if (!cards.length) throw new ApiError(400, "VALIDATION_ERROR");
   return {
     task,
+    continuation: p.continuation,
     cards,
     language: set?.termLang ?? p.lang ?? "en",
     definitionLanguage: set?.definitionLang,
@@ -115,15 +134,37 @@ async function selectCards(
 
 type TrackUsage = (usage: Usage) => void;
 /**
- * Counts one use of today's allowance for the whole request and gives it back if nothing came of
- * it. Provider tokens the calls spent are added to today's app-wide tally either way.
+ * Counts one use of today's allowance for the request (unless `charge` is false: a follow-up of
+ * a click already counted) and gives it back if nothing came of it. Provider tokens the calls
+ * spent are added to today's app-wide tally either way.
  */
 async function withAuxQuota<T>(
   db: Database,
   userId: string,
   run: (track: TrackUsage) => Promise<T>,
+  charge = true,
 ): Promise<T> {
   const { day } = quotaWindow();
+  if (charge) await takeAuxUse(db, userId, day);
+  let tokens = 0;
+  const track: TrackUsage = (usage) => {
+    tokens += usage.input + usage.output;
+  };
+  try {
+    const result = await run(track);
+    await tallyAuxTokens(db, userId, tokens);
+    return result;
+  } catch (error) {
+    if (charge)
+      await db
+        .update(aiAuxUsage)
+        .set({ count: sql`greatest(0,${aiAuxUsage.count}-1)` })
+        .where(and(eq(aiAuxUsage.userId, userId), eq(aiAuxUsage.day, day)));
+    await tallyAuxTokens(db, userId, tokens);
+    throw error;
+  }
+}
+async function takeAuxUse(db: Database, userId: string, day: string) {
   await db.transaction(async (tx) => {
     await tx.select({ id: user.id }).from(user).where(eq(user.id, userId)).for("update");
     const [usage] = await tx
@@ -139,22 +180,6 @@ async function withAuxQuota<T>(
         set: { count: sql`${aiAuxUsage.count}+1` },
       });
   });
-  let tokens = 0;
-  const track: TrackUsage = (usage) => {
-    tokens += usage.input + usage.output;
-  };
-  try {
-    const result = await run(track);
-    await recordAuxTokens(db, userId, tokens);
-    return result;
-  } catch (error) {
-    await db
-      .update(aiAuxUsage)
-      .set({ count: sql`greatest(0,${aiAuxUsage.count}-1)` })
-      .where(and(eq(aiAuxUsage.userId, userId), eq(aiAuxUsage.day, day)));
-    await recordAuxTokens(db, userId, tokens);
-    throw error;
-  }
 }
 
 async function gradeAnswer(
@@ -188,19 +213,27 @@ async function runCardBatches(
 ): Promise<CardTaskResult> {
   const deadline = Date.now() + AUX_BUDGET_MS;
   const done: AuxResult[] = [];
+  let retryAfterMs: number | undefined;
   for (const batch of batchCards(job.cards)) {
     if (deadline - Date.now() < AUX_MIN_BATCH_MS) break;
     try {
       done.push(...(await runBatch(job, batch, signal, deadline, track)));
     } catch (error) {
       if (!done.length || signal.aborted || !(error instanceof ApiError)) throw error;
+      if (error instanceof RateLimitError) retryAfterMs = error.retryAfterMs;
       break;
     }
   }
   if (!done.length) throw new ApiError(504, "AI_TIMEOUT");
   const finished = new Set(done.map((card) => card.id));
   const remainingIds = job.cards.filter((card) => !finished.has(card.id)).map((card) => card.id);
-  return { cards: done, partial: remainingIds.length > 0, remainingIds };
+  const partial = remainingIds.length > 0;
+  return {
+    cards: done,
+    partial,
+    remainingIds,
+    ...(partial && retryAfterMs ? { retryAfterMs } : {}),
+  };
 }
 
 async function runBatch(

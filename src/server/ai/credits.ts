@@ -95,6 +95,17 @@ export async function globalTokensToday(db: Executor) {
   ]);
   return jobs.spent + jobs.reserved + aux.tokens;
 }
+/**
+ * recordAuxTokens for callers that already have a result: a failed tally write is logged, never
+ * allowed to discard work the provider already did.
+ */
+export async function tallyAuxTokens(db: Executor, userId: string, tokens: number) {
+  try {
+    await recordAuxTokens(db, userId, tokens);
+  } catch (error) {
+    console.error("Could not record AI tokens", { userId, tokens, error });
+  }
+}
 /** Adds provider tokens an auxiliary task or a moderation check spent to today's tally. */
 export async function recordAuxTokens(db: Executor, userId: string, tokens: number) {
   // Provider usage is external data: ignore anything that is not a positive count.

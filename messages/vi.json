@@ -679,7 +679,8 @@
     "noPhonetic": "Chưa có",
     "useSuggestedPhonetic": "Dùng phiên âm đề xuất",
     "estimateSource": "Đã đọc khoảng {tokens} token văn bản; AI xử lý toàn bộ nội dung để chọn thẻ.",
-    "batchProgress": "Đã xử lý {done}/{total} thẻ…"
+    "batchProgress": "Đã xử lý {done}/{total} thẻ…",
+    "batchIncomplete": "AI chỉ xử lý được một phần thẻ; bạn có thể lưu phần đã có rồi chạy lại cho các thẻ còn lại."
   },
   "settings": {
     "title": "Cài đặt",

@@ -70,10 +70,10 @@ const QUEUED_STALE_MS = 15_000;
 // An unfinished job untouched for this long releases its credit reservation.
 const ABANDONED_JOB_MS = 600_000;
 const QUEUE_POLL_MS = 3_000;
-// Just outlives a step's hard budget (48s), so a lease left by an invocation the platform killed
-// frees itself soon; a late write from that invocation is refused because it no longer holds the
-// lease token.
-const STEP_LEASE_MS = 50_000;
+// Outlives a step's hard budget (48s) plus the work that runs after it (saving state, finishing)
+// but stays under the 60s function limit, so a lease left by a killed invocation frees itself
+// soon; a late write from that invocation is refused because it no longer holds the lease token.
+const STEP_LEASE_MS = 58_000;
 const BUSY_POLL_MS = 2_000;
 /** Generations one person may have running (or awaiting their go-ahead) at once. */
 const MAX_OPEN_JOBS_PER_USER = 2;

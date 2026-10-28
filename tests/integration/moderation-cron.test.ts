@@ -126,3 +126,10 @@ it("answers the cron request with 200 even when a check times out", async () => 
   expect(await response.json()).toMatchObject({ success: true, data: { moderated: 2 } });
   expect(await statuses(ids)).toEqual(["pending", "approved"]);
 });
+
+it("never lets a check run past the cron deadline", async () => {
+  await pendingSets(1);
+  const deadline = Date.now() + 15_000;
+  await moderatePending(db, 20, deadline);
+  expect(verdict.mock.calls[0][5].deadline).toBeLessThanOrEqual(deadline - 3_000);
+});
