@@ -55,7 +55,7 @@ test("a live writing session: roster, peer editing with colours, scratch cards t
   await expect(a.page.getByText("Tả một buổi sáng mùa thu.")).toBeVisible();
   await editor(a.page).click();
   await a.page.keyboard.type("Mùa thu đến rồi");
-  await expect(a.page.getByText("Đã lưu")).toBeVisible({ timeout: 15_000 });
+  await expect(a.page.getByText("Đã lưu", { exact: true })).toBeVisible({ timeout: 15_000 });
   const roster = teacher.page.locator("aside");
   await expect(roster.getByText("Mùa thu đến rồi")).toBeVisible({ timeout: 15_000 });
 
@@ -66,7 +66,10 @@ test("a live writing session: roster, peer editing with colours, scratch cards t
 
   // B opens A's document and adds to it.
   await b.page.goto(sessionUrl);
-  await b.page.locator("aside").getByRole("button", { name: /Bài của Bạn An/ }).click();
+  await b.page
+    .locator("aside")
+    .getByRole("button", { name: /Bài của Bạn An/ })
+    .click();
   await expect(editor(b.page)).toContainText("Mùa thu đến rồi", { timeout: 15_000 });
   await editor(b.page).click();
   await b.page.keyboard.press("ControlOrMeta+End");
@@ -147,7 +150,7 @@ test("edits typed while offline are kept across a reload", async ({ browser }) =
   await student.page.goto(`/study/writing/${sessionId}`);
   await editor(student.page).click();
   await student.page.keyboard.type("Đã lưu trước. ");
-  await expect(student.page.getByText("Đã lưu")).toBeVisible({ timeout: 15_000 });
+  await expect(student.page.getByText("Đã lưu", { exact: true })).toBeVisible({ timeout: 15_000 });
   await student.context.setOffline(true);
   await student.page.keyboard.type("Viết khi mất mạng.");
   await expect(student.page.getByText("Mất kết nối, sẽ thử lại")).toBeVisible({ timeout: 15_000 });
@@ -156,5 +159,5 @@ test("edits typed while offline are kept across a reload", async ({ browser }) =
   await expect(editor(student.page)).toContainText("Đã lưu trước. Viết khi mất mạng.", {
     timeout: 15_000,
   });
-  await expect(student.page.getByText("Đã lưu")).toBeVisible({ timeout: 15_000 });
+  await expect(student.page.getByText("Đã lưu", { exact: true })).toBeVisible({ timeout: 15_000 });
 });

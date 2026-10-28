@@ -152,7 +152,7 @@ export const writingKeys = { sessions: (classId) => ["writing","class",classId],
 Schemas `src/features/writing/schemas.ts`: `sessionInputSchema`, `sessionPatchSchema`, `docSummarySchema`, `sessionSummarySchema`, `sessionDetailSchema`, `overviewSchema`, `syncRequestSchema`/`syncResponseSchema` (base64 regex), `scratchCardSchema`, `scratchInputSchema`, `materializeSchema`.
 
 ## C10. UI
-**Trạng thái:** in-progress — UI xong, đang chạy e2e
+**Trạng thái:** done — e2e writing.spec.ts xanh; panel mobile là Dialog side=right
 - `src/app/(app)/classes/[id]/writing/page.tsx` → `SessionList` (GV: form title + prompt `Textarea`, danh sách + Badge trạng thái, link `/study/writing/[id]`; HS: phiên open/closed). Nút "Viết bài" ở header `ClassView.tsx` (cạnh `ExitClass`, L296-300).
 - `src/app/(study)/study/writing/[sessionId]/page.tsx` dưới `StudyShell` → `WritingTopBar` (về danh sách, tiêu đề + Badge, chỉ báo sync, nút "Bộ thẻ tạm (n)" mở `ScratchDrawer`) + `WritingWorkspace` `grid lg:grid-cols-[1fr_22rem]`: cột editor `min-h-0 flex-1`, panel thu gọn được; mobile panel/drawer là `Dialog` với prop mới `side?: "right"|"bottom"` thêm vào `Dialog.tsx`.
 - `TeacherRoster`: lưới thẻ (Avatar, tên, preview, `charCount`, "x giây trước" từ `serverTime` với ticker 1s `useClientValue`), click → mở doc trong editor; nút Mở/Đóng phiên (`ConfirmDialog` khi đóng), `Switch` "Cho phép xem bài nhau", `Switch` "Cho phép viết lên bài nhau" (disabled khi chưa cho xem).
@@ -167,14 +167,14 @@ Schemas `src/features/writing/schemas.ts`: `sessionInputSchema`, `sessionPatchSc
 Namespace `writing.{sessions,status,editor,panel,roster,scratch,materialize,sync}.*`; `errors.{DOC_TOO_LARGE,SESSION_CLOSED,SCRATCH_LIMIT,SCRATCH_INCOMPLETE}`; `classes.writing`. Vi là chuẩn; e2e dùng nhãn vi.
 
 ## C12. Test
-**Trạng thái:** todo
+**Trạng thái:** done — unit (permissions, ydoc, base64, author-colors, author-ranges, sync-state, sync-loop, schemas), integration (writing.test.ts, scratch-cards.test.ts gồm router), e2e 2 kịch bản (bỏ phần gõ Telex vieetj vì Playwright không có IME; gõ Unicode trực tiếp). Build: quill+yjs chỉ ở chunk động của Editor (~73KB + 5KB gz), không trang nào tham chiếu
 - Unit: `ydoc.test.ts` (`// @vitest-environment node`: state rỗng → doc; apply + re-encode nhỏ lại sau xoá; `diffSince` null khi sv phủ; `plainText`/`preview` với grapheme tiếng Việt và cắt 300; update hỏng ném), `permissions.test.ts` (ma trận role × status × visibility × editing cho read/write/list), `author-colors.test.ts`, `sync-loop.test.ts` (reducer: local→pending merge, fail re-merge inFlight, ok xoá, lịch backoff, hidden pause, FAST/SLOW ở 30s, replay mirror với `AppStorage` giả, flush ≤ 64KB), `schemas.test.ts` (base64 regex, materialize bounds).
 - Integration `tests/integration/writing.test.ts`, `scratch-cards.test.ts`, `writing-api.test.ts`: ma trận quyền (teacher/author/peer/non-member × draft/open/closed × hidden/open × peerEditing; 404 vs 403 vs `SESSION_CLOSED`); sync: 2 client Y.Doc độc lập chèn cùng vị trí → cả hai merge, version 1→2, hội tụ sau poll 2 với sv riêng; fast path không chạm Yjs; `textPreview`/`charCount` cập nhật; 413 với > 512KB state và > 64KB update; update hỏng 400; scratch 300 → 409; materialize tạo bộ + xoá hàng + `SCRATCH_INCOMPLETE` + `classId` chia sẻ (thấy ở thư viện lớp / `getClass().sets` nếu stub), non-teacher classId → theo quyền `shareToClass`; `purgeClosedSessions` chỉ xoá closed > 180 ngày.
 - E2E `tests/e2e/writing.spec.ts` (`person()` 3 context): GV tạo lớp + phiên, mở → A, B join bằng mã, mở `/study/writing/:id`, gõ (`keyboard.type("vieetj")` → "việt") → roster GV thấy preview ≤ 5s → GV bật "Cho phép xem bài nhau" + "Cho phép viết lên bài nhau" → B mở bài A, gõ; A thấy chữ B có class `ql-author-<B>` và màu tính toán ≠ chữ A → A chọn từ, "Lưu từ vựng", điền nghĩa → reload giữ count → "Tạo bộ thẻ" 2 thẻ → thấy ở Thư viện. Thêm: `context.setOffline(true)`, gõ, reload → vẫn còn (mirror).
 - Build: `next build` xác nhận `quill`/`yjs` chỉ trong chunk route `/study/writing/[sessionId]`; first-load JS các trang khác không tăng.
 
 ## C13. Rủi ro & giảm thiểu
-**Trạng thái:** todo
+**Trạng thái:** done — bypass write limit đã gỡ sau khi WP1 merge (writePolicy write-fast); các rủi ro còn lại ghi trong báo cáo
 - Yjs cold start / 2 bản: `serverExternalPackages`; decode tuyến tính theo state ≤ 512KB.
 - Bundle: Quill 2 (~110KB gz) + yjs (~25KB gz) + y-quill sau dynamic import trên 1 route.
 - IME: gán tác giả sau `text-change`, không trong composition; e2e Telex.
