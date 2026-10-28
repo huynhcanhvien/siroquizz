@@ -95,7 +95,7 @@
 - `ai/cleanup.ts:7-11`: 1 call S3 + 1 delete mỗi upload, tối đa 500/ngày trong cron 60s, backlog có thể vượt. → `DeleteObjects` theo lô + `DELETE … WHERE id = ANY(...)`.
 
 ### A16. Rate limit đăng nhập chỉ trong bộ nhớ từng instance
-**Trạng thái:** todo
+**Trạng thái:** done (khác plan) — dùng `rateLimit.customStorage` (`src/server/auth-rate-limit.ts`, Upstash `Ratelimit.fixedWindow` theo từng rule, key băm sha256) khi có env Upstash; không có thì `storage: "memory"`. Không dùng `"secondary-storage"` vì Better Auth 1.7 khi có `secondaryStorage` sẽ chuyển cả session/verification sang Redis; không fallback `"database"` vì cần bảng `rateLimit` + migration, trong khi production đã bắt buộc Upstash (`rate-limit.ts`). Không có migration.
 - `auth.ts:91-100` đặt rule tuỳ chỉnh không `storage` → Better Auth dùng memory, tách theo instance Vercel. → `rateLimit.storage: "secondary-storage"` với Upstash khi có env, fallback `"database"`. Kiểm tra bằng docs Better Auth 1.7.
 
 ### A17. CI lặp mọi việc ở 3 shard và build 3 lần
