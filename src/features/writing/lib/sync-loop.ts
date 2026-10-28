@@ -71,27 +71,19 @@ export function statusOf(state: SyncState): SyncStatus {
   return state.pending || state.inFlight ? "saving" : "idle";
 }
 
-/** Drives the sync protocol (C6) for one document: polling, sending edits, applying remote ones. */
-export function createSyncLoop(options: SyncLoopOptions) {
-  const now = options.now ?? Date.now;
-  let state = initialSyncState(options.version, options.readOnly, now());
+/** Everything not yet confirmed by the server, oldest first. */
+const unsavedOf = (state: SyncState) =>
+  state.pending && state.inFlight
+    ? Y.mergeUpdates([state.inFlight, state.pending])
+    : (state.pending ?? state.inFlight);
+/** Errors the loop handles by retrying; anything else is reported to the page. */
+const RETRIED: ReadonlySet<RepositoryErrorCode> = new Set(["NETWORK", "RATE_LIMITED", "UNKNOWN"]);
+
+/** Mirrors unsaved edits to localStorage, debounced, so a reload or crash does not lose them. */
+function createMirror(options: SyncLoopOptions, now: () => number) {
   let timer: ReturnType<typeof setTimeout> | null = null;
-  let mirrorTimer: ReturnType<typeof setTimeout> | null = null;
-  let running = false;
-  const dispatch = (event: SyncEvent) => {
-    state = reduce(state, event);
-    options.onChange(state, statusOf(state));
-    scheduleMirror();
-  };
-  const scheduleMirror = () => {
-    if (mirrorTimer) clearTimeout(mirrorTimer);
-    mirrorTimer = setTimeout(writeMirror, MIRROR_DEBOUNCE_MS);
-  };
-  const writeMirror = () => {
-    const unsaved =
-      state.pending && state.inFlight
-        ? Y.mergeUpdates([state.inFlight, state.pending])
-        : (state.pending ?? state.inFlight);
+  const write = (state: SyncState) => {
+    const unsaved = unsavedOf(state);
     if (!unsaved) return options.storage.remove(mirrorKey(options.docId));
     try {
       options.storage.writeValue(mirrorKey(options.docId), {
@@ -103,84 +95,99 @@ export function createSyncLoop(options: SyncLoopOptions) {
       // Storage full or blocked: the server copy is still the source of truth.
     }
   };
-  const onUpdate = (update: Uint8Array, origin: unknown) => {
-    if (origin === "remote" || state.readOnly) return;
-    dispatch({ type: "local", update, at: now() });
-    if (running && !timer) schedule();
+  return {
+    schedule(state: SyncState) {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => write(state), MIRROR_DEBOUNCE_MS);
+    },
+    flush(state: SyncState) {
+      if (timer) clearTimeout(timer);
+      write(state);
+    },
   };
-  const request = (): SyncRequest => ({
-    sv: toBase64(Y.encodeStateVector(options.doc)),
-    version: state.version,
-    ...(state.inFlight ? { update: toBase64(state.inFlight) } : {}),
-  });
+}
+
+/** One request/response of the protocol: sends what is in flight, applies what comes back. */
+async function syncRound(
+  options: SyncLoopOptions,
+  state: SyncState,
+  dispatch: (event: SyncEvent) => void,
+  now: () => number,
+) {
+  const sentUpdate = state.inFlight;
+  try {
+    const response = await options.send({
+      sv: toBase64(Y.encodeStateVector(options.doc)),
+      version: state.version,
+      ...(sentUpdate ? { update: toBase64(sentUpdate) } : {}),
+    });
+    if (response.update) Y.applyUpdate(options.doc, fromBase64(response.update), "remote");
+    // Our own write moves the version by one; anything more means someone else wrote.
+    const hadRemote = response.version > state.version + (sentUpdate ? 1 : 0);
+    const { version, readOnly } = response;
+    dispatch({ type: "ok", version, hadRemote, readOnly, at: now() });
+  } catch (error) {
+    const code = toErrorCode(error);
+    dispatch({ type: "fail", code, at: now() });
+    if (!RETRIED.has(code)) options.onError(code);
+  }
+}
+
+/** Drives the sync protocol (C6) for one document: polling, sending edits, applying remote ones. */
+export function createSyncLoop(options: SyncLoopOptions) {
+  const now = options.now ?? Date.now;
+  const mirror = createMirror(options, now);
+  let state = initialSyncState(options.version, options.readOnly, now());
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let running = false;
+  const dispatch = (event: SyncEvent) => {
+    state = reduce(state, event);
+    options.onChange(state, statusOf(state));
+    mirror.schedule(state);
+  };
   const tick = async () => {
     timer = null;
     if (!running || state.inFlight) return;
-    const before = state.version;
     dispatch({ type: "sent", at: now() });
-    const sending = Boolean(state.inFlight);
-    try {
-      const response = await options.send(request());
-      if (response.update) Y.applyUpdate(options.doc, fromBase64(response.update), "remote");
-      const hadRemote = response.version > before + (sending ? 1 : 0);
-      dispatch({
-        type: "ok",
-        version: response.version,
-        hadRemote,
-        readOnly: response.readOnly,
-        at: now(),
-      });
-    } catch (error) {
-      const code = toErrorCode(error);
-      dispatch({ type: "fail", code, at: now() });
-      if (code !== "NETWORK" && code !== "RATE_LIMITED" && code !== "UNKNOWN")
-        options.onError(code);
-    }
+    await syncRound(options, state, dispatch, now);
     schedule();
   };
   const schedule = () => {
-    if (!running) return;
     if (timer) clearTimeout(timer);
     timer = null;
-    const delay = nextDelayMs(state, now());
+    const delay = running ? nextDelayMs(state, now()) : null;
     if (delay !== null) timer = setTimeout(() => void tick(), delay);
   };
   /** Sends unsaved edits while the page is going away; small enough for a keepalive body. */
   const flushNow = () => {
     const unsaved = state.pending;
     if (!unsaved || state.readOnly || unsaved.length > MAX_UPDATE_BYTES) return;
-    options.beacon({
-      sv: toBase64(Y.encodeStateVector(options.doc)),
-      version: state.version,
-      update: toBase64(unsaved),
-    });
+    const sv = toBase64(Y.encodeStateVector(options.doc));
+    options.beacon({ sv, version: state.version, update: toBase64(unsaved) });
+  };
+  const onUpdate = (update: Uint8Array, origin: unknown) => {
+    if (origin === "remote" || state.readOnly) return;
+    dispatch({ type: "local", update, at: now() });
+    if (running && !timer) schedule();
   };
   // Listen from creation so edits replayed from the mirror before start() are captured.
   options.doc.on("update", onUpdate);
-  return {
-    start() {
-      running = true;
-      void tick();
-    },
-    stop() {
-      running = false;
-      options.doc.off("update", onUpdate);
-      if (timer) clearTimeout(timer);
-      if (mirrorTimer) clearTimeout(mirrorTimer);
-      writeMirror();
-    },
-    setHidden(hidden: boolean) {
-      dispatch({ type: "visibility", hidden });
-      if (hidden) {
-        flushNow();
-        schedule();
-      } else void tick();
-    },
-    flushNow,
-    syncNow: () => void tick(),
-    get state() {
-      return state;
-    },
+  const stop = () => {
+    running = false;
+    options.doc.off("update", onUpdate);
+    if (timer) clearTimeout(timer);
+    mirror.flush(state);
   };
+  const setHidden = (hidden: boolean) => {
+    dispatch({ type: "visibility", hidden });
+    if (hidden) flushNow();
+    if (hidden) schedule();
+    else void tick();
+  };
+  const start = () => {
+    running = true;
+    void tick();
+  };
+  return { start, stop, setHidden, flushNow, syncNow: () => void tick(), state: () => state };
 }
 export type SyncLoop = ReturnType<typeof createSyncLoop>;

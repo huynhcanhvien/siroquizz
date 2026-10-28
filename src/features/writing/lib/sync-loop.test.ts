@@ -89,7 +89,7 @@ describe("sync loop", () => {
     doc.getText("quill").insert(0, "saved later");
     loop.start();
     await vi.advanceTimersByTimeAsync(300);
-    expect(loop.state.failures).toBe(1);
+    expect(loop.state().failures).toBe(1);
     // Unsaved edits are mirrored locally in the meantime.
     expect(storage.readValue(mirrorKey("doc"), (await import("zod")).z.any())).toMatchObject({
       userId: "me",
