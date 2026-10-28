@@ -232,14 +232,15 @@ export async function writeSetFields(
  */
 export async function updateSet(db: Database, userId: string, id: string, input: unknown) {
   const data = setInputSchema.parse(input);
-  await db.transaction(async (tx) => {
+  const ownerId = await db.transaction(async (tx) => {
     const current = await requireEditableSet(tx, userId, id, "update");
     if (data.baseUpdatedAt && current.updatedAt.getTime() > Date.parse(data.baseUpdatedAt))
       throw new ApiError(409, "SET_CHANGED");
     await writeSetFields(tx, current, data, await replaceDeck(tx, id, data.cards));
+    return current.ownerId;
   });
   // New content needs a new moderation verdict (checked now if the set is public).
-  await markEdited(db, id);
+  await markEdited(db, id, { byOwner: ownerId === userId });
   return getSet(db, userId, id);
 }
 /**

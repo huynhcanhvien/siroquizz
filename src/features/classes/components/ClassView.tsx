@@ -53,14 +53,16 @@ function useRun() {
   const { toast } = useToast();
   const errorMessage = useErrorMessage();
   const action = useClassAction();
+  // mutateAsync settles even when the refetch after leaving/deleting unmounts this component,
+  // so the toast and the redirect still happen (mutate callbacks would be dropped).
   const run = (request: Parameters<typeof action.mutate>[0], done: string, then?: () => void) =>
-    action.mutate(request, {
-      onSuccess: () => {
+    action.mutateAsync(request).then(
+      () => {
         toast(done);
         then?.();
       },
-      onError: (error) => toast(errorMessage(error), "error"),
-    });
+      (error: unknown) => toast(errorMessage(error), "error"),
+    );
   return { run, pending: action.isPending };
 }
 

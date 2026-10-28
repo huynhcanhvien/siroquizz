@@ -9,10 +9,14 @@ import { requireOwnedSet, type Db } from "./sets";
 
 export const MAX_COLLABORATORS_PER_SET = 50;
 const principalTypeSchema = z.enum(["user", "class_teachers"]);
-const principalInput = z.object({
-  principalType: principalTypeSchema,
-  principalId: z.string().min(1).max(64),
-});
+// Class ids are compared with `class_id::text` (lower case): normalize them before storing.
+const principalInput = z
+  .object({ principalType: principalTypeSchema, principalId: z.string().min(1).max(64) })
+  .transform((input) =>
+    input.principalType === "class_teachers"
+      ? { ...input, principalId: input.principalId.toLowerCase() }
+      : input,
+  );
 
 /** Named collaborators must share at least one class with the owner. */
 async function sharesClass(db: Db, ownerId: string, memberId: string) {
@@ -28,7 +32,8 @@ async function checkPrincipal(db: Db, ownerId: string, input: z.infer<typeof pri
     return;
   }
   if (input.principalId === ownerId) throw new ApiError(400, "VALIDATION_ERROR");
-  if (!(await sharesClass(db, ownerId, input.principalId))) throw new ApiError(403, "NOT_CLASSMATE");
+  if (!(await sharesClass(db, ownerId, input.principalId)))
+    throw new ApiError(403, "NOT_CLASSMATE");
 }
 
 /** Gives lasting edit rights on the owner's set (idempotent). */
@@ -116,7 +121,9 @@ export async function collaboratorCandidates(db: Database, ownerId: string, setI
       members: members
         .filter((member) => member.classId === klass.classId)
         // Like the class page: students see only who teaches.
-        .filter((member) => canManageClass(klass.myRole as ClassRole) || canManageClass(member.role))
+        .filter(
+          (member) => canManageClass(klass.myRole as ClassRole) || canManageClass(member.role),
+        )
         .map(({ classId: _classId, ...member }) => ({
           ...member,
           granted: granted.has(`user:${member.userId}`),

@@ -21,13 +21,11 @@ function ReviewItem({ setId, summary }: { setId: string; summary: ChangeRequestS
   const review = useReviewChangeRequest(setId);
   const noteId = useId();
   const [reviewNote, setReviewNote] = useState("");
+  // The item leaves the pending list once decided: mutateAsync still reports the outcome.
   const decide = (action: "approve" | "reject") =>
-    review.mutate(
-      { id: summary.id, action, reviewNote },
-      {
-        onSuccess: () => toast(t(action === "approve" ? "approved" : "rejected")),
-        onError: (error) => toast(errorMessage(error), "error"),
-      },
+    review.mutateAsync({ id: summary.id, action, reviewNote }).then(
+      () => toast(t(action === "approve" ? "approved" : "rejected")),
+      (error: unknown) => toast(errorMessage(error), "error"),
     );
   return (
     <li className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 shadow-sm">

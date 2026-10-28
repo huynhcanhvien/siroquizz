@@ -22,6 +22,8 @@ import {
   reviewChangeRequest,
   withdrawChangeRequest,
 } from "@/server/services/change-requests";
+import { leaveClass } from "@/server/services/classes";
+import { dueCards } from "@/server/services/learning";
 import { insertCast, makeClass, makeSet, newCast } from "./helpers/collab";
 
 vi.mock("@/server/ai/groq", async (importOriginal) => ({
@@ -276,5 +278,62 @@ describe("change requests", () => {
     await withdrawChangeRequest(db, mai, second.id);
     expect(await myChangeRequests(db, an, new URLSearchParams())).toEqual([]);
     await expect(withdrawChangeRequest(db, mai, second.id)).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe("review hardening", () => {
+  it("caps pending proposals per author and hides cards from authors who lost access", async () => {
+    const { klass, set } = await sharedSet();
+    const ops = { cards: [editCard(set.cards[0].id, "x")] };
+    const ids = [];
+    for (let i = 0; i < 5; i++)
+      ids.push((await proposeChange(db, bao, set.id, { baseUpdatedAt: set.updatedAt, ops })).id);
+    await expect(
+      proposeChange(db, bao, set.id, { baseUpdatedAt: set.updatedAt, ops }),
+    ).rejects.toMatchObject({ status: 409, code: "CHANGE_REQUEST_LIMIT" });
+    expect(
+      (await proposeChange(db, mai, set.id, { baseUpdatedAt: set.updatedAt, ops })).id,
+    ).toBeTruthy();
+    await leaveClass(db, bao, klass.id);
+    await expect(getChangeRequest(db, bao, ids[0])).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("normalizes class ids in teacher grants", async () => {
+    const { klass, set } = await sharedSet();
+    await grantCollaborator(db, an, set.id, {
+      principalType: "class_teachers",
+      principalId: klass.id.toUpperCase(),
+    });
+    expect((await getSet(db, mai, set.id)).access?.canEdit).toBe(true);
+  });
+
+  it("keeps a flagged verdict when a collaborator edits an unlisted set", async () => {
+    const { set } = await sharedSet();
+    await grantCollaborator(db, an, set.id, { principalType: "user", principalId: bao });
+    await db
+      .update(schema.studySets)
+      .set({ visibility: "unlisted", moderationStatus: "flagged" })
+      .where(eq(schema.studySets.id, set.id));
+    await updateSet(db, bao, set.id, { ...set, title: "Edited by Bảo", cards: set.cards });
+    const [row] = await db.select().from(schema.studySets).where(eq(schema.studySets.id, set.id));
+    expect(row.moderationStatus).toBe("flagged");
+    await updateSet(db, an, set.id, { ...set, title: "Edited by An", cards: set.cards });
+    const [after] = await db.select().from(schema.studySets).where(eq(schema.studySets.id, set.id));
+    expect(after.moderationStatus).toBe("none");
+  });
+
+  it("drops a banned owner's shared cards from the review queue", async () => {
+    const { set } = await sharedSet();
+    await db.insert(schema.cardProgress).values({
+      userId: bao,
+      cardId: set.cards[0].id,
+      setId: set.id,
+      status: "learning",
+      reps: 1,
+      due: new Date(Date.now() - 60_000),
+    });
+    expect((await dueCards(db, bao)).cards.length).toBeGreaterThan(0);
+    await db.update(schema.user).set({ bannedAt: new Date() }).where(eq(schema.user.id, an));
+    expect((await dueCards(db, bao)).cards).toHaveLength(0);
   });
 });

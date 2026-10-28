@@ -53,6 +53,8 @@ export function AiSetTools({ set }: { set: StudySet }) {
     update.mutate(
       {
         ...set,
+        // A collaborator may have saved while the AI ran: the server answers 409 SET_CHANGED.
+        baseUpdatedAt: set.updatedAt,
         cards: set.cards.map((card) => ({
           ...card,
           ...(result.kind === "phonetics"

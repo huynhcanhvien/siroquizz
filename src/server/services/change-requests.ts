@@ -26,6 +26,8 @@ import { markEdited } from "./sharing";
 import { applyCardOps, requireOwnedSet, toCardDto, type Db } from "./sets";
 
 export const MAX_PENDING_REQUESTS_PER_SET = 20;
+/** One person cannot take every slot of a set's queue. */
+export const MAX_PENDING_REQUESTS_PER_AUTHOR = 5;
 const PENDING_REVIEWS_LIMIT = 20;
 const LIST_LIMIT = 100;
 const proposeInput = z.object({
@@ -66,11 +68,15 @@ export async function proposeChange(db: Database, userId: string, setId: string,
   return db.transaction(async (tx) => {
     // Serializes the pending count per set without touching the set row learners lock.
     await tx.execute(sql`select pg_advisory_xact_lock(735175, hashtext(${set.id}))`);
-    const [{ count }] = await tx
-      .select({ count: sql<number>`count(*)::int` })
+    const [{ count, mine }] = await tx
+      .select({
+        count: sql<number>`count(*)::int`,
+        mine: sql<number>`(count(*) filter (where ${setChangeRequests.authorId} = ${userId}))::int`,
+      })
       .from(setChangeRequests)
       .where(and(eq(setChangeRequests.setId, set.id), eq(setChangeRequests.status, "pending")));
-    if (count >= MAX_PENDING_REQUESTS_PER_SET) throw new ApiError(409, "CHANGE_REQUEST_LIMIT");
+    if (count >= MAX_PENDING_REQUESTS_PER_SET || mine >= MAX_PENDING_REQUESTS_PER_AUTHOR)
+      throw new ApiError(409, "CHANGE_REQUEST_LIMIT");
     const id = v7();
     await tx.insert(setChangeRequests).values({
       id,
@@ -157,6 +163,8 @@ export async function getChangeRequest(
   const [row] = await requestRows(db, eq(setChangeRequests.id, z.uuid().parse(id))).limit(1);
   if (!row || (row.setOwnerId !== userId && row.request.authorId !== userId))
     throw new ApiError(404, "NOT_FOUND");
+  // An author who lost access to the set (left the class, unshared) no longer sees its cards.
+  if (row.setOwnerId !== userId) await requireStudySet(db, userId, row.request.setId);
   const ops = baseOpsSchema.parse(row.request.ops);
   const current = await db
     .select({ card: cards, image: cardImages })

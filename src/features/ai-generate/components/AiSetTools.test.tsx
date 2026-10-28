@@ -125,6 +125,7 @@ it("lets the user correct a transcription before applying it and preserves other
   await user.click(screen.getByRole("button", { name: messages.ai.applyPhonetics }));
   expect(mutate.mock.calls[0][0]).toEqual({
     ...set,
+    baseUpdatedAt: set.updatedAt,
     cards: [{ ...set.cards[0], phonetic: "xué xí" }, set.cards[1]],
   });
 });
@@ -148,6 +149,7 @@ it("lets the user edit and save examples without changing phonetics or other car
   await user.click(save);
   expect(mutate.mock.calls[0][0]).toEqual({
     ...set,
+    baseUpdatedAt: set.updatedAt,
     cards: [{ ...set.cards[0], example: "我学习中文。 Tôi học tiếng Trung." }, set.cards[1]],
   });
 });

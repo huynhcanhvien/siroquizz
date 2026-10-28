@@ -34,7 +34,13 @@ import {
   streakFreezes,
 } from "../db/schema";
 import { type Transaction, type Db } from "./sets";
-import { assignedTo, requireStudySet, sharedToClassOf, type SetLock } from "./access";
+import {
+  assignedTo,
+  ownerInGoodStanding,
+  requireStudySet,
+  sharedToClassOf,
+  type SetLock,
+} from "./access";
 
 export async function getPreferences(db: Db, userId: string) {
   const read = () => db.select().from(userPreferences).where(eq(userPreferences.userId, userId));
@@ -280,7 +286,11 @@ export async function dueCards(
   const base = and(
     or(
       eq(studySets.ownerId, userId),
-      and(isNull(studySets.hiddenAt), or(assignedTo(userId), sharedToClassOf(userId))),
+      and(
+        isNull(studySets.hiddenAt),
+        or(assignedTo(userId), sharedToClassOf(userId)),
+        ownerInGoodStanding(),
+      ),
     ),
     isNull(studySets.deletedAt),
     inFolder,

@@ -73,10 +73,9 @@ function LibraryRow({ classId, item }: { classId: string; item: ClassLibraryItem
             size="sm"
             loading={unshare.isPending}
             onClick={() =>
-              unshare.mutate(
-                { classId, libraryItemId: item.id },
-                { onSuccess: () => toast(t("removed")), onError },
-              )
+              unshare
+                .mutateAsync({ classId, libraryItemId: item.id })
+                .then(() => toast(t("removed")), onError)
             }
           >
             <X className="size-4" aria-hidden />

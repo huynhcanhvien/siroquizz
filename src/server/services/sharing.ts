@@ -72,11 +72,15 @@ export async function retryModeration(db: Database, ownerId: string, setId: stri
  * content it judged: a public set is checked again, any other set loses its old verdict, so
  * making it public later starts a fresh check (approval cannot be kept across an edit).
  */
-export async function markEdited(db: Database, setId: string) {
+export async function markEdited(db: Database, setId: string, { byOwner = true } = {}) {
+  // A collaborator's edit must not clear a flagged/rejected verdict that keeps a link closed.
+  const keepVerdict = byOwner
+    ? sql`false`
+    : sql`${studySets.moderationStatus} in ('flagged', 'rejected')`;
   const [set] = await db
     .update(studySets)
     .set({
-      moderationStatus: sql`case when ${studySets.visibility} = 'public' then 'pending'::moderation_status else 'none'::moderation_status end`,
+      moderationStatus: sql`case when ${studySets.visibility} = 'public' then 'pending'::moderation_status when ${keepVerdict} then ${studySets.moderationStatus} else 'none'::moderation_status end`,
       moderationReason: null,
     })
     .where(eq(studySets.id, setId))

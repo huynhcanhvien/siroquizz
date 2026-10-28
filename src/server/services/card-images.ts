@@ -23,7 +23,7 @@ export async function attachCardImage(
       .parse(input),
     card = await requireCard(db, userId, cardId);
   // Only the owner or a collaborator adds images; check before doing any work on the upload.
-  await requireEditableSet(db, userId, card.setId);
+  const { ownerId } = await requireEditableSet(db, userId, card.setId);
   const [upload] = await db
     .select()
     .from(aiUploads)
@@ -61,6 +61,6 @@ export async function attachCardImage(
     throw error;
   }
   // An image is content too: a shared set needs a fresh moderation verdict.
-  await markEdited(db, card.setId);
+  await markEdited(db, card.setId, { byOwner: ownerId === userId });
   return { imageUrl: `/api/v1/images/${id}`, imageAlt: alt };
 }
