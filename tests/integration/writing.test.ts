@@ -285,6 +285,17 @@ describe("sync", () => {
     expect(row.textPreview).toBe(a.text());
   });
 
+  it("refuses text a writer marks as someone else's", async () => {
+    const { sessionId } = await sessionWith();
+    const { id: docId } = await openOwnDoc(db, author, sessionId);
+    const forger = new Client(author, docId);
+    forger.doc.getText(TEXT_NAME).insert(0, "Cô khen", { author: teacher });
+    await expect(forger.sync()).rejects.toMatchObject({ status: 400 });
+    const honest = new Client(author, docId);
+    honest.doc.getText(TEXT_NAME).insert(0, "Em viết", { author });
+    await expect(honest.sync()).resolves.toMatchObject({ version: 1 });
+  });
+
   it("answers a poll with a current version from one select, without the state", async () => {
     const { sessionId } = await sessionWith();
     const { id: docId } = await openOwnDoc(db, author, sessionId);

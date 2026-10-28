@@ -98,7 +98,7 @@ async function mergeUpdate(db: Database, userId: string, access: DocAccess, upda
       .for("update");
     await assertStillWritable(tx, userId, access);
     const doc = docFromState(row?.state ?? null);
-    applyClientUpdate(doc, update);
+    applyClientUpdate(doc, update, userId);
     const state = encodeState(doc);
     if (state.length > MAX_STATE_BYTES) throw tooLarge();
     const text = plainText(doc);
