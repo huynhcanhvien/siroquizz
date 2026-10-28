@@ -1,6 +1,6 @@
 # Kế hoạch: Nhóm học (Teams)
 
-**Trạng thái:** chờ người dùng duyệt, chưa viết code
+**Trạng thái:** ĐÃ THAY THẾ (2026-10-29) — lớp học đã làm ở Phase 5 (`specs/phase-5-community.md` §5); cộng tác và chia sẻ trong lớp xem `plan/class-collab-writing/README.md`. Giữ lại để tham khảo.
 **Lập lúc:** 2026-10-05 14:57 +07
 **Thay thế:** `specs/phase-5-community.md` §5 “Lớp học”. Khi làm xong, cập nhật spec đó để trỏ sang Nhóm, tránh có 2 khái niệm song song.
 **Chế độ dữ liệu:** chỉ chạy ở `NEXT_PUBLIC_DATA_SOURCE=http`. Ở chế độ mock localStorage thì ẩn menu Nhóm.
