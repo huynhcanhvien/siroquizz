@@ -49,7 +49,7 @@
 - **Test:** unit `batchCards` (200 → 5 lô); integration với mock Groq: lô 2 hỏng → trả lô 1 + `partial`; deadline hết → `partial` và không ném.
 
 ### A8. Hạn mức token toàn app đếm sai
-**Trạng thái:** done — job cũ chưa có tokens_reserved dùng creditsReserved×3000; token kiểm duyệt cộng vào ai_aux_usage của chủ bộ (count không đổi)
+**Trạng thái:** done — job cũ chưa có tokens_reserved dùng creditsReserved×3000; token kiểm duyệt cộng vào ai_aux_usage của chủ bộ (count không đổi); hardening: phiên âm/ví dụ/chấm điểm và kiểm duyệt kiểm tra trần token ngày trước khi gọi provider (429 AI_GLOBAL_LIMIT; kiểm duyệt giữ pending)
 - **Vấn đề:** `src/server/ai/credits.ts:73-88`: job đang chạy tính `creditsReserved × 3000` dù ước lượng token thật đã có khi reserve (L104-119); tác vụ phụ và kiểm duyệt không tính.
 - **Sửa:** cột `ai_generation_jobs.tokens_reserved int default 0` (migration M2) ghi trong `reserveCredits`; `ai_aux_usage.tokens int default 0` cộng dồn token thật của aux/moderation (`groqJson` trả usage). `globalTokensToday` = token job xong hôm nay + `tokens_reserved` job active + `ai_aux_usage.tokens` hôm nay.
 - **Test:** integration `assertGlobalCapacity` chặn đúng với 2 job đồng thời trên tài liệu lớn.
