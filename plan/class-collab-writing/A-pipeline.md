@@ -99,7 +99,7 @@
 - `auth.ts:91-100` đặt rule tuỳ chỉnh không `storage` → Better Auth dùng memory, tách theo instance Vercel. → `rateLimit.storage: "secondary-storage"` với Upstash khi có env, fallback `"database"`. Kiểm tra bằng docs Better Auth 1.7.
 
 ### A17. CI lặp mọi việc ở 3 shard và build 3 lần
-**Trạng thái:** todo
+**Trạng thái:** done — `ci.yml`: env chung đưa lên cấp workflow (giá trị giữ nguyên); job `quality` (lint/typecheck/unit coverage/migrate/integration) chạy 1 lần; job `build` (cache `.next/cache`) upload artifact `.next` trừ `cache` (`include-hidden-files: true`); job `e2e` matrix 3 tải artifact, chạy `copy-browser-ocr-assets` thay vì upload `public/vendor`, cache `~/.cache/ms-playwright` theo version, `E2E_PREBUILT=1` → `playwright.config.ts` chỉ `pnpm start`. Đã kiểm tra YAML parse và `pnpm build` không cần DB; chưa chạy được trên GitHub Actions.
 - `.github/workflows/ci.yml`: matrix 3 shard đều install/lint/typecheck/unit/migrate/integration/playwright install, và mỗi shard `next build` qua `webServer` (`playwright.config.ts:28`); không cache `.next/cache`, Playwright browsers. → job `quality` (1 lần) + job `build` upload artifact `.next` (+ `public/vendor`) + job `e2e` matrix 3 tải artifact, `E2E_PREBUILT=1` → `webServer.command = pnpm start --port 3100`; cache `~/.cache/ms-playwright` và `.next/cache` (`actions/cache`).
 
 ### A18. `--webpack` cố định vì lỗi Turbopack trên một máy

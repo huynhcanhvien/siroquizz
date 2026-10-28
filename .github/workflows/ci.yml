@@ -12,24 +12,24 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Shared by every job: NEXT_PUBLIC_* values are inlined at build time, so the build job and the
+# E2E jobs that start its output must see the same environment.
+env:
+  NEXT_PUBLIC_DATA_SOURCE: http
+  DEPLOYMENT_ENV: local
+  DATABASE_URL: postgresql://siroquizz:siroquizz_ci_only@localhost:5432/siroquizz
+  TEST_DATABASE_URL: postgresql://siroquizz:siroquizz_ci_only@localhost:5432/siroquizz_test
+  BETTER_AUTH_URL: http://localhost:3100
+  BETTER_AUTH_SECRET: ci-test-secret-not-for-production-0123456789
+  SMTP_HOST: 127.0.0.1
+  SMTP_PORT: 1025
+  CI: true
+
 jobs:
+  # Lint, types, unit and integration tests run once, not once per E2E shard.
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3]
-    env:
-      NEXT_PUBLIC_DATA_SOURCE: http
-      DEPLOYMENT_ENV: local
-      DATABASE_URL: postgresql://siroquizz:siroquizz_ci_only@localhost:5432/siroquizz
-      TEST_DATABASE_URL: postgresql://siroquizz:siroquizz_ci_only@localhost:5432/siroquizz_test
-      BETTER_AUTH_URL: http://localhost:3100
-      BETTER_AUTH_SECRET: ci-test-secret-not-for-production-0123456789
-      SMTP_HOST: 127.0.0.1
-      SMTP_PORT: 1025
-      CI: true
     services:
       postgres:
         image: postgres:17-alpine
@@ -59,9 +59,89 @@ jobs:
       - name: Create isolated integration database
         run: node --input-type=module -e 'import postgres from "postgres"; const db = postgres(process.env.DATABASE_URL); await db.unsafe("CREATE DATABASE siroquizz_test"); await db.end();'
       - run: pnpm test:integration --coverage
-      - run: pnpm exec playwright install --with-deps chromium
-      # Playwright's webServer command builds the production app before starting it.
+
+  # One production build, shared by the E2E shards through an artifact.
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('src/**', 'messages/**', 'public/**', 'next.config.ts', 'postcss.config.mjs') }}
+          restore-keys: |
+            next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+      - run: pnpm build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: next-build
+          # `.next` is a hidden directory; upload-artifact skips those unless told otherwise.
+          include-hidden-files: true
+          path: |
+            .next/
+            !.next/cache/
+          retention-days: 1
+
+  e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: siroquizz
+          POSTGRES_PASSWORD: siroquizz_ci_only
+          POSTGRES_DB: siroquizz
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U siroquizz -d siroquizz"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      mailpit:
+        image: axllent/mailpit:v1.27
+        ports: ["1025:1025", "8025:8025"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate
+      - uses: actions/download-artifact@v4
+        with:
+          name: next-build
+          path: .next
+      # public/vendor (OCR runtime and models) is copied from node_modules, not built.
+      - run: node scripts/copy-browser-ocr-assets.mjs
+      - name: Read Playwright version
+        id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
+      # E2E_PREBUILT makes Playwright's webServer start the downloaded build instead of building.
       - run: pnpm e2e --workers=2 --shard=${{ matrix.shard }}/3
+        env:
+          E2E_PREBUILT: "1"
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

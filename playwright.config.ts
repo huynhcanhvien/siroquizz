@@ -24,7 +24,10 @@ export default defineConfig({
     { name: "chromium", use: { ...devices["Desktop Chrome"], channel: process.env.PW_CHANNEL } },
   ],
   webServer: {
-    command: `pnpm build && pnpm start --port ${PORT}`,
+    // CI builds once and hands the output to every shard (E2E_PREBUILT=1); locally it builds.
+    command: process.env.E2E_PREBUILT
+      ? `pnpm start --port ${PORT}`
+      : `pnpm build && pnpm start --port ${PORT}`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 240_000,
