@@ -103,7 +103,7 @@ export const requireSessionTeacher = (db, userId, sessionId) => …  // 403 nế
 Mã lỗi: `DOC_TOO_LARGE`, `SESSION_CLOSED`, `SCRATCH_LIMIT`, `SCRATCH_INCOMPLETE`.
 
 ## C6. Giao thức sync (hợp đồng giữa WP4a và WP4b)
-**Trạng thái:** in-progress — server xong (fast path 1 select, không đọc state); client sync-loop đang làm
+**Trạng thái:** in-progress — server + sync-state/sync-loop (mirror, keepalive, backoff) xong; nối vào editor đang làm
 Request `POST /api/v1/writing/docs/:id/sync` body `{ sv: base64(Y.encodeStateVector(local)), update?: base64(pending đã gộp), version?: number }`.
 Server `syncDoc`:
 1. `requireDocAccess(db, userId, docId, update ? "write" : "read")`.
@@ -128,7 +128,7 @@ export function createSyncLoop(opts: { doc: Y.Doc; docId; userId; fetcher; stora
 - Client soft cap: đếm ký tự, cảnh báo ở 20.000; server cap theo byte.
 
 ## C7. Quill
-**Trạng thái:** todo
+**Trạng thái:** in-progress
 - `Editor.tsx` nạp bằng `dynamic(() => import("./Editor"), { ssr:false, loading })` trong `WritingWorkspace.tsx` ("use client"). Chỉ `Editor.tsx`, `quill-author.ts`, `lib/yjs-codec.ts`, `lib/sync-loop.ts` import `quill`/`yjs`; hooks/schemas chỉ `import type`.
 - `import "quill/dist/quill.core.css"` (không theme Snow); toolbar tự làm bằng UI kit (`Button size="icon"`, lucide Bold/Italic/Underline/Highlighter/Palette/Eraser/BookmarkPlus) gọi `quill.format(name, value, "user")`, đọc `quill.getFormat()` trên `selection-change`; màu/highlight = palette 8 màu token + "mặc định" bằng `Menu`.
 - `new Quill(el, { theme: undefined, modules: { toolbar:false, history:{ userOnly:true } }, formats:["bold","italic","underline","color","background","author","list"], placeholder })`.
