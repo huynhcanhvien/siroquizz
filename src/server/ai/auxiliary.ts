@@ -8,7 +8,7 @@ import { aiAuxUsage, user } from "../db/schema";
 import { getSet } from "../services/sets";
 import { groqJson, RateLimitError, type Usage } from "./groq";
 import { assertGlobalCapacity, tallyAuxTokens } from "./credits";
-import { issueContinuation, readContinuation } from "./aux-continuation";
+import { issueContinuation, readContinuation, workDigest } from "./aux-continuation";
 import { quotaWindow } from "./jobs";
 import { phoneticReference, verifyPhonetic } from "./phonetics";
 import { getServerEnv } from "../env";
@@ -95,7 +95,9 @@ export async function auxiliaryTask(
   const job = await selectCards(db, userId, z.enum(["phonetics", "examples"]).parse(task), input);
   // The shared key's daily budget is checked before anything is charged or sent.
   await assertGlobalCapacity(db, estimateAuxTokens(job.task, job.cards));
-  const click = job.continuation ? readContinuation(job.continuation, userId, task) : null;
+  const click = job.continuation
+    ? readContinuation(job.continuation, userId, task, workDigest(job.cards))
+    : null;
   const result = await withAuxQuota(
     db,
     userId,
@@ -104,7 +106,9 @@ export async function auxiliaryTask(
   );
   if (!result.partial) return result;
   const started = click?.started ?? Date.now();
-  const continuation = issueContinuation(userId, task, started, (click?.count ?? 0) + 1);
+  const left = new Set(result.remainingIds);
+  const rest = workDigest(job.cards.filter((card) => left.has(card.id)));
+  const continuation = issueContinuation(userId, task, started, (click?.count ?? 0) + 1, rest);
   return continuation ? { ...result, continuation } : result;
 }
 

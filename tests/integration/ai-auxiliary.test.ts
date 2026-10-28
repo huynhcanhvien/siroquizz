@@ -203,6 +203,15 @@ it("does not charge a follow-up that presents the continuation, and passes on th
     signal(),
   );
   expect(await auxCount()).toBe(3);
+  // Replayed for other cards (here the whole set) the token no longer makes the work free.
+  await auxiliaryTask(
+    db,
+    owner,
+    "examples",
+    { setId: set.id, continuation: first.continuation },
+    signal(),
+  );
+  expect(await auxCount()).toBe(4);
 });
 
 it("checks the app-wide daily token cap before calling the provider", async () => {
