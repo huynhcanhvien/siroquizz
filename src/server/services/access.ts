@@ -88,10 +88,17 @@ export const sharedToClassOf = (userId: string) =>
       and ((li.item_type = 'set' and li.item_id = ${studySets.id})
         or (li.item_type = 'folder' and exists(select 1 from folder_sets fs
           where fs.folder_id = li.item_id and fs.set_id = ${studySets.id}))))`;
-/** Edit rights the owner granted: to the person, or to every teacher of a class they teach. */
+/**
+ * Edit rights the owner granted: to the person while they still share a class with the owner
+ * (leaving or losing the class ends the grant), or to every teacher of a class they teach.
+ */
 export const collaboratorOn = (userId: string) =>
   sql`exists(select 1 from set_collaborators sc where sc.set_id = ${studySets.id} and (
-    (sc.principal_type = 'user' and sc.principal_id = ${userId})
+    (sc.principal_type = 'user' and sc.principal_id = ${userId}
+      and exists(select 1 from class_members mine
+        inner join class_members theirs on theirs.class_id = mine.class_id
+          and theirs.user_id = ${studySets.ownerId}
+        where mine.user_id = ${userId}))
     or (sc.principal_type = 'class_teachers' and exists(select 1 from class_members cm
       where cm.class_id::text = sc.principal_id and cm.user_id = ${userId}
         and cm.role in ('owner', 'teacher')))))`;

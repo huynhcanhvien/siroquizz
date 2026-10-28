@@ -322,6 +322,28 @@ describe("review hardening", () => {
     expect(after.moderationStatus).toBe("none");
   });
 
+  it("keeps a flagged verdict on a public set a collaborator edits", async () => {
+    const { set } = await sharedSet();
+    await grantCollaborator(db, an, set.id, { principalType: "user", principalId: bao });
+    await db
+      .update(schema.studySets)
+      .set({ visibility: "public", moderationStatus: "flagged", moderationReason: "spam" })
+      .where(eq(schema.studySets.id, set.id));
+    await updateSet(db, bao, set.id, { ...set, title: "Edited by Bảo", cards: set.cards });
+    const [row] = await db.select().from(schema.studySets).where(eq(schema.studySets.id, set.id));
+    expect(row).toMatchObject({ moderationStatus: "flagged", moderationReason: "spam" });
+  });
+
+  it("ends a personal edit grant once the collaborator no longer shares a class", async () => {
+    const { klass, set } = await sharedSet();
+    await grantCollaborator(db, an, set.id, { principalType: "user", principalId: bao });
+    expect((await getSet(db, bao, set.id)).access?.canEdit).toBe(true);
+    await leaveClass(db, bao, klass.id);
+    await expect(
+      updateSet(db, bao, set.id, { ...set, title: "After leaving", cards: set.cards }),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
   it("drops a banned owner's shared cards from the review queue", async () => {
     const { set } = await sharedSet();
     await db.insert(schema.cardProgress).values({

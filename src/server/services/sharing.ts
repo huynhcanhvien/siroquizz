@@ -80,12 +80,18 @@ export async function markEdited(db: Database, setId: string, { byOwner = true }
   const [set] = await db
     .update(studySets)
     .set({
-      moderationStatus: sql`case when ${studySets.visibility} = 'public' then 'pending'::moderation_status when ${keepVerdict} then ${studySets.moderationStatus} else 'none'::moderation_status end`,
-      moderationReason: null,
+      // keepVerdict is tested first: a collaborator must not reopen a flagged public link either.
+      moderationStatus: sql`case when ${keepVerdict} then ${studySets.moderationStatus} when ${studySets.visibility} = 'public' then 'pending'::moderation_status else 'none'::moderation_status end`,
+      moderationReason: sql`case when ${keepVerdict} then ${studySets.moderationReason} else null end`,
     })
     .where(eq(studySets.id, setId))
-    .returning({ ownerId: studySets.ownerId, visibility: studySets.visibility });
-  if (set?.visibility === "public") await moderateThrottled(db, set.ownerId, setId);
+    .returning({
+      ownerId: studySets.ownerId,
+      visibility: studySets.visibility,
+      moderationStatus: studySets.moderationStatus,
+    });
+  if (set?.visibility === "public" && set.moderationStatus === "pending")
+    await moderateThrottled(db, set.ownerId, setId);
 }
 
 // Each check uses the shared safeguard model (2,000 tokens a minute); beyond this a set waits
