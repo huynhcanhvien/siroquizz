@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  customType,
   index,
   integer,
   doublePrecision,
@@ -699,4 +700,78 @@ export const setChangeRequests = pgTable(
     index("change_requests_set_status_idx").on(t.setId, t.status, t.createdAt),
     index("change_requests_author_idx").on(t.authorId, t.createdAt),
   ],
+);
+
+// WP4: live writing sessions and scratch cards (plan/class-collab-writing/C-writing.md).
+/** Raw bytes; drizzle has no built-in bytea. Used for Yjs document state. */
+const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
+  dataType: () => "bytea",
+  toDriver: (value) => Buffer.from(value),
+  fromDriver: (value) => new Uint8Array(value),
+});
+export const writingSessionStatus = pgEnum("writing_session_status", ["draft", "open", "closed"]);
+export const writingPeerVisibility = pgEnum("writing_peer_visibility", ["hidden", "open"]);
+/** A writing assignment for a class; each student writes one document in it. */
+export const writingSessions = pgTable(
+  "writing_sessions",
+  {
+    id: uuid("id").primaryKey(),
+    classId: uuid("class_id")
+      .notNull()
+      .references(() => classes.id, { onDelete: "cascade" }),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    title: varchar("title", { length: 120 }).notNull(),
+    prompt: text("prompt").notNull().default(""),
+    status: writingSessionStatus("status").notNull().default("draft"),
+    peerVisibility: writingPeerVisibility("peer_visibility").notNull().default("hidden"),
+    peerEditing: boolean("peer_editing").notNull().default(false),
+    openedAt: time("opened_at"),
+    closedAt: time("closed_at"),
+    ...timestamps,
+  },
+  (t) => [
+    index("writing_sessions_class_idx").on(t.classId, t.createdAt),
+    index("writing_sessions_closed_idx").on(t.status, t.closedAt),
+  ],
+);
+/** One author's document in a session, stored as a compacted Yjs update. */
+export const writingDocs = pgTable(
+  "writing_docs",
+  {
+    id: uuid("id").primaryKey(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => writingSessions.id, { onDelete: "cascade" }),
+    authorId: text("author_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    // Null until the first sync; Y.encodeStateAsUpdate of the whole document.
+    state: bytea("state"),
+    version: integer("version").notNull().default(0),
+    textPreview: varchar("text_preview", { length: 300 }).notNull().default(""),
+    charCount: integer("char_count").notNull().default(0),
+    lastEditorId: text("last_editor_id").references(() => user.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("writing_docs_author_idx").on(t.sessionId, t.authorId),
+    index("writing_docs_session_updated_idx").on(t.sessionId, t.updatedAt),
+  ],
+);
+/** Words saved while writing, kept until the person turns them into a set. */
+export const scratchCards = pgTable(
+  "scratch_cards",
+  {
+    id: uuid("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    term: varchar("term", { length: 1000 }).notNull(),
+    definition: varchar("definition", { length: 1000 }).notNull().default(""),
+    phonetic: varchar("phonetic", { length: 200 }),
+    example: varchar("example", { length: 1000 }),
+    sourceDocId: uuid("source_doc_id").references(() => writingDocs.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [index("scratch_cards_user_idx").on(t.userId, t.createdAt)],
 );

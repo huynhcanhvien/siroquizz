@@ -21,7 +21,7 @@ Giáo viên tạo "phiên" viết bài cho lớp; giáo viên xem live học sin
 - `next.config.ts`: `serverExternalPackages: ["yjs"]` (tránh 2 bản Yjs ESM/CJS trong server bundle). Xác minh `Quill.import("parchment")` trả `ClassAttributor`/`Scope`, và `formats` whitelist trong constructor nhận attributor tuỳ biến.
 
 ## C2. Schema (migration M3) — thêm cuối `src/server/db/schema.ts`
-**Trạng thái:** todo
+**Trạng thái:** done — migration 0019 (WP4, đánh số lại sau khi rebase lên WP1+WP3); hằng số ở src/features/writing/lib/limits.ts
 ```ts
 import { customType } from "drizzle-orm/pg-core";
 const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({ dataType: () => "bytea", toDriver: (v) => Buffer.from(v), fromDriver: (v) => new Uint8Array(v) });
