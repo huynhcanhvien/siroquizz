@@ -100,6 +100,9 @@ beforeEach(async () => {
   queue.slots = 20;
   queue.globalTokens = 350_000;
 });
+/** The job's full row, for checks beyond what requireJob returns. */
+const jobRow = async (id: string) =>
+  (await db.select().from(schema.aiJobs).where(eq(schema.aiJobs.id, id)))[0];
 /** Today's free credits left for a user. */
 const daily = async (userId: string) => (await getQuota(db, userId)).dailyRemaining;
 /** A job that already used `credits` of today's free credits. */
@@ -454,7 +457,7 @@ it("corrects Chinese transcriptions before generated cards are finalized", async
   });
   const result = await runToEnd(db, a, job.jobId);
   expect(result.status).toBe("done");
-  expect((await requireJob(db, a, job.jobId)).result).toMatchObject({
+  expect((await jobRow(job.jobId)).result).toMatchObject({
     cards: [
       { term: "学习", phonetic: "xué xí" },
       { term: "谢谢", phonetic: "xiè xie" },
@@ -543,7 +546,7 @@ it("recovers the lease of a step that died and ignores its late writes", async (
   expect(final.status).toBe("done");
   release();
   await expect(stale).resolves.toMatchObject({ status: "done" });
-  const saved = await requireJob(db, a, job.jobId);
+  const saved = await jobRow(job.jobId);
   expect(saved.status).toBe("done");
   expect(saved.stepLease).toBeNull();
   expect(final.result?.cards).toHaveLength(2);
@@ -574,7 +577,7 @@ it("asks before an expensive generation and reserves what the user accepts", asy
     status: "awaiting",
   });
   await confirmJob(db, a, job.jobId, { cardCount: 40 });
-  const saved = await requireJob(db, a, job.jobId);
+  const saved = await jobRow(job.jobId);
   expect(saved.status).toBe("queued");
   expect(saved.creditsReserved).toBeLessThan(step.estimate!.credits);
   expect((saved.options as { cardCount: number }).cardCount).toBe(40);

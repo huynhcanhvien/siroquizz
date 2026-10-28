@@ -61,7 +61,7 @@
 - **Test:** unit `plan-requests.test.ts` (40 chunk/10 thẻ → ≤ 13 request; 3 chunk/50 thẻ → 3 request; tổng thẻ = yêu cầu); `pnpm ai:eval` không giảm chất lượng (so `evals/ai-generation/latest-report.json`).
 
 ### A10. State job lưu văn bản 2 lần, đọc/ghi toàn bộ mỗi step
-**Trạng thái:** todo
+**Trạng thái:** done — requireJob chỉ trả {id,status}; state chỉ đọc khi step thật sự chạy (poll queued không đọc state); currentResult chỉ lấy state khi awaiting, result khi done
 - **Vấn đề:** `job-steps.ts:256-276` giữ `state.texts` sau khi có `state.chunks` (~0.5–0.6 MB jsonb cho 100k token); `jobs.ts:141-151` (`requireJob`), `273-287` (`acquireLease` `.returning()`), `155-173` (`listJobs`, chạy mỗi lần mở app qua `ResumeAiJob`) đều select cả `state`; job queued poll 3s đọc ~1.2 MB mỗi lần; job cancel/fail giữ state 24h.
 - **Sửa:** xoá `texts` khi đã có `chunks`; `requireJob`/`acquireLease`/`listJobs`/`currentResult` select đúng cột (`listJobs` không trả `state`); `state = null` khi `failed`/`cancelled`.
 - **Test:** integration: sau `extractStep` không còn `texts`; `listJobs` payload không có `state`.

@@ -73,7 +73,18 @@ export type StepResult = {
   creditsCharged?: number;
   refunded?: boolean;
 };
-export type Job = typeof aiJobs.$inferSelect;
+/** What a step needs to know about its job; the state is loaded separately (see loadState). */
+export const stepJobColumns = {
+  id: aiJobs.id,
+  status: aiJobs.status,
+  prompt: aiJobs.prompt,
+  options: aiJobs.options,
+  uploadIds: aiJobs.uploadIds,
+};
+export type Job = Pick<
+  typeof aiJobs.$inferSelect,
+  "id" | "status" | "prompt" | "options" | "uploadIds"
+>;
 type Upload = typeof aiUploads.$inferSelect;
 export type Owned = ReturnType<typeof and>;
 export interface StepContext {
@@ -259,6 +270,7 @@ async function planGeneration(ctx: StepContext, hasFiles: boolean): Promise<Step
   const parsed = parseAutoDetected(text);
   if (!job.prompt && hasFiles && parsed.cards.length >= 2 && parsed.invalidLines.length === 0) {
     state.imported = true;
+    state.texts = [];
     state.rawCards = parsed.cards.map((card) => ({
       term: card.term,
       definition: card.definition,
@@ -271,6 +283,8 @@ async function planGeneration(ctx: StepContext, hasFiles: boolean): Promise<Step
   const { cardCount } = generationOptionsSchema.parse(job.options);
   state.chunks = planChunks(text, cardCount);
   state.chunkTokens = state.chunks.map(estimateTokens);
+  // The chunks hold the whole text; keeping both would double the state every step reads.
+  state.texts = [];
   state.chunkIndex = 0;
   state.tasks = planTasks(state.chunkTokens, cardCount);
   state.totalTasks = state.tasks.length;
@@ -477,6 +491,7 @@ export async function failJob(
         .set({
           status: "error",
           errorCode: code,
+          state: null,
           finishedAt: new Date(),
           ...(state
             ? {

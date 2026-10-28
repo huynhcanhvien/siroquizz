@@ -8,10 +8,18 @@ import * as schema from "@/server/db/schema";
 import type { Database } from "@/server/db/client";
 import type { AiJobState } from "@/features/ai-generate/schemas";
 import { estimateTokens } from "@/features/ai-generate/lib/output";
-import { createJob, stepJob, type StepResult } from "@/server/ai/jobs";
+import {
+  cancelJob,
+  confirmJob,
+  createJob,
+  listJobs,
+  stepJob,
+  type StepResult,
+} from "@/server/ai/jobs";
 
 const provider = vi.hoisted(() => vi.fn());
 const files = vi.hoisted(() => new Map<string, Buffer>());
+const queue = vi.hoisted(() => ({ slots: 20 }));
 vi.mock("@/server/ai/groq", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/ai/groq")>()),
   groqJson: provider,
@@ -24,7 +32,7 @@ vi.mock("@/server/env", () => ({
     AI_ENABLED: "true",
     GROQ_TEXT_MODEL: "openai/gpt-oss-120b",
     GROQ_FALLBACK_MODEL: "openai/gpt-oss-20b",
-    AI_MAX_ACTIVE_JOBS: 20,
+    AI_MAX_ACTIVE_JOBS: queue.slots,
     AI_GLOBAL_DAILY_TOKENS: 10_000_000,
   }),
 }));
@@ -32,9 +40,24 @@ const url =
   process.env.TEST_DATABASE_URL ??
   "postgresql://siroquizz:siroquizz_local_only@localhost:5433/siroquizz_test";
 if (!new URL(url).pathname.endsWith("_test")) throw new Error("Test DB required");
+const queries: string[] = [];
 const connection = postgres(url, { max: 3 }),
-  db = drizzle(connection, { schema }) as Database,
+  db = drizzle(connection, {
+    schema,
+    logger: { logQuery: (query) => void queries.push(query) },
+  }) as Database,
   owner = v7();
+/** SQL statements run by `action` that read or return the job's state column. */
+async function stateQueries(action: () => Promise<unknown>) {
+  queries.length = 0;
+  await action();
+  return queries.filter((query) => {
+    // Writing the state is fine; reading it back (a select, or an update's returning) is the cost.
+    if (!query.startsWith("update")) return query.includes('"state"');
+    const returning = query.indexOf(" returning ");
+    return returning >= 0 && query.slice(returning).includes('"state"');
+  });
+}
 const options = { cardCount: 5, termLang: "en", definitionLang: "vi", includePhonetic: false };
 const usage = { input: 100, output: 100, cached: 0, cost: 0.0001 };
 let counter = 0;
@@ -86,6 +109,7 @@ beforeEach(async () => {
     .insert(schema.user)
     .values({ id: owner, name: "Owner", email: "pipeline@example.com", emailVerified: true });
   files.clear();
+  queue.slots = 20;
   provider.mockReset().mockImplementation(freshCards);
 });
 afterAll(() => connection.end());
@@ -102,8 +126,44 @@ it("reads a long document asked for few cards in fewer, larger requests", async 
   expect(state.chunks!.join("")).toBe(text);
   expect(Math.max(...state.chunks!.map(estimateTokens))).toBeLessThanOrEqual(6500);
   expect(state.tasks).toHaveLength(state.chunks!.length);
+  // The extracted text is not kept twice once it has been chunked.
+  expect(state.texts).toEqual([]);
   const done = await runToEnd(jobId);
   expect(done).toMatchObject({ status: "done" });
   expect(done.result?.cards).toHaveLength(5);
   expect(provider).toHaveBeenCalledTimes(state.chunks!.length);
+});
+
+it("lists jobs and polls a queued job without reading the job state", async () => {
+  const uploadId = await upload("notes.txt", "text/plain", Buffer.from(longText(30_000)));
+  const { jobId } = await createJob(db, owner, {
+    prompt: "Cards",
+    options: { ...options, cardCount: 60 },
+    uploadIds: [uploadId],
+  });
+  expect((await stepJob(db, owner, jobId, new AbortController().signal)).status).toBe("awaiting");
+  await confirmJob(db, owner, jobId, {});
+  expect((await jobState(jobId))?.chunks?.length).toBeGreaterThan(5);
+  // Every slot is taken: the browser keeps polling while the job waits in the queue.
+  queue.slots = 0;
+  let polled: StepResult | undefined;
+  const reads = await stateQueries(async () => {
+    polled = await stepJob(db, owner, jobId, new AbortController().signal);
+  });
+  expect(polled).toMatchObject({ status: "queued", queuePosition: 1 });
+  expect(reads).toEqual([]);
+  const listed = await stateQueries(() => listJobs(db, owner));
+  expect(listed).toEqual([]);
+  expect(Object.keys((await listJobs(db, owner))[0])).not.toContain("state");
+});
+
+it("drops the saved state of cancelled and failed jobs", async () => {
+  const cancelled = await createJob(db, owner, { prompt: "Cards", options, uploadIds: [] });
+  await stepJob(db, owner, cancelled.jobId, new AbortController().signal);
+  await cancelJob(db, owner, cancelled.jobId);
+  expect(await jobState(cancelled.jobId)).toBeNull();
+  provider.mockRejectedValue(new Error("boom"));
+  const failed = await createJob(db, owner, { prompt: "Cards", options, uploadIds: [] });
+  await expect(runToEnd(failed.jobId)).resolves.toMatchObject({ status: "error" });
+  expect(await jobState(failed.jobId)).toBeNull();
 });
