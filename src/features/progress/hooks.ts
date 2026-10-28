@@ -14,11 +14,12 @@ export const progressKeys = {
   activity: ["activity"] as const,
 };
 
-export function useSetProgress(setId: string) {
+export function useSetProgress(setId: string, { enabled = true }: { enabled?: boolean } = {}) {
   const { progress } = useRepositories();
   return useQuery({
     queryKey: progressKeys.set(setId),
     queryFn: () => progress.getSetProgress(setId),
+    enabled,
   });
 }
 

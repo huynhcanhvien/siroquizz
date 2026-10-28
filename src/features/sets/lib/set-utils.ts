@@ -1,5 +1,5 @@
 import { foldForSearch } from "@/lib/normalize";
-import type { Card, CardProgress, CardStatus, SetSource, StudySet } from "@/lib/types";
+import type { CardProgress, CardStatus, SetSource, StudySet } from "@/lib/types";
 
 export type LibrarySort = "recent" | "title" | "cards";
 export type LibrarySourceFilter = SetSource | "all";
@@ -13,7 +13,7 @@ export interface LibraryFilter {
 const SORTERS: Record<LibrarySort, (a: StudySet, b: StudySet) => number> = {
   recent: (a, b) => b.updatedAt.localeCompare(a.updatedAt),
   title: (a, b) => a.title.localeCompare(b.title),
-  cards: (a, b) => b.cards.length - a.cards.length,
+  cards: (a, b) => b.cardCount - a.cardCount,
 };
 
 export function filterAndSortSets(sets: readonly StudySet[], filter: LibraryFilter): StudySet[] {
@@ -42,14 +42,23 @@ export function moveItem<T>(items: readonly T[], index: number, offset: -1 | 1):
 }
 
 export type ProgressSummary = Record<CardStatus, number> & { total: number };
+export interface ProgressCounts {
+  known: number;
+  learning: number;
+}
 
-export function summarizeProgress(cards: readonly Card[], progress: readonly CardProgress[]): ProgressSummary {
-  const statusByCard = new Map(progress.map((item) => [item.cardId, item.status]));
-  return cards.reduce<ProgressSummary>(
-    (summary, card) => {
-      const status = statusByCard.get(card.id) ?? "new";
-      return { ...summary, [status]: summary[status] + 1 };
-    },
-    { known: 0, learning: 0, new: 0, total: cards.length },
+/** Counts known/learning rows, ignoring progress left on cards outside `cardIds` when given. */
+export function countProgress(progress: readonly CardProgress[], cardIds?: ReadonlySet<string>): ProgressCounts {
+  return progress.reduce<ProgressCounts>(
+    (counts, item) =>
+      item.status === "new" || (cardIds && !cardIds.has(item.cardId))
+        ? counts
+        : { ...counts, [item.status]: counts[item.status] + 1 },
+    { known: 0, learning: 0 },
   );
+}
+
+/** Every card without a known/learning status is new; listings send counts, not cards. */
+export function summarizeProgress(cardCount: number, counts: ProgressCounts): ProgressSummary {
+  return { ...counts, new: Math.max(0, cardCount - counts.known - counts.learning), total: cardCount };
 }

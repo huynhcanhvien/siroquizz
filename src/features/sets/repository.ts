@@ -65,6 +65,7 @@ export function createLocalSetRepository({ storage, getUserId }: LocalSetDeps): 
       id: createId(),
       ownerId,
       cards: toCards(data.cards, new Set()),
+      cardCount: data.cards.length,
       createdAt: timestamp,
       updatedAt: timestamp,
     };
@@ -94,6 +95,7 @@ export function createLocalSetRepository({ storage, getUserId }: LocalSetDeps): 
         ...existing,
         ...data,
         cards: toCards(data.cards, existingIds),
+        cardCount: data.cards.length,
         updatedAt: nowIso(),
       };
       replace(updated);

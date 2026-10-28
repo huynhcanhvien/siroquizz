@@ -17,7 +17,7 @@
 - **Test:** migration chạy trên DB test; `EXPLAIN` xoá 1 bộ 500 thẻ dùng index (ghi số liệu vào `specs/state.md`).
 
 ### A3. Thư viện/Home/Lớp tải toàn bộ thẻ của mọi bộ
-**Trạng thái:** todo
+**Trạng thái:** done — thêm `countProgress`, `summarizeProgress(cardCount, counts)`; Home dùng `set.progress` từ listing (không refetch theo vuốt)
 - **Vấn đề:** `listSets` (`src/server/services/sets.ts:259-271`) join toàn bộ thẻ cho 50 bộ/trang; client `collectPages` (`src/lib/http-client.ts:116-139`) tới 20 trang. Màn hình chỉ cần `cards.length` (`SetCard.tsx:45`, `HomeDashboard.tsx:105`, `set-utils.ts:16`) và tiến độ theo bộ (`HomeDashboard.tsx:82-101` `summarizeProgress(set.cards, progress)`). Dùng bởi `LibraryView.tsx:65`, `HomeDashboard.tsx:127`, `ClassView.tsx:113`.
 - **Sửa:** `listSets` trả `cards: []`, `cardCount` (cột có sẵn) và `progress: { known: number; learning: number }` của viewer (subquery như `assignedToMe` ở `classes.ts:291`). Thêm `cardCount: number` vào `studySetSchema` (`src/features/sets/schemas.ts:79-95`) và `StudySet` (`src/lib/types.ts`); `getSet` và local repository đặt `cardCount = cards.length`. `summarizeProgress` nhận `cardCount` thay vì `cards`. `set-utils.ts:16` sort theo `cardCount`. `useSets()` giữ key `["sets"]`.
 - **Test:** integration `listSets` không trả thẻ, `cardCount`/`progress` đúng; unit `summarizeProgress`, `set-utils`; test component hiện có vẫn xanh.

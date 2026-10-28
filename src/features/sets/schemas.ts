@@ -76,23 +76,31 @@ export const setSharingSchema = z.object({
   moderationReason: z.string().nullable(),
   hidden: z.boolean(),
 });
-export const studySetSchema = z.object({
-  id: z.string().min(1),
-  ownerId: z.string().min(1),
-  title: z.string(),
-  description: z.string(),
-  termLang: z.enum(CONTENT_LANGUAGES),
-  definitionLang: z.enum(CONTENT_LANGUAGES),
-  cards: z.array(cardSchema),
-  source: z.enum(SET_SOURCES),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  sharing: setSharingSchema.optional(),
-  copiedFrom: z
-    .object({ title: z.string(), slug: z.string().nullable(), authorName: z.string() })
-    .nullable()
-    .optional(),
-});
+export const studySetSchema = z
+  .object({
+    id: z.string().min(1),
+    ownerId: z.string().min(1),
+    title: z.string(),
+    description: z.string(),
+    termLang: z.enum(CONTENT_LANGUAGES),
+    definitionLang: z.enum(CONTENT_LANGUAGES),
+    /** Empty in listings, which send `cardCount` and the viewer's `progress` instead. */
+    cards: z.array(cardSchema),
+    // Sets saved in the browser before listings dropped cards have no count: derive it.
+    cardCount: z.number().int().min(0).optional(),
+    progress: z
+      .object({ known: z.number().int().min(0), learning: z.number().int().min(0) })
+      .optional(),
+    source: z.enum(SET_SOURCES),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+    sharing: setSharingSchema.optional(),
+    copiedFrom: z
+      .object({ title: z.string(), slug: z.string().nullable(), authorName: z.string() })
+      .nullable()
+      .optional(),
+  })
+  .transform((set) => ({ ...set, cardCount: set.cardCount ?? set.cards.length }));
 
 /** Editor rows that are completely empty are ignored, like Quizlet does. */
 export function dropBlankRows<T extends { term: string; definition: string; phonetic?: string }>(

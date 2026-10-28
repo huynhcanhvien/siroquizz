@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CardProgress, StudySet } from "@/lib/types";
-import { filterAndSortSets, isBlankCardRow, moveItem, summarizeProgress, swapSides } from "./set-utils";
+import { countProgress, filterAndSortSets, isBlankCardRow, moveItem, summarizeProgress, swapSides } from "./set-utils";
 
 function makeSet(overrides: Partial<StudySet>): StudySet {
   return {
@@ -11,6 +11,7 @@ function makeSet(overrides: Partial<StudySet>): StudySet {
     termLang: "en",
     definitionLang: "vi",
     cards: [],
+    cardCount: overrides.cards?.length ?? 0,
     source: "manual",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
@@ -37,6 +38,11 @@ describe("filterAndSortSets", () => {
 
   it("filters by source", () => {
     expect(filterAndSortSets(sets, { query: "", source: "ai", sort: "recent" }).map((s) => s.id)).toEqual(["2"]);
+  });
+
+  it("sorts by card count even when a listing carries no cards", () => {
+    const listed = [makeSet({ id: "few", cardCount: 3 }), makeSet({ id: "many", cardCount: 40 })];
+    expect(filterAndSortSets(listed, { query: "", source: "all", sort: "cards" }).map((s) => s.id)).toEqual(["many", "few"]);
   });
 
   it("sorts by title and by card count", () => {
@@ -79,17 +85,24 @@ describe("moveItem", () => {
 });
 
 describe("summarizeProgress", () => {
+  const progress: CardProgress[] = [
+    { userId: "u", setId: "s", cardId: "a", status: "known", updatedAt: "" },
+    { userId: "u", setId: "s", cardId: "b", status: "learning", updatedAt: "" },
+    { userId: "u", setId: "s", cardId: "c", status: "new", updatedAt: "" },
+    { userId: "u", setId: "s", cardId: "gone", status: "known", updatedAt: "" },
+  ];
+
   it("counts statuses only for cards that still exist", () => {
-    const progress: CardProgress[] = [
-      { userId: "u", setId: "s", cardId: "a", status: "known", updatedAt: "" },
-      { userId: "u", setId: "s", cardId: "b", status: "learning", updatedAt: "" },
-      { userId: "u", setId: "s", cardId: "gone", status: "known", updatedAt: "" },
-    ];
-    expect(summarizeProgress([card("a"), card("b"), card("c")], progress)).toEqual({
-      known: 1,
-      learning: 1,
-      new: 1,
-      total: 3,
-    });
+    const counts = countProgress(progress, new Set(["a", "b", "c"]));
+    expect(summarizeProgress(3, counts)).toEqual({ known: 1, learning: 1, new: 1, total: 3 });
+  });
+
+  it("counts every row when no card list is given", () => {
+    expect(countProgress(progress)).toEqual({ known: 2, learning: 1 });
+  });
+
+  it("builds the summary from a card count and server-side counts", () => {
+    expect(summarizeProgress(10, { known: 4, learning: 2 })).toEqual({ known: 4, learning: 2, new: 4, total: 10 });
+    expect(summarizeProgress(2, { known: 3, learning: 0 })).toEqual({ known: 3, learning: 0, new: 0, total: 2 });
   });
 });

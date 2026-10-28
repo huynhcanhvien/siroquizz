@@ -194,6 +194,7 @@ export async function folderStudySet(db: Database, userId: string, id: string): 
       ...(card.phonetic ? { phonetic: card.phonetic } : {}),
       ...(image ? { imageUrl: `/api/v1/images/${image.id}`, imageAlt: image.alt } : {}),
     })),
+    cardCount: rows.length,
     createdAt: now,
     updatedAt: now,
   };

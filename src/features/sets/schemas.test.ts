@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dropBlankRows, editorSchema, setInputSchema } from "./schemas";
+import { dropBlankRows, editorSchema, setInputSchema, studySetSchema } from "./schemas";
 
 const baseInput = {
   title: "  Từ vựng IELTS ",
@@ -89,5 +89,37 @@ describe("editorSchema", () => {
   it("flags overly long fields", () => {
     const result = editorSchema.safeParse({ ...base, cards: [row("a".repeat(1001), "b"), row("c", "d")] });
     expect(result.error?.issues[0]).toMatchObject({ path: ["cards", 0, "term"], message: "fieldTooLong" });
+  });
+});
+
+describe("studySetSchema", () => {
+  const stored = {
+    id: "s",
+    ownerId: "u",
+    title: "Saved before counts",
+    description: "",
+    termLang: "en",
+    definitionLang: "vi",
+    cards: [
+      { id: "a", term: "a", definition: "a" },
+      { id: "b", term: "b", definition: "b" },
+    ],
+    source: "manual",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  };
+
+  it("derives the card count for sets stored without one", () => {
+    expect(studySetSchema.parse(stored).cardCount).toBe(2);
+  });
+
+  it("keeps a listing's count and progress although it carries no cards", () => {
+    const listed = studySetSchema.parse({
+      ...stored,
+      cards: [],
+      cardCount: 40,
+      progress: { known: 3, learning: 1 },
+    });
+    expect(listed).toMatchObject({ cards: [], cardCount: 40, progress: { known: 3, learning: 1 } });
   });
 });

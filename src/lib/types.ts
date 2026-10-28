@@ -52,7 +52,11 @@ export interface StudySet {
   description: string;
   termLang: LangCode;
   definitionLang: LangCode;
+  /** Empty in listings, which carry `cardCount` and the viewer's `progress` instead. */
   cards: Card[];
+  cardCount: number;
+  /** The viewer's known/learning counts, sent with listings. */
+  progress?: { known: number; learning: number };
   source: SetSource;
   createdAt: string;
   updatedAt: string;

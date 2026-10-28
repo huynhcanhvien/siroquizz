@@ -22,6 +22,7 @@ const set: StudySet = {
   source: "manual",
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
+  cardCount: 4,
   cards: [
     { id: "c1", term: "apple", definition: "quả táo" },
     { id: "c2", term: "pear", definition: "quả lê" },

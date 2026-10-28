@@ -21,6 +21,7 @@ const set: StudySet = {
   createdAt: "2026-10-04T00:00:00Z",
   updatedAt: "2026-10-04T00:00:00Z",
   cards: input.cards.map((card, i) => ({ ...card, id: `card-${i}` })),
+  cardCount: input.cards.length,
 };
 const ok = (data: unknown, meta?: unknown) => Response.json({ success: true, data, meta });
 

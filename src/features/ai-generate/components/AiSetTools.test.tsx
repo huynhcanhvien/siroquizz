@@ -22,6 +22,7 @@ const set: StudySet = {
   source: "manual",
   createdAt: "",
   updatedAt: "",
+  cardCount: 2,
   cards: [
     { id: "one", term: "学习", definition: "học tập", phonetic: "old" },
     { id: "two", term: "谢谢", definition: "cảm ơn", phonetic: "xiè xie" },

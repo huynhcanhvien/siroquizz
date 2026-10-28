@@ -12,6 +12,7 @@ import { clawbackSetCredits } from "../ai/credits";
 import { buildSearchText } from "@/features/community/lib/search";
 import {
   cards,
+  cardProgress,
   studySets,
   user,
   testResults,
@@ -45,6 +46,17 @@ export async function requireOwnedSet(db: Db, ownerId: string, id: string, lock 
   if (!set) throw new ApiError(404, "NOT_FOUND");
   return set;
 }
+type CardRow = typeof cards.$inferSelect;
+type ImageRow = typeof cardImages.$inferSelect;
+/** The card fields clients see, with the image served through the access-checked route. */
+export const toCardDto = ({ card, image }: { card: CardRow; image: ImageRow | null }) => ({
+  id: card.id,
+  term: card.term,
+  definition: card.definition,
+  ...(card.phonetic ? { phonetic: card.phonetic } : {}),
+  ...(card.example ? { example: card.example } : {}),
+  ...(image ? { imageUrl: `/api/v1/images/${image.id}`, imageAlt: image.alt } : {}),
+});
 /** A set for studying: the viewer's own, or one assigned to their class (read-only for them). */
 export async function getSet(db: Db, viewerId: string, id: string): Promise<StudySet> {
   const set = await requireStudySet(db, viewerId, id);
@@ -65,14 +77,8 @@ export async function getSet(db: Db, viewerId: string, id: string): Promise<Stud
       : {}),
     termLang: set.termLang as StudySet["termLang"],
     definitionLang: set.definitionLang as StudySet["definitionLang"],
-    cards: rows.map(({ card: c, image }) => ({
-      id: c.id,
-      term: c.term,
-      definition: c.definition,
-      ...(c.phonetic ? { phonetic: c.phonetic } : {}),
-      ...(c.example ? { example: c.example } : {}),
-      ...(image ? { imageUrl: `/api/v1/images/${image.id}`, imageAlt: image.alt } : {}),
-    })),
+    cards: rows.map(toCardDto),
+    cardCount: rows.length,
     createdAt: set.createdAt.toISOString(),
     updatedAt: set.updatedAt.toISOString(),
   };
@@ -256,44 +262,41 @@ export async function listSets(db: Database, ownerId: string, query: URLSearchPa
           }),
         ).toString("base64url")
       : null;
-  const cardRows = page.length
-    ? await db
-        .select({ card: cards, image: cardImages })
-        .from(cards)
-        .leftJoin(cardImages, eq(cardImages.cardId, cards.id))
-        .where(
-          inArray(
-            cards.setId,
-            page.map((set) => set.id),
-          ),
-        )
-        .orderBy(asc(cards.position))
-    : [];
-  const cardsBySet = new Map<string, StudySet["cards"]>();
-  for (const { card, image } of cardRows) {
-    const setCards = cardsBySet.get(card.setId) ?? [];
-    setCards.push({
-      id: card.id,
-      term: card.term,
-      definition: card.definition,
-      ...(card.phonetic ? { phonetic: card.phonetic } : {}),
-      ...(card.example ? { example: card.example } : {}),
-      ...(image ? { imageUrl: `/api/v1/images/${image.id}`, imageAlt: image.alt } : {}),
-    });
-    cardsBySet.set(card.setId, setCards);
-  }
+  const progress = await progressCounts(
+    db,
+    ownerId,
+    page.map((set) => set.id),
+  );
   return {
     data: page.map((set): StudySet => ({
       ...publicFields(set),
       sharing: sharingOf(set),
       termLang: set.termLang as StudySet["termLang"],
       definitionLang: set.definitionLang as StudySet["definitionLang"],
-      cards: cardsBySet.get(set.id) ?? [],
+      // Library cards show only counts; the deck loads with the set itself.
+      cards: [],
+      cardCount: set.cardCount,
+      progress: progress.get(set.id) ?? { known: 0, learning: 0 },
       createdAt: set.createdAt.toISOString(),
       updatedAt: set.updatedAt.toISOString(),
     })),
     meta: { nextCursor },
   };
+}
+
+/** The viewer's known/learning card counts for each listed set, in one grouped query. */
+async function progressCounts(db: Db, userId: string, setIds: string[]) {
+  if (!setIds.length) return new Map<string, { known: number; learning: number }>();
+  const rows = await db
+    .select({
+      setId: cardProgress.setId,
+      known: sql<number>`(count(*) filter (where ${cardProgress.status} = 'known'))::int`,
+      learning: sql<number>`(count(*) filter (where ${cardProgress.status} = 'learning'))::int`,
+    })
+    .from(cardProgress)
+    .where(and(eq(cardProgress.userId, userId), inArray(cardProgress.setId, setIds)))
+    .groupBy(cardProgress.setId);
+  return new Map(rows.map(({ setId, known, learning }) => [setId, { known, learning }]));
 }
 
 /**

@@ -42,7 +42,7 @@ export function SetCard({ set, className, footer }: SetCardProps) {
     >
       <div className="flex items-center gap-2">
         <span className="rounded-full bg-surface-3 px-2.5 py-0.5 text-xs font-bold text-muted">
-          {t("common.cards", { count: set.cards.length })}
+          {t("common.cards", { count: set.cardCount })}
         </span>
         <SourceBadge source={set.source} />
       </div>

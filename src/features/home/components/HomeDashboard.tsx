@@ -11,7 +11,7 @@ import { QueryError } from "@/components/ui/QueryState";
 import { useRecentActivity, useSetProgress } from "@/features/progress/hooks";
 import { useSets } from "@/features/sets/hooks";
 import { SetCard } from "@/features/sets/components/SetCard";
-import { summarizeProgress } from "@/features/sets/lib/set-utils";
+import { countProgress, summarizeProgress } from "@/features/sets/lib/set-utils";
 import { useClientValue } from "@/lib/client-hooks";
 import { cn } from "@/lib/cn";
 import type { StudySet, User } from "@/lib/types";
@@ -81,8 +81,10 @@ function QuickCreate() {
 
 function ContinueCard({ set }: { set: StudySet }) {
   const t = useTranslations("home");
-  const { data: progress = [] } = useSetProgress(set.id);
-  const summary = summarizeProgress(set.cards, progress);
+  // Server listings carry the viewer's counts; browser-stored sets are summarized from progress.
+  const { data: progress = [] } = useSetProgress(set.id, { enabled: !set.progress });
+  const counts = set.progress ?? countProgress(progress, new Set(set.cards.map((card) => card.id)));
+  const summary = summarizeProgress(set.cardCount, counts);
   return (
     <Link
       href={`/study/${set.id}/flashcards`}
@@ -102,7 +104,7 @@ function ContinueCard({ set }: { set: StudySet }) {
 
 function Stats({ sets }: { sets: StudySet[] }) {
   const t = useTranslations("home");
-  const cardCount = sets.reduce((total, set) => total + set.cards.length, 0);
+  const cardCount = sets.reduce((total, set) => total + set.cardCount, 0);
   const items = [
     { label: t("statSets"), value: sets.length, icon: FolderOpen },
     { label: t("statCards"), value: cardCount, icon: Layers },

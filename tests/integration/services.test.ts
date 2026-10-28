@@ -59,7 +59,7 @@ afterAll(async () => {
 });
 
 describe("Postgres ownership and transactional updates", () => {
-  it("persists examples through reads, listing and phonetic edits", async () => {
+  it("persists examples through reads and phonetic edits", async () => {
     const set = await create();
     const saved = await updateSet(db, a, set.id, {
       ...set,
@@ -70,9 +70,6 @@ describe("Postgres ownership and transactional updates", () => {
     });
     expect(saved.cards[0].example).toBe("你好！ Xin chào!");
     expect((await getSet(db, a, set.id)).cards[0].example).toBe("你好！ Xin chào!");
-    expect((await listSets(db, a, new URLSearchParams())).data[0].cards[0].example).toBe(
-      "你好！ Xin chào!",
-    );
     await updateSet(db, a, set.id, {
       ...saved,
       cards: saved.cards.map((card) => ({ ...card, phonetic: "test" })),
@@ -179,18 +176,38 @@ describe("Postgres ownership and transactional updates", () => {
       ).rejects.toMatchObject({ status: 400 });
     }
   });
-  it("lists ordered cards with the same data as detail reads and excludes other owners", async () => {
+  it("lists sets with counts instead of cards, matching detail reads, and excludes other owners", async () => {
     const first = await create();
     const second = await create();
     await create(b);
     await updateSet(db, a, first.id, {
       ...input,
       title: "Reordered",
-      cards: first.cards.toReversed().map((card) => ({ ...card, phonetic: "test" })),
+      cards: [...first.cards.toReversed(), { term: "再见", definition: "tạm biệt" }],
+    });
+    await putProgress(db, a, first.id, {
+      cards: [
+        { cardId: first.cards[0].id, status: "known" },
+        { cardId: first.cards[1].id, status: "learning" },
+      ],
+    });
+    // Another learner's progress never leaks into the owner's counts.
+    await db.insert(schema.cardProgress).values({
+      userId: b,
+      cardId: second.cards[0].id,
+      setId: second.id,
+      status: "known",
     });
     const page = await listSets(db, a, new URLSearchParams());
     expect(page.data).toHaveLength(2);
-    for (const set of page.data) expect(set).toEqual(await getSet(db, a, set.id));
+    for (const set of page.data) {
+      const { cards, ...detail } = await getSet(db, a, set.id);
+      expect(detail.cardCount).toBe(cards.length);
+      expect(set).toEqual({ ...detail, cards: [], progress: expect.any(Object) });
+    }
+    const byId = new Map(page.data.map((set) => [set.id, set]));
+    expect(byId.get(first.id)).toMatchObject({ cardCount: 3, progress: { known: 1, learning: 1 } });
+    expect(byId.get(second.id)).toMatchObject({ cardCount: 2, progress: { known: 0, learning: 0 } });
     expect(page.data.map((set) => set.id)).toContain(second.id);
     const empty = await listSets(db, a, new URLSearchParams({ q: "missing" }));
     expect(empty.data).toEqual([]);
@@ -241,9 +258,10 @@ describe("Postgres ownership and transactional updates", () => {
     const sets = (await listSets(db, a, new URLSearchParams())).data;
     expect(sets).toHaveLength(1);
     expect(sets[0].ownerId).toBe(a);
+    expect(sets[0].progress).toEqual({ known: 1, learning: 0 });
     expect((await getProgress(db, a, sets[0].id))[0]).toMatchObject({
       userId: a,
-      cardId: sets[0].cards[0].id,
+      cardId: (await getSet(db, a, sets[0].id)).cards[0].id,
       status: "known",
     });
   });
