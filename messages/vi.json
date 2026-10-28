@@ -50,7 +50,11 @@
     "SET_CHANGED": "Bộ thẻ vừa được người khác sửa. Hãy tải lại rồi áp dụng lại thay đổi của bạn.",
     "CHANGE_REQUEST_LIMIT": "Bộ thẻ này đã có 20 đề xuất chờ duyệt.",
     "NOT_CLASSMATE": "Người này không học chung lớp nào với bạn.",
-    "CONTRIBUTIONS_CLOSED": "Chủ bộ thẻ đang tắt nhận đóng góp."
+    "CONTRIBUTIONS_CLOSED": "Chủ bộ thẻ đang tắt nhận đóng góp.",
+    "DOC_TOO_LARGE": "Bài viết quá dài để lưu. Hãy rút gọn bớt rồi thử lại.",
+    "SESSION_CLOSED": "Phiên viết bài đã đóng; bài chỉ còn xem được.",
+    "SCRATCH_LIMIT": "Bộ thẻ tạm đã đủ 300 thẻ. Hãy tạo bộ thẻ hoặc xoá bớt trước khi lưu thêm.",
+    "SCRATCH_INCOMPLETE": "Một số thẻ chưa có định nghĩa. Hãy điền đủ rồi tạo bộ thẻ."
   },
   "validation": {
     "required": "Trường này là bắt buộc.",

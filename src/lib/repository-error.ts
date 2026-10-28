@@ -37,6 +37,10 @@ export const REPOSITORY_ERROR_CODES = [
   "NOT_CLASSMATE",
   "CONTRIBUTIONS_CLOSED",
   "UNKNOWN",
+  "DOC_TOO_LARGE",
+  "SESSION_CLOSED",
+  "SCRATCH_LIMIT",
+  "SCRATCH_INCOMPLETE",
 ] as const;
 export type RepositoryErrorCode = (typeof REPOSITORY_ERROR_CODES)[number];
 

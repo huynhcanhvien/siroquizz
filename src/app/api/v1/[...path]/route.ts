@@ -5,6 +5,7 @@ import { learningApi } from "@/server/learning-api";
 import { communityApi } from "@/server/community-api";
 import { api, readJson, type ApiContext } from "@/server/api";
 import type { User } from "@/lib/types";
+import { writingApi } from "@/server/writing-api";
 import { ApiError } from "@/server/api-error";
 import { getDatabase } from "@/server/db/client";
 import { account, session as sessionTable, user } from "@/server/db/schema";
@@ -43,6 +44,8 @@ async function handle(request: Request, context: Context) {
     const body = () => readJson(request);
     const learning = await learningApi(db, current.id, request, path);
     if (learning) return learning;
+    const writing = await writingApi(db, current.id, request, path);
+    if (writing) return writing;
     const community = await communityApi(db, current.id, request, path);
     if (community) return community;
     if (domain === "me" && path.length === 1) {

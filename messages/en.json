@@ -50,7 +50,11 @@
     "SET_CHANGED": "Someone else just edited this set. Reload it, then apply your changes again.",
     "CHANGE_REQUEST_LIMIT": "This set already has 20 suggestions waiting for review.",
     "NOT_CLASSMATE": "This person is not in any of your classes.",
-    "CONTRIBUTIONS_CLOSED": "The owner of this set is not accepting suggestions."
+    "CONTRIBUTIONS_CLOSED": "The owner of this set is not accepting suggestions.",
+    "DOC_TOO_LARGE": "This document is too long to save. Shorten it and try again.",
+    "SESSION_CLOSED": "This writing session is closed; documents are read-only.",
+    "SCRATCH_LIMIT": "Your scratch cards are full (300). Create a set or delete some before saving more.",
+    "SCRATCH_INCOMPLETE": "Some cards have no definition yet. Fill them in, then create the set."
   },
   "validation": {
     "required": "This field is required.",

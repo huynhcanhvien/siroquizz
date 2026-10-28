@@ -50,7 +50,11 @@
     "SET_CHANGED": "其他人刚刚修改了这个学习集。请重新加载，然后再次应用你的修改。",
     "CHANGE_REQUEST_LIMIT": "这个学习集已有 20 条待审核的修改建议。",
     "NOT_CLASSMATE": "此人与你不在同一个班级。",
-    "CONTRIBUTIONS_CLOSED": "学习集的所有者已关闭修改建议。"
+    "CONTRIBUTIONS_CLOSED": "学习集的所有者已关闭修改建议。",
+    "DOC_TOO_LARGE": "文章太长，无法保存。请删减后重试。",
+    "SESSION_CLOSED": "写作课已结束，文章只能查看。",
+    "SCRATCH_LIMIT": "临时卡片已满（300 张）。请先创建学习集或删除一些卡片。",
+    "SCRATCH_INCOMPLETE": "有些卡片还没有释义。请补充完整后再创建学习集。"
   },
   "validation": {
     "required": "此项为必填项。",

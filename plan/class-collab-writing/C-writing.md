@@ -62,7 +62,7 @@ export const scratchCards = pgTable("scratch_cards", {
 Hằng: `MAX_STATE_BYTES = 512*1024`, `MAX_UPDATE_BYTES = 64*1024` (trần body `keepalive`), `MAX_SCRATCH = 300`, `MAX_SESSIONS_PER_CLASS = 100`, `PREVIEW_CHARS = 300`.
 
 ## C3. Quy tắc quyền
-**Trạng thái:** todo
+**Trạng thái:** done
 Thuần, dùng chung client/server — `src/features/writing/lib/permissions.ts` (unit test ma trận):
 ```ts
 export interface SessionGate { status: "draft"|"open"|"closed"; peerVisibility: "hidden"|"open"; peerEditing: boolean }
@@ -79,14 +79,14 @@ export const requireSessionTeacher = (db, userId, sessionId) => …  // 403 nế
 ```
 
 ## C4. Service
-**Trạng thái:** todo
+**Trạng thái:** done — publishToClass gọi shareToClass (WP3) trong cùng transaction (savepoint), audience teachers|class; giáo viên mở bài của mình bất kỳ lúc nào; updatedAt do đồng hồ DB ghi để khớp since của overview
 `src/server/services/writing.ts`: `listSessions(db,userId,classId)` (học sinh không thấy draft; `myDocId` left join; `docCount`), `createSession(db,userId,classId,input)` (teacher; 100/lớp → 409), `getSession(db,userId,sessionId)` → session + `members` toàn lớp (để map màu, kể cả học sinh) + `docs` khi `canListDocs`, `updateSession` (title/prompt/status/peerVisibility/peerEditing; đặt `openedAt`/`closedAt`), `deleteSession`, `sessionOverview(db,userId,sessionId,query)` (`since` ISO → chỉ docs `updatedAt > since`; `[]` nếu không `canListDocs`; trả `serverTime`), `purgeClosedSessions(db, now)` (closed & `closedAt < now-180d`; gọi trong cron).
 `src/server/services/writing-docs.ts`: `openOwnDoc(db,userId,sessionId)` (học sinh cần status open; `insert … onConflictDoNothing` rồi select), `getDocState(db,userId,docId)` → `{ id, authorId, version, state: base64|null, readOnly }`, `syncDoc(db,userId,docId,input)` (C6).
 `src/server/services/scratch-cards.ts`: `listScratch`, `createScratch` (≥300 → 409 `SCRATCH_LIMIT`; giữ `sourceDocId` nếu đọc được doc), `updateScratch`, `deleteScratch`, `clearScratch`, `materializeScratch(db,userId,{ ids (2..500), title, termLang, definitionLang, classId?, audience? })` → tx: thiếu id → 404; `definition` rỗng → 400 `SCRATCH_INCOMPLETE`; `createSetInTransaction(tx, userId, { title, description:"", termLang, definitionLang, source:"manual", cards })`; xoá hàng; `classId` → `publishToClass(tx, userId, classId, setId, audience)` = `shareToClass` (WP3) hoặc stub `class_sets`.
 `src/server/lib/ydoc.ts` (không `server-only`, unit test node): `TEXT_NAME = "quill"`, `docFromState(state|null): Y.Doc`, `applyClientUpdate(doc, update)` (lỗi → `ApiError(400)`), `encodeState(doc)` (= compaction), `diffSince(doc, sv): Uint8Array|null` (null khi update rỗng), `plainText(doc)`, `preview(text, 300)` (grapheme-safe qua `src/lib/graphemes.ts`), `toBase64/fromBase64`.
 
 ## C5. Routes — `src/server/writing-api.ts` (`writingApi(db,userId,request,path)` trả `null` khi không khớp), chain ở `route.ts:43`
-**Trạng thái:** todo
+**Trạng thái:** done — sync đi qua catch-all + writingApi; writePolicy (A1) xếp vào write-fast, thêm enforceLimit(sync:<user>, 60, 60); readJson 96KB
 
 | Method | Path | Service | Limit |
 |---|---|---|---|
@@ -103,7 +103,7 @@ export const requireSessionTeacher = (db, userId, sessionId) => …  // 403 nế
 Mã lỗi: `DOC_TOO_LARGE`, `SESSION_CLOSED`, `SCRATCH_LIMIT`, `SCRATCH_INCOMPLETE`.
 
 ## C6. Giao thức sync (hợp đồng giữa WP4a và WP4b)
-**Trạng thái:** todo
+**Trạng thái:** in-progress — server xong (fast path 1 select, không đọc state); client sync-loop đang làm
 Request `POST /api/v1/writing/docs/:id/sync` body `{ sv: base64(Y.encodeStateVector(local)), update?: base64(pending đã gộp), version?: number }`.
 Server `syncDoc`:
 1. `requireDocAccess(db, userId, docId, update ? "write" : "read")`.

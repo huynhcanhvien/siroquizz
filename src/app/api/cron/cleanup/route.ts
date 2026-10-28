@@ -4,6 +4,7 @@ import { getDatabase } from "@/server/db/client";
 import { user, studySets } from "@/server/db/schema";
 import { cleanupAi } from "@/server/ai/cleanup";
 import { moderatePending } from "@/server/services/moderation";
+import { purgeClosedSessions } from "@/server/services/writing";
 import { getServerEnv } from "@/server/env";
 
 export const runtime = "nodejs";
@@ -36,10 +37,11 @@ async function handle(request: Request) {
     await tx.delete(studySets).where(lt(studySets.deletedAt, cutoff));
   });
   const removedUploads = await cleanupAi(db);
+  const purgedSessions = await purgeClosedSessions(db);
   // Public sets the moderation model could not check yet (it allows 2,000 tokens a minute).
   const moderated = (await moderatePending(db, 20, startedAt + MODERATION_DEADLINE_MS)).length;
   return Response.json(
-    { success: true, data: { removedUploads, moderated } },
+    { success: true, data: { removedUploads, purgedSessions, moderated } },
     { headers: { "Cache-Control": "no-store" } },
   );
 }
