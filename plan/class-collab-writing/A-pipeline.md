@@ -103,7 +103,7 @@
 - `.github/workflows/ci.yml`: matrix 3 shard đều install/lint/typecheck/unit/migrate/integration/playwright install, và mỗi shard `next build` qua `webServer` (`playwright.config.ts:28`); không cache `.next/cache`, Playwright browsers. → job `quality` (1 lần) + job `build` upload artifact `.next` (+ `public/vendor`) + job `e2e` matrix 3 tải artifact, `E2E_PREBUILT=1` → `webServer.command = pnpm start --port 3100`; cache `~/.cache/ms-playwright` và `.next/cache` (`actions/cache`).
 
 ### A18. `--webpack` cố định vì lỗi Turbopack trên một máy
-**Trạng thái:** todo
+**Trạng thái:** done (giữ webpack mặc định) — thêm `dev:webpack`/`build:webpack` và `dev:turbopack`/`build:turbopack`; `dev`/`build` trỏ sang bản webpack nên `vercel.json` (`pnpm build`) và CI không đổi. Thử 2026-10-29 trên máy local: `next build` (Turbopack) **không còn panic**, pdf.worker vẫn được trace, nhưng compile 3,7 phút so với 17 giây của webpack → chưa đổi mặc định. Muốn chuyển: deploy Preview với Build Command `pnpm build:turbopack`, nếu ổn thì đổi `build` sang `pnpm build:turbopack`.
 - `package.json` `dev`/`build` dùng `--webpack` do Turbopack panic PostCSS worker "trên máy này" (`specs/state.md`). → `build`/`dev` mặc định không flag; thêm `dev:webpack`/`build:webpack`; thử Turbopack ở Vercel preview; nếu lỗi thì `vercel.json` `buildCommand: "pnpm build:webpack"`. Không chặn merge; ghi kết quả vào `specs/state.md`.
 
 ### A19. Ôn tập tải lại hàng đợi sau mỗi lần chấm
