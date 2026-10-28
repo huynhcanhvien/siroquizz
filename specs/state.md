@@ -51,6 +51,14 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 
 ## Nhật ký
 
+### 2026-10-29 +07: 🚀 Phase 7 lên production (PR #14, merge 1637ac0)
+
+- Migration 0016–0019 đã chạy trên Neon (URL direct) trước khi merge; `__drizzle_migrations` = 20 hàng, có đủ 6 bảng mới và 3 cột mới.
+- CI mới (quality, build, e2e 3 shard) xanh ngay lần chạy đầu; Vercel build webpack thành công và deploy production.
+- Kiểm tra production: `/`, `/login`, `/explore` trả 200; các route API mới trả 401 `UNAUTHENTICATED` khi chưa đăng nhập (không 404); các trang viết bài, đề xuất và thư viện chuyển về `/login`; cron dọn dẹp chạy tay trả 200 `{removedUploads:0, removedImages:0, purgedSessions:0, moderated:0}`.
+- Sửa thêm trước deploy: chỉ người nhận bộ qua lớp mới được đề xuất sửa (`access.canPropose`); người chỉ có link nhận 403.
+- Còn lại: kịch bản tay 3 trình duyệt trên production (D§2), đo số liệu (D§3), theo dõi số lần gọi function khi cả lớp cùng viết.
+
 ### 2026-10-29 03:05 +07: ✅ WP6 nghiệm thu & review xong trên nhánh `wp6-acceptance` (tách từ `feat/class-collab-writing` e270bd3, chưa merge)
 
 - **Kiểm thử:** lint/typecheck sạch; unit 678 (dòng 95,9%, nhánh 90,3%); integration 306 (dòng 94,0%, nhánh 84,0%) trên DB riêng `siroquizz_wp6_test`; `pnpm build` xanh. E2E toàn bộ 2 lần liên tiếp trên `siroquizz_wp6` (`DEPLOYMENT_ENV=local E2E_PORT=3240 RESEND_API_KEY= PW_CHANNEL=chrome`): **138 pass, 2 skip** (Groq live, credit publish) mỗi lần. `study`/`starred-flashcards`/`flashcard-corrections` xanh sau khi `readSets` đọc chi tiết bộ. Lần đầu `class-library` timeout lúc đăng ký khi server vừa khởi động lạnh, chạy lại xanh (10s).
