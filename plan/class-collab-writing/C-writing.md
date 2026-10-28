@@ -16,7 +16,7 @@ Giáo viên tạo "phiên" viết bài cho lớp; giáo viên xem live học sin
 - `quill`, `yjs`, `y-quill` chưa cài.
 
 ## C1. Dependencies & cấu hình
-**Trạng thái:** todo
+**Trạng thái:** done — y-quill 1.0.0 khai báo peer quill ^2.0.0 (dùng được, không cần binding tự viết; peer quill-cursors không cài vì không dùng awareness); Quill.import("parchment") có ClassAttributor/Scope.INLINE (parchment 3); yjs vào serverExternalPackages
 - `pnpm add quill yjs y-quill` (Quill 2 kéo theo `parchment`, `quill-delta`). **Xác minh** `y-quill` hỗ trợ Quill 2; nếu không, viết binding ~80 dòng trên `Y.Text.toDelta()`/`applyDelta` và `quill.updateContents(delta, "api")` với guard origin.
 - `next.config.ts`: `serverExternalPackages: ["yjs"]` (tránh 2 bản Yjs ESM/CJS trong server bundle). Xác minh `Quill.import("parchment")` trả `ClassAttributor`/`Scope`, và `formats` whitelist trong constructor nhận attributor tuỳ biến.
 
