@@ -73,7 +73,7 @@
 - **Test:** integration với PDF 60 trang text (fixture `tests/`): 1 step extract; deadline giả 1ms → step trả `retryAfterMs` và cursor tiến.
 
 ### A12. Prompt không tận dụng prefix cache
-**Trạng thái:** todo
+**Trạng thái:** done — system = SYSTEM_PROMPT + hướng dẫn tĩnh theo options (không phụ thuộc count/avoid); user message: userRequest, settings, alreadyCreatedTerms, document cuối. ai:eval dùng đúng request production: chất lượng giữ 1.0 mọi chỉ số, cost 0.00915→0.00942 USD (eval cũ không gửi instructions), cachedTokens 1.536/13.725 (eval cũ không ghi cached)
 - **Vấn đề:** `generate.ts:57-67` đặt ~350 token instructions tĩnh **sau** `document` thay đổi mỗi call; chỉ system prompt ngắn (`groq.ts:114-124`) là prefix chung.
 - **Sửa:** chuyển instructions + settings vào system message (hoặc trước `document`), chunk đặt cuối.
 - **Test:** `pnpm ai:eval` ghi `cached_tokens` trước/sau vào `specs/state.md`.

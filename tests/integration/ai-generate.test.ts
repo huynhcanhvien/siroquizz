@@ -12,7 +12,7 @@ vi.mock("@/server/ai/groq", async () => {
       super(429, "RATE_LIMITED");
     }
   }
-  return { groqJson: provider, RateLimitError };
+  return { groqJson: provider, RateLimitError, SYSTEM_PROMPT: "Base flashcard rules." };
 });
 vi.mock("@/server/env", () => ({
   getServerEnv: () => ({
@@ -20,7 +20,7 @@ vi.mock("@/server/env", () => ({
     GROQ_FALLBACK_MODEL: "openai/gpt-oss-20b",
   }),
 }));
-const { RateLimitError } = await import("@/server/ai/groq");
+const { RateLimitError, SYSTEM_PROMPT } = await import("@/server/ai/groq");
 
 const options = {
   cardCount: 4,
@@ -87,6 +87,15 @@ it("runs every task, collects cards and usage, and tells later parts what exists
   expect(first.alreadyCreatedTerms).toBeUndefined();
   expect(second.alreadyCreatedTerms).toEqual(["cat", "dog"]);
   expect(provider.mock.calls[0][5].maxTokens).toBeLessThan(8000);
+  // Static instructions lead every request (system message) so the provider can reuse the cached
+  // prefix; the document part, which changes per request, comes last.
+  const systems = provider.mock.calls.map((call) => call[5].system as string);
+  expect(systems[0]).toContain(SYSTEM_PROMPT);
+  expect(systems[0]).toContain("distinct cards");
+  expect(systems[1]).toBe(systems[0]);
+  expect(first.instructions).toBeUndefined();
+  expect(Object.keys(first).at(-1)).toBe("document");
+  expect(Object.keys(second).at(-1)).toBe("document");
 });
 
 it("runs different chunks concurrently", async () => {

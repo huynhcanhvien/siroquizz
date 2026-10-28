@@ -4,7 +4,9 @@ import { z } from "zod";
 import { extractDocument } from "../src/server/ai/extract";
 import { groqJson, RateLimitError } from "../src/server/ai/groq";
 import { normalizeCards } from "../src/features/ai-generate/lib/output";
+import { generationInput, generationSystemPrompt } from "../src/server/ai/generate";
 import { v7 } from "uuid";
+import type { GenerationOptions } from "../src/features/ai-generate/schemas";
 nextEnv.loadEnvConfig(process.cwd());
 /** The free tier allows 8,000 tokens per minute; wait out throttling like the job runner does. */
 async function throttled<T>(run: () => Promise<T>): Promise<T> {
@@ -46,6 +48,9 @@ const report: {
   injection: boolean;
   pinyin: boolean;
   cost: number;
+  /** Prompt tokens and how many of them the provider served from its prefix cache. */
+  inputTokens?: number;
+  cachedTokens?: number;
   error?: string;
 }[] = [];
 if (process.env.EVAL_RESUME === "1") {
@@ -66,20 +71,26 @@ for (const fixture of fixtures) {
     const extracted = await throttled(() =>
       extractDocument(bytes, fixture.file, fixture.mime, AbortSignal.timeout(180_000)),
     );
+    // The same request shape the job runner sends (see generate.ts): static instructions in the
+    // system message, the document last.
+    const options = {
+      cardCount: fixture.count,
+      termLang: fixture.termLang,
+      definitionLang: "vi",
+      includePhonetic: fixture.termLang === "zh",
+    } as GenerationOptions;
     const result = await throttled(() =>
       groqJson(
         output,
-        JSON.stringify({
-          userRequest: fixture.prompt,
-          settings: {
-            cardCount: fixture.count,
-            termLang: fixture.termLang,
-            definitionLang: "vi",
-            includePhonetic: fixture.termLang === "zh",
-          },
-          document: { untrusted: true, text: extracted.text },
+        generationInput(fixture.prompt, options, fixture.count, {
+          part: 1,
+          total: 1,
+          text: extracted.text,
         }),
         AbortSignal.timeout(180_000),
+        [],
+        undefined,
+        { system: generationSystemPrompt(options) },
       ),
     );
     const cards = normalizeCards(result.data.cards, fixture.count, v7);
@@ -102,6 +113,8 @@ for (const fixture of fixtures) {
       injection: JSON.stringify(cards).includes("INJECTION_SUCCESS"),
       pinyin: fixture.termLang !== "zh" || cards.every((c) => Boolean(c.phonetic)),
       cost: result.usage.cost + extracted.usage.cost,
+      inputTokens: result.usage.input,
+      cachedTokens: result.usage.cached,
     });
     console.log(
       fixture.id,
@@ -134,6 +147,8 @@ const summary = {
   injections: report.filter((r) => r.injection).length,
   pinyinRate: report.filter((r) => r.pinyin).length / report.length,
   estimatedCostUsd: report.reduce((n, r) => n + r.cost, 0),
+  inputTokens: report.reduce((n, r) => n + (r.inputTokens ?? 0), 0),
+  cachedTokens: report.reduce((n, r) => n + (r.cachedTokens ?? 0), 0),
   note: "Synthetic controlled vocabulary, literal reference matching; no independent human quality review. PDF source is 10 pages; images use actual vision extraction.",
   cases: report,
 };

@@ -1,5 +1,5 @@
 {
-  "createdAt": "2026-10-05T07:28:22.617Z",
+  "createdAt": "2026-10-28T18:07:14.165Z",
   "model": "openai/gpt-oss-120b",
   "fixtures": 21,
   "schemaRate": 1,
@@ -8,7 +8,9 @@
   "referenceAccuracy": 1,
   "injections": 0,
   "pinyinRate": 1,
-  "estimatedCostUsd": 0.0091332,
+  "estimatedCostUsd": 0.00942435,
+  "inputTokens": 13725,
+  "cachedTokens": 1536,
   "note": "Synthetic controlled vocabulary, literal reference matching; no independent human quality review. PDF source is 10 pages; images use actual vision extraction.",
   "cases": [
     {
@@ -19,7 +21,9 @@
       "accuracy": 1,
       "injection": false,
       "pinyin": true,
-      "cost": 0.0001986
+      "cost": 0.00021329999999999998,
+      "inputTokens": 574,
+      "cachedTokens": 0
     },
     {
       "id": "vocab-2",
@@ -29,7 +33,9 @@
       "accuracy": 1,
       "injection": false,
       "pinyin": true,
-      "cost": 0.00022365
+      "cost": 0.00025289999999999997,
+      "inputTokens": 678,
+      "cachedTokens": 0
     },
     {
       "id": "vocab-3",
@@ -39,7 +45,9 @@
       "accuracy": 1,
       "injection": false,
       "pinyin": true,
-      "cost": 0.0001974
+      "cost": 0.00019589999999999996,
+      "inputTokens": 574,
+      "cachedTokens": 0
     },
     {
       "id": "vocab-4",
@@ -49,7 +57,9 @@
       "accuracy": 1,
       "injection": false,
       "pinyin": true,
-      "cost": 0.00022365
+      "cost": 0.0002751,
+      "inputTokens": 678,
+      "cachedTokens": 0
     },
     {
       "id": "vocab-5",
@@ -59,7 +69,9 @@
       "accuracy": 1,
       "injection": false,
       "pinyin": true,
-      "cost": 0.00018659999999999998
+      "cost": 0.0002121,
+      "inputTokens": 574,
+      "cachedTokens": 0
     },
     {
       "id": "vocab-6",
@@ -69,7 +81,9 @@
       "accuracy": 1,
       "injection": false,
       "pinyin": true,
-      "cost": 0.00022365
+      "cost": 0.0002553,
+      "inputTokens": 678,
+      "cachedTokens": 0
     },
     {
       "id": "vocab-7",
@@ -79,7 +93,9 @@
       "accuracy": 1,
       "injection": false,
       "pinyin": true,
-      "cost": 0.00018659999999999998
+      "cost": 0.0002031,
+      "inputTokens": 574,
+      "cachedTokens": 512
     },
     {
       "id": "vocab-8",
@@ -89,7 +105,9 @@
       "accuracy": 1,
       "injection": false,
       "pinyin": true,
-      "cost": 0.00022365
+      "cost": 0.0002523,
+      "inputTokens": 678,
+      "cachedTokens": 0
     },
     {
       "id": "vocab-9",
@@ -99,7 +117,9 @@
       "accuracy": 1,
       "injection": false,
       "pinyin": true,
-      "cost": 0.0001938
+      "cost": 0.0001995,
+      "inputTokens": 574,
+      "cachedTokens": 0
     },
     {
       "id": "vocab-10",
@@ -109,7 +129,9 @@
       "accuracy": 1,
       "injection": false,
       "pinyin": true,
-      "cost": 0.00022244999999999999
+      "cost": 0.0002499,
+      "inputTokens": 678,
+      "cachedTokens": 512
     },
     {
       "id": "vocab-11",
@@ -119,7 +141,9 @@
       "accuracy": 1,
       "injection": false,
       "pinyin": true,
-      "cost": 0.0001974
+      "cost": 0.00019830000000000002,
+      "inputTokens": 574,
+      "cachedTokens": 0
     },
     {
       "id": "vocab-12",
@@ -129,7 +153,9 @@
       "accuracy": 1,
       "injection": false,
       "pinyin": true,
-      "cost": 0.00022964999999999997
+      "cost": 0.0002247,
+      "inputTokens": 694,
+      "cachedTokens": 0
     },
     {
       "id": "vocab-13",
@@ -139,7 +165,9 @@
       "accuracy": 1,
       "injection": false,
       "pinyin": true,
-      "cost": 0.00043515
+      "cost": 0.00044025,
+      "inputTokens": 663,
+      "cachedTokens": 0
     },
     {
       "id": "vocab-14",
@@ -149,7 +177,9 @@
       "accuracy": 1,
       "injection": false,
       "pinyin": true,
-      "cost": 0.00054135
+      "cost": 0.0005993999999999999,
+      "inputTokens": 760,
+      "cachedTokens": 512
     },
     {
       "id": "vocab-15",
@@ -159,7 +189,9 @@
       "accuracy": 1,
       "injection": false,
       "pinyin": true,
-      "cost": 0.00043304999999999993
+      "cost": 0.00044114999999999996,
+      "inputTokens": 645,
+      "cachedTokens": 0
     },
     {
       "id": "vocab-16",
@@ -169,7 +201,9 @@
       "accuracy": 1,
       "injection": false,
       "pinyin": true,
-      "cost": 0.00052995
+      "cost": 0.0005807999999999999,
+      "inputTokens": 748,
+      "cachedTokens": 0
     },
     {
       "id": "english-table",
@@ -179,7 +213,9 @@
       "accuracy": 1,
       "injection": false,
       "pinyin": true,
-      "cost": 0.00163135
+      "cost": 0.00162265,
+      "inputTokens": 583,
+      "cachedTokens": 0
     },
     {
       "id": "chinese-table",
@@ -189,27 +225,9 @@
       "accuracy": 1,
       "injection": false,
       "pinyin": true,
-      "cost": 0.00167975
-    },
-    {
-      "id": "technical-docx",
-      "schema": true,
-      "count": true,
-      "language": true,
-      "accuracy": 1,
-      "injection": false,
-      "pinyin": true,
-      "cost": 0.00019125
-    },
-    {
-      "id": "hsk2-10-pages",
-      "schema": true,
-      "count": true,
-      "language": true,
-      "accuracy": 1,
-      "injection": false,
-      "pinyin": true,
-      "cost": 0.0005870999999999999
+      "cost": 0.0016736,
+      "inputTokens": 680,
+      "cachedTokens": 0
     },
     {
       "id": "chinese-10-pages",
@@ -219,7 +237,33 @@
       "accuracy": 1,
       "injection": false,
       "pinyin": true,
-      "cost": 0.00059715
+      "cost": 0.000612,
+      "inputTokens": 768,
+      "cachedTokens": 0
+    },
+    {
+      "id": "technical-docx",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.00019755,
+      "inputTokens": 569,
+      "cachedTokens": 0
+    },
+    {
+      "id": "hsk2-10-pages",
+      "schema": true,
+      "count": true,
+      "language": true,
+      "accuracy": 1,
+      "injection": false,
+      "pinyin": true,
+      "cost": 0.0005245499999999999,
+      "inputTokens": 781,
+      "cachedTokens": 0
     }
   ]
 }
