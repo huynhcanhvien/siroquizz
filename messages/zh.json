@@ -261,7 +261,8 @@
     "tabMine": "我的",
     "tabFromClass": "来自班级",
     "fromClassEmpty": "你的班级中还没有分享的学习集。",
-    "fromClass": "班级 {class}"
+    "fromClass": "班级 {class}",
+    "scratchCards": "临时卡片（{count}）"
   },
   "editor": {
     "createTitle": "新建学习集",
@@ -1129,7 +1130,8 @@
       "setItem": "学习集",
       "folderItem": "文件夹",
       "setCount": "{count, plural, other {# 个学习集}}"
-    }
+    },
+    "writing": "写作"
   },
   "admin": {
     "title": "管理",
@@ -1287,5 +1289,116 @@
     "details": "查看修改",
     "unknownCard": "卡片已被删除",
     "saved": "已保存。"
+  },
+  "writing": {
+    "sessions": {
+      "title": "写作课",
+      "subtitle": "老师出题，学生实时写作，老师可以边看边指导。",
+      "new": "新建写作课",
+      "titleLabel": "标题",
+      "promptLabel": "题目",
+      "promptPlaceholder": "例如：描写家乡的一个秋天早晨（150–200 字）。",
+      "create": "创建",
+      "created": "已创建写作课",
+      "empty": "还没有写作课。",
+      "emptyStudent": "老师还没有开放写作课。",
+      "open": "去写作",
+      "view": "查看",
+      "docCount": "{count, plural, other {# 篇}}",
+      "back": "返回班级",
+      "backToList": "写作课列表"
+    },
+    "status": {
+      "draft": "草稿",
+      "open": "进行中",
+      "closed": "已结束"
+    },
+    "editor": {
+      "placeholder": "开始写作…",
+      "loading": "正在加载编辑器…",
+      "bold": "加粗",
+      "italic": "斜体",
+      "underline": "下划线",
+      "color": "文字颜色",
+      "highlight": "背景高亮",
+      "clear": "清除格式",
+      "defaultColor": "默认",
+      "saveWord": "保存生词",
+      "selectWord": "在文中选中一个词，即可保存到临时卡片。",
+      "readOnly": "只读",
+      "longWarning": "文章已超过 {count} 个字符。",
+      "chars": "{count, plural, other {# 个字符}}",
+      "myDoc": "我的文章",
+      "docOf": "{name} 的文章",
+      "notStarted": "写作课尚未开放，老师开放后即可写作。",
+      "reloaded": "文章太长，刚输入的内容未能保存，已重新加载服务器上的版本。",
+      "toolbar": "文字格式"
+    },
+    "panel": {
+      "prompt": "题目",
+      "legend": "文字颜色",
+      "legendAuthor": "作者的文字",
+      "legendTeacher": "老师",
+      "legendPeer": "同学",
+      "peers": "同学的文章",
+      "noPeers": "还没有其他文章。",
+      "toggle": "侧边栏"
+    },
+    "roster": {
+      "title": "正在写作的学生",
+      "openSession": "开放写作课",
+      "closeSession": "结束写作课",
+      "closeTitle": "结束这次写作课？",
+      "closeBody": "学生将无法再修改，文章变为只读。",
+      "reopen": "重新开放",
+      "peerVisibility": "允许互相查看",
+      "peerEditing": "允许在同学的文章上写",
+      "empty": "还没有学生开始写作。",
+      "updated": "{seconds, plural, other {# 秒前}}",
+      "updatedMinutes": "{minutes} 分钟前",
+      "delete": "删除写作课",
+      "deleteTitle": "删除这次写作课？",
+      "deleteBody": "写作课中的所有文章都将被永久删除。",
+      "justNow": "刚刚"
+    },
+    "sync": {
+      "idle": "已保存",
+      "saving": "正在保存…",
+      "offline": "连接中断，稍后重试",
+      "readonly": "只读"
+    },
+    "scratch": {
+      "button": "临时卡片（{count}）",
+      "title": "临时卡片",
+      "description": "写作时保存的生词。补充释义后可生成学习集。",
+      "empty": "还没有保存生词。在文中选中一个词，然后点“保存生词”。",
+      "term": "词语",
+      "definition": "释义",
+      "phonetic": "注音（可选）",
+      "save": "保存",
+      "saved": "已保存到临时卡片",
+      "delete": "删除",
+      "selectAll": "全选",
+      "missingDefinition": "缺少释义",
+      "createSet": "生成学习集",
+      "clear": "全部删除",
+      "clearTitle": "删除所有临时卡片？",
+      "clearBody": "已保存的生词将被删除，无法恢复。",
+      "selected": "已选 {count}"
+    },
+    "materialize": {
+      "title": "用临时卡片生成学习集",
+      "name": "学习集名称",
+      "termLang": "词语语言",
+      "definitionLang": "释义语言",
+      "share": "分享到班级",
+      "class": "班级",
+      "audience": "可见范围",
+      "audienceClass": "全班",
+      "audienceTeachers": "仅老师",
+      "submit": "生成学习集（{count}）",
+      "created": "已生成学习集",
+      "needTwo": "请至少选择 2 张已有释义的卡片。"
+    }
   }
 }

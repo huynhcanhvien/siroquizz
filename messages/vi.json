@@ -261,7 +261,8 @@
     "tabMine": "Của tôi",
     "tabFromClass": "Từ lớp",
     "fromClassEmpty": "Chưa có bộ thẻ nào được chia sẻ trong các lớp của bạn.",
-    "fromClass": "Lớp {class}"
+    "fromClass": "Lớp {class}",
+    "scratchCards": "Bộ thẻ tạm ({count})"
   },
   "editor": {
     "createTitle": "Tạo bộ thẻ mới",
@@ -1129,7 +1130,8 @@
       "setItem": "Bộ thẻ",
       "folderItem": "Thư mục",
       "setCount": "{count, plural, other {# bộ}}"
-    }
+    },
+    "writing": "Viết bài"
   },
   "admin": {
     "title": "Quản trị",
@@ -1287,5 +1289,116 @@
     "details": "Xem thay đổi",
     "unknownCard": "Thẻ đã bị xoá",
     "saved": "Đã lưu."
+  },
+  "writing": {
+    "sessions": {
+      "title": "Phiên viết bài",
+      "subtitle": "Giáo viên tạo đề, học sinh viết trực tiếp và giáo viên xem bài ngay khi đang viết.",
+      "new": "Tạo phiên mới",
+      "titleLabel": "Tiêu đề",
+      "promptLabel": "Đề bài",
+      "promptPlaceholder": "Ví dụ: Tả một buổi sáng mùa thu ở quê em (150–200 từ).",
+      "create": "Tạo phiên",
+      "created": "Đã tạo phiên viết bài",
+      "empty": "Chưa có phiên viết bài nào.",
+      "emptyStudent": "Giáo viên chưa mở phiên viết bài nào.",
+      "open": "Vào viết",
+      "view": "Xem",
+      "docCount": "{count, plural, other {# bài}}",
+      "back": "Về lớp",
+      "backToList": "Danh sách phiên"
+    },
+    "status": {
+      "draft": "Nháp",
+      "open": "Đang mở",
+      "closed": "Đã đóng"
+    },
+    "editor": {
+      "placeholder": "Bắt đầu viết…",
+      "loading": "Đang tải trình soạn thảo…",
+      "bold": "In đậm",
+      "italic": "In nghiêng",
+      "underline": "Gạch chân",
+      "color": "Màu chữ",
+      "highlight": "Tô nền",
+      "clear": "Xoá định dạng",
+      "defaultColor": "Mặc định",
+      "saveWord": "Lưu từ vựng",
+      "selectWord": "Bôi đen một từ trong bài để lưu vào bộ thẻ tạm.",
+      "readOnly": "Chỉ xem",
+      "longWarning": "Bài đã dài hơn {count} ký tự.",
+      "chars": "{count, plural, other {# ký tự}}",
+      "myDoc": "Bài của tôi",
+      "docOf": "Bài của {name}",
+      "notStarted": "Phiên chưa mở. Bài sẽ viết được khi giáo viên mở phiên.",
+      "reloaded": "Bài quá dài nên phần vừa gõ chưa được lưu; đã tải lại bản trên máy chủ.",
+      "toolbar": "Định dạng chữ"
+    },
+    "panel": {
+      "prompt": "Đề bài",
+      "legend": "Màu chữ",
+      "legendAuthor": "Chữ của tác giả",
+      "legendTeacher": "Giáo viên",
+      "legendPeer": "Bạn cùng lớp",
+      "peers": "Bài của các bạn",
+      "noPeers": "Chưa có bài nào khác.",
+      "toggle": "Bảng bên"
+    },
+    "roster": {
+      "title": "Học sinh đang viết",
+      "openSession": "Mở phiên",
+      "closeSession": "Đóng phiên",
+      "closeTitle": "Đóng phiên viết bài?",
+      "closeBody": "Học sinh sẽ không sửa bài được nữa, chỉ còn xem.",
+      "reopen": "Mở lại",
+      "peerVisibility": "Cho phép xem bài nhau",
+      "peerEditing": "Cho phép viết lên bài nhau",
+      "empty": "Chưa có học sinh nào bắt đầu viết.",
+      "updated": "{seconds, plural, other {# giây trước}}",
+      "updatedMinutes": "{minutes} phút trước",
+      "delete": "Xoá phiên",
+      "deleteTitle": "Xoá phiên viết bài?",
+      "deleteBody": "Mọi bài viết trong phiên sẽ bị xoá vĩnh viễn.",
+      "justNow": "vừa xong"
+    },
+    "sync": {
+      "idle": "Đã lưu",
+      "saving": "Đang lưu…",
+      "offline": "Mất kết nối, sẽ thử lại",
+      "readonly": "Chỉ xem"
+    },
+    "scratch": {
+      "button": "Bộ thẻ tạm ({count})",
+      "title": "Bộ thẻ tạm",
+      "description": "Từ vựng đã lưu khi viết bài. Điền nghĩa rồi tạo thành bộ thẻ.",
+      "empty": "Chưa lưu từ nào. Bôi đen một từ trong bài rồi bấm “Lưu từ vựng”.",
+      "term": "Từ",
+      "definition": "Nghĩa",
+      "phonetic": "Phiên âm (tuỳ chọn)",
+      "save": "Lưu",
+      "saved": "Đã lưu vào bộ thẻ tạm",
+      "delete": "Xoá",
+      "selectAll": "Chọn tất cả",
+      "missingDefinition": "Thiếu nghĩa",
+      "createSet": "Tạo bộ thẻ",
+      "clear": "Xoá hết",
+      "clearTitle": "Xoá toàn bộ thẻ tạm?",
+      "clearBody": "Các từ đã lưu sẽ bị xoá và không khôi phục được.",
+      "selected": "Đã chọn {count}"
+    },
+    "materialize": {
+      "title": "Tạo bộ thẻ từ thẻ tạm",
+      "name": "Tên bộ thẻ",
+      "termLang": "Ngôn ngữ của từ",
+      "definitionLang": "Ngôn ngữ của nghĩa",
+      "share": "Chia sẻ vào lớp",
+      "class": "Lớp",
+      "audience": "Ai được xem",
+      "audienceClass": "Cả lớp",
+      "audienceTeachers": "Chỉ giáo viên",
+      "submit": "Tạo bộ thẻ ({count})",
+      "created": "Đã tạo bộ thẻ",
+      "needTwo": "Chọn ít nhất 2 thẻ đã có nghĩa."
+    }
   }
 }

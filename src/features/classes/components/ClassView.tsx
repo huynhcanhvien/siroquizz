@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, LogOut, RefreshCw, Trash, UserCog, X } from "lucide-react";
+import { Copy, LogOut, PenLine, RefreshCw, Trash, UserCog, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
@@ -341,7 +341,15 @@ export function ClassView({ id }: { id: string }) {
             {teaching ? "" : ` · ${t("teachers")}: ${teachers.join(", ")}`}
           </p>
         </div>
-        <ExitClass klass={klass} />
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="secondary" size="sm">
+            <Link href={`/classes/${klass.id}/writing`}>
+              <PenLine className="size-4" aria-hidden />
+              {t("writing")}
+            </Link>
+          </Button>
+          <ExitClass klass={klass} />
+        </div>
       </header>
       {teaching ? <InviteCard klass={klass} /> : null}
       <Section id="class-calendar" title={t("calendar.title")}>

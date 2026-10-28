@@ -261,7 +261,8 @@
     "tabMine": "Mine",
     "tabFromClass": "From classes",
     "fromClassEmpty": "No sets have been shared in your classes yet.",
-    "fromClass": "Class {class}"
+    "fromClass": "Class {class}",
+    "scratchCards": "Scratch cards ({count})"
   },
   "editor": {
     "createTitle": "Create a new set",
@@ -1129,7 +1130,8 @@
       "setItem": "Set",
       "folderItem": "Folder",
       "setCount": "{count, plural, one {# set} other {# sets}}"
-    }
+    },
+    "writing": "Writing"
   },
   "admin": {
     "title": "Administration",
@@ -1287,5 +1289,116 @@
     "details": "Show changes",
     "unknownCard": "Card was deleted",
     "saved": "Saved."
+  },
+  "writing": {
+    "sessions": {
+      "title": "Writing sessions",
+      "subtitle": "The teacher sets a prompt, students write live and the teacher sees their work as they type.",
+      "new": "New session",
+      "titleLabel": "Title",
+      "promptLabel": "Prompt",
+      "promptPlaceholder": "For example: Describe an autumn morning in your hometown (150–200 words).",
+      "create": "Create session",
+      "created": "Writing session created",
+      "empty": "No writing sessions yet.",
+      "emptyStudent": "Your teacher has not opened a writing session yet.",
+      "open": "Write",
+      "view": "View",
+      "docCount": "{count, plural, one {# document} other {# documents}}",
+      "back": "Back to class",
+      "backToList": "Sessions"
+    },
+    "status": {
+      "draft": "Draft",
+      "open": "Open",
+      "closed": "Closed"
+    },
+    "editor": {
+      "placeholder": "Start writing…",
+      "loading": "Loading the editor…",
+      "bold": "Bold",
+      "italic": "Italic",
+      "underline": "Underline",
+      "color": "Text colour",
+      "highlight": "Highlight",
+      "clear": "Clear formatting",
+      "defaultColor": "Default",
+      "saveWord": "Save word",
+      "selectWord": "Select a word in the text to save it to your scratch cards.",
+      "readOnly": "Read-only",
+      "longWarning": "This text is longer than {count} characters.",
+      "chars": "{count, plural, one {# character} other {# characters}}",
+      "myDoc": "My document",
+      "docOf": "{name}'s document",
+      "notStarted": "The session is not open yet. You can write once your teacher opens it.",
+      "reloaded": "The text got too long, so your latest typing was not saved; the server copy was reloaded.",
+      "toolbar": "Text formatting"
+    },
+    "panel": {
+      "prompt": "Prompt",
+      "legend": "Text colours",
+      "legendAuthor": "Author's text",
+      "legendTeacher": "Teacher",
+      "legendPeer": "Classmate",
+      "peers": "Classmates' documents",
+      "noPeers": "No other documents yet.",
+      "toggle": "Side panel"
+    },
+    "roster": {
+      "title": "Students writing",
+      "openSession": "Open session",
+      "closeSession": "Close session",
+      "closeTitle": "Close this writing session?",
+      "closeBody": "Students will no longer be able to edit; documents become read-only.",
+      "reopen": "Reopen",
+      "peerVisibility": "Let students see each other's work",
+      "peerEditing": "Let students write in each other's work",
+      "empty": "No student has started writing yet.",
+      "updated": "{seconds, plural, one {# second ago} other {# seconds ago}}",
+      "updatedMinutes": "{minutes} min ago",
+      "delete": "Delete session",
+      "deleteTitle": "Delete this writing session?",
+      "deleteBody": "Every document in the session will be deleted permanently.",
+      "justNow": "just now"
+    },
+    "sync": {
+      "idle": "Saved",
+      "saving": "Saving…",
+      "offline": "Offline, will retry",
+      "readonly": "Read-only"
+    },
+    "scratch": {
+      "button": "Scratch cards ({count})",
+      "title": "Scratch cards",
+      "description": "Words saved while writing. Add meanings, then turn them into a set.",
+      "empty": "No words saved yet. Select a word in the text and press “Save word”.",
+      "term": "Word",
+      "definition": "Meaning",
+      "phonetic": "Phonetic (optional)",
+      "save": "Save",
+      "saved": "Saved to scratch cards",
+      "delete": "Delete",
+      "selectAll": "Select all",
+      "missingDefinition": "Meaning missing",
+      "createSet": "Create set",
+      "clear": "Clear all",
+      "clearTitle": "Delete all scratch cards?",
+      "clearBody": "Saved words will be deleted and cannot be restored.",
+      "selected": "{count} selected"
+    },
+    "materialize": {
+      "title": "Create a set from scratch cards",
+      "name": "Set name",
+      "termLang": "Word language",
+      "definitionLang": "Meaning language",
+      "share": "Share with a class",
+      "class": "Class",
+      "audience": "Who can see it",
+      "audienceClass": "Whole class",
+      "audienceTeachers": "Teachers only",
+      "submit": "Create set ({count})",
+      "created": "Set created",
+      "needTwo": "Select at least 2 cards that have a meaning."
+    }
   }
 }

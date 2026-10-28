@@ -14,6 +14,7 @@ import { useSets } from "../hooks";
 import { filterAndSortSets, type LibrarySort, type LibrarySourceFilter } from "../lib/set-utils";
 import { FolderDropBar, dragSet } from "@/features/folders/components/FolderDropBar";
 import { NewFolderButton } from "@/features/folders/components/FoldersView";
+import { ScratchLibraryCard } from "@/features/writing/components/ScratchLibraryCard";
 import { SetCard } from "./SetCard";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { FromClassLibrary } from "@/features/class-library/components/FromClassLibrary";
@@ -107,6 +108,7 @@ export function LibraryView() {
         ) : null}
         <div className="flex flex-wrap gap-3">
           {isHttp ? <NewFolderButton /> : null}
+          {isHttp ? <ScratchLibraryCard /> : null}
           <Button asChild>
             <Link href="/sets/new">
               <Plus className="size-4" aria-hidden />

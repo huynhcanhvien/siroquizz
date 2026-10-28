@@ -103,7 +103,7 @@ export const requireSessionTeacher = (db, userId, sessionId) => …  // 403 nế
 Mã lỗi: `DOC_TOO_LARGE`, `SESSION_CLOSED`, `SCRATCH_LIMIT`, `SCRATCH_INCOMPLETE`.
 
 ## C6. Giao thức sync (hợp đồng giữa WP4a và WP4b)
-**Trạng thái:** in-progress — server + sync-state/sync-loop (mirror, keepalive, backoff) xong; nối vào editor đang làm
+**Trạng thái:** done — client: sync-state (reducer/lịch) + sync-loop (mirror localStorage, keepalive khi ẩn/pagehide, backoff); hadRemote = version tăng hơn phần mình gửi (Yjs luôn gửi kèm delete set nên không dựa vào độ dài diff); replay mirror chạy sau khi bind Quill (listener gắn từ lúc tạo loop)
 Request `POST /api/v1/writing/docs/:id/sync` body `{ sv: base64(Y.encodeStateVector(local)), update?: base64(pending đã gộp), version?: number }`.
 Server `syncDoc`:
 1. `requireDocAccess(db, userId, docId, update ? "write" : "read")`.
@@ -128,7 +128,7 @@ export function createSyncLoop(opts: { doc: Y.Doc; docId; userId; fetcher; stora
 - Client soft cap: đếm ký tự, cảnh báo ở 20.000; server cap theo byte.
 
 ## C7. Quill
-**Trạng thái:** in-progress
+**Trạng thái:** done — dùng gói quill đầy đủ (không quill/core) cho đơn giản; Quill tạo trong ref callback React 19; palette màu/tô nền là token theme; SaveWordPopover làm thành Dialog size sm cho mọi màn hình
 - `Editor.tsx` nạp bằng `dynamic(() => import("./Editor"), { ssr:false, loading })` trong `WritingWorkspace.tsx` ("use client"). Chỉ `Editor.tsx`, `quill-author.ts`, `lib/yjs-codec.ts`, `lib/sync-loop.ts` import `quill`/`yjs`; hooks/schemas chỉ `import type`.
 - `import "quill/dist/quill.core.css"` (không theme Snow); toolbar tự làm bằng UI kit (`Button size="icon"`, lucide Bold/Italic/Underline/Highlighter/Palette/Eraser/BookmarkPlus) gọi `quill.format(name, value, "user")`, đọc `quill.getFormat()` trên `selection-change`; màu/highlight = palette 8 màu token + "mặc định" bằng `Menu`.
 - `new Quill(el, { theme: undefined, modules: { toolbar:false, history:{ userOnly:true } }, formats:["bold","italic","underline","color","background","author","list"], placeholder })`.
@@ -140,11 +140,11 @@ export function createSyncLoop(opts: { doc: Y.Doc; docId; userId; fetcher; stora
 - Màu theo vai trò `lib/author-colors.ts`: `toneFor(userId, authorId, members): "author"|"teacher"|"peer"|"unknown"`, `authorStyles(members)` → chuỗi CSS `.ql-author-<id>{color:var(--danger)}` (teacher) / `var(--accent-text)` (peer) / không (author, kế thừa `--text`) / `--text-muted` (đã rời); `Editor.tsx` render `<style>`. Quill `color` là StyleAttributor inline nên màu toolbar thắng class. Token tự đổi theo dark mode. Chú giải màu ở `SessionPanel`.
 
 ## C8. Ngân sách poll (30 HS × 45 phút)
-**Trạng thái:** todo
+**Trạng thái:** done — FAST_MS 2s / SLOW_MS 10s / ACTIVITY_WINDOW_MS 30s trong sync-state.ts; poll rảnh = fast path 1 select (đã test)
 Xấu nhất (gõ liên tục, FAST 2s): 30 × 1.350 = 40.500 + GV (overview + sync) 2.700 ≈ **43k** < 50k. Thực tế (active 50%, còn lại SLOW 10s, tab ẩn dừng) ≈ **26k**. Poll rảnh = 1 select có index (fast path, ~5–20ms Neon). Hằng `FAST_MS`, `SLOW_MS`, `ACTIVITY_WINDOW_MS` trong `sync-loop.ts`.
 
 ## C9. Hooks & keys — `src/features/writing/hooks.ts`
-**Trạng thái:** todo
+**Trạng thái:** done — useSyncLoop(setup, ready, onError) → { status, readOnly } trong components/use-sync-loop.ts (chỉ chunk Editor import yjs)
 ```ts
 export const writingKeys = { sessions: (classId) => ["writing","class",classId], session: (id) => ["writing","session",id], overview: (id) => ["writing","session",id,"overview"], doc: (docId) => ["writing","doc",docId], scratch: ["scratch-cards"] };
 ```
@@ -152,7 +152,7 @@ export const writingKeys = { sessions: (classId) => ["writing","class",classId],
 Schemas `src/features/writing/schemas.ts`: `sessionInputSchema`, `sessionPatchSchema`, `docSummarySchema`, `sessionSummarySchema`, `sessionDetailSchema`, `overviewSchema`, `syncRequestSchema`/`syncResponseSchema` (base64 regex), `scratchCardSchema`, `scratchInputSchema`, `materializeSchema`.
 
 ## C10. UI
-**Trạng thái:** todo
+**Trạng thái:** in-progress — UI xong, đang chạy e2e
 - `src/app/(app)/classes/[id]/writing/page.tsx` → `SessionList` (GV: form title + prompt `Textarea`, danh sách + Badge trạng thái, link `/study/writing/[id]`; HS: phiên open/closed). Nút "Viết bài" ở header `ClassView.tsx` (cạnh `ExitClass`, L296-300).
 - `src/app/(study)/study/writing/[sessionId]/page.tsx` dưới `StudyShell` → `WritingTopBar` (về danh sách, tiêu đề + Badge, chỉ báo sync, nút "Bộ thẻ tạm (n)" mở `ScratchDrawer`) + `WritingWorkspace` `grid lg:grid-cols-[1fr_22rem]`: cột editor `min-h-0 flex-1`, panel thu gọn được; mobile panel/drawer là `Dialog` với prop mới `side?: "right"|"bottom"` thêm vào `Dialog.tsx`.
 - `TeacherRoster`: lưới thẻ (Avatar, tên, preview, `charCount`, "x giây trước" từ `serverTime` với ticker 1s `useClientValue`), click → mở doc trong editor; nút Mở/Đóng phiên (`ConfirmDialog` khi đóng), `Switch` "Cho phép xem bài nhau", `Switch` "Cho phép viết lên bài nhau" (disabled khi chưa cho xem).
@@ -163,7 +163,7 @@ Schemas `src/features/writing/schemas.ts`: `sessionInputSchema`, `sessionPatchSc
 - Cron: `purgeClosedSessions` trong `src/app/api/cron/cleanup/route.ts:28-33`.
 
 ## C11. i18n
-**Trạng thái:** todo
+**Trạng thái:** done — thêm writing.editor.toolbar, writing.roster.justNow (tách khỏi plural vì test placeholder), library.scratchCards
 Namespace `writing.{sessions,status,editor,panel,roster,scratch,materialize,sync}.*`; `errors.{DOC_TOO_LARGE,SESSION_CLOSED,SCRATCH_LIMIT,SCRATCH_INCOMPLETE}`; `classes.writing`. Vi là chuẩn; e2e dùng nhãn vi.
 
 ## C12. Test
