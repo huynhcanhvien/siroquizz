@@ -91,7 +91,7 @@
 - `card-images.ts:56` set `cardId = null` khi thay ảnh; `schema.ts:597` `onDelete: "set null"`; `ai/cleanup.ts` chỉ dọn `ai_uploads`. → Cron xoá `card_images` có `card_id null` và `created_at < now - 24h` kèm object S3 (`DeleteObjects` lô 1000). Test integration với adapter S3 giả.
 
 ### A15. Cleanup upload từng cái một
-**Trạng thái:** todo
+**Trạng thái:** done — `deleteStoredObjects` (storage.ts) gọi `DeleteObjects` lô ≤1000, trả key đã xoá; `cleanupAi` xoá tối đa 1000 upload/lần bằng 1 lô S3 + 1 `DELETE … WHERE id IN (…)`, giữ lại dòng có object xoá lỗi. Test `tests/integration/storage-cleanup.test.ts`.
 - `ai/cleanup.ts:7-11`: 1 call S3 + 1 delete mỗi upload, tối đa 500/ngày trong cron 60s, backlog có thể vượt. → `DeleteObjects` theo lô + `DELETE … WHERE id = ANY(...)`.
 
 ### A16. Rate limit đăng nhập chỉ trong bộ nhớ từng instance
