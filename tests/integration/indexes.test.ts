@@ -42,9 +42,7 @@ it("serves every cascade lookup from an index", async () => {
     const plan = await db.transaction(async (tx) => {
       // Tiny test tables favour sequential scans; disabling them shows the index is usable.
       await tx.execute(sql`set local enable_seqscan = off`);
-      return tx.execute(
-        sql.raw(`explain delete from ${table} where ${column} = '${v7()}'::uuid`),
-      );
+      return tx.execute(sql.raw(`explain delete from ${table} where ${column} = '${v7()}'::uuid`));
     });
     expect(JSON.stringify(plan)).toContain(index);
   }

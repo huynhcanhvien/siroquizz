@@ -1,5 +1,18 @@
 import "server-only";
-import { and, asc, eq, gt, gte, isNull, lt, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  getTableColumns,
+  gt,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import { v7 } from "uuid";
 import { z } from "zod";
 import type { Card as FsrsCard } from "ts-fsrs";
@@ -84,44 +97,63 @@ function toFsrs(row: typeof cardProgress.$inferSelect): FsrsCard {
 export async function lockLearner(tx: Transaction, userId: string) {
   await tx.select({ id: user.id }).from(user).where(eq(user.id, userId)).for("update");
 }
-/** Caller holds the user lock before any set/card locks, so batches and reviews share lock order. */
-export async function reviewInTransaction(
-  tx: Transaction,
-  userId: string,
-  input: unknown,
-  now = new Date(),
-) {
-  const data = reviewInputSchema.parse(input);
-  const [event] = await tx
-    .select()
-    .from(reviewLogs)
-    .where(eq(reviewLogs.id, data.eventId))
-    .limit(1);
-  if (event) {
-    if (event.userId !== userId || event.cardId !== data.cardId)
+type ReviewInput = z.infer<typeof reviewInputSchema>;
+type ProgressRow = typeof cardProgress.$inferSelect;
+export type ReviewSnapshot = ReturnType<typeof toSnapshot>;
+export const toSnapshot = (row: ProgressRow) => ({
+  ...row,
+  due: row.due.toISOString(),
+  lastReview: row.lastReview?.toISOString() ?? null,
+  updatedAt: row.updatedAt.toISOString(),
+});
+/** Every progress column but the key is overwritten by a re-review. */
+const progressUpsertSet = Object.fromEntries(
+  Object.entries(getTableColumns(cardProgress))
+    .filter(([key]) => key !== "userId" && key !== "cardId")
+    .map(([key, column]) => [key, sql.raw(`excluded.${column.name}`)]),
+);
+
+/** Events already recorded (retried requests) return their stored snapshot. */
+async function replayedEvents(tx: Transaction, userId: string, items: readonly ReviewInput[]) {
+  const ids = items.map((item) => item.eventId);
+  const events = ids.length
+    ? await tx.select().from(reviewLogs).where(inArray(reviewLogs.id, ids))
+    : [];
+  const byId = new Map(items.map((item) => [item.eventId, item]));
+  for (const event of events)
+    if (event.userId !== userId || event.cardId !== byId.get(event.id)?.cardId)
       throw new ApiError(404, "NOT_FOUND");
-    return event.snapshot;
-  }
-  const card = await requireCard(tx, userId, data.cardId, "share");
-  const [previous] = await tx
-    .select()
-    .from(cardProgress)
-    .where(and(eq(cardProgress.userId, userId), eq(cardProgress.cardId, card.id)))
-    .limit(1);
-  const wasNew = !previous?.reps;
-  const { remaining, prefs } = await newAllowance(tx, userId, now);
-  if (wasNew && !remaining) throw new ApiError(429, "NEW_CARD_LIMIT");
-  const next = scheduleReview(
-    previous ? toFsrs(previous) : null,
-    data.rating,
-    now,
-    prefs.retention,
-  );
-  const values = {
+  return new Map(events.map((event) => [event.id, event.snapshot as ReviewSnapshot]));
+}
+/** Maps each card to its set after checking, in one query, that the learner may study them all. */
+async function studyableCards(tx: Transaction, userId: string, items: readonly ReviewInput[]) {
+  const ids = items.map((item) => item.cardId);
+  const found = ids.length
+    ? await tx
+        .select({ id: cards.id, setId: cards.setId })
+        .from(cards)
+        .where(inArray(cards.id, ids))
+    : [];
+  if (found.length !== ids.length) throw new ApiError(404, "NOT_FOUND");
+  // Sorted so concurrent batches touching several sets take their locks in the same order.
+  for (const setId of [...new Set(found.map((card) => card.setId))].toSorted())
+    await requireStudySet(tx, userId, setId, "share");
+  return new Map(found.map((card) => [card.id, card.setId]));
+}
+function nextProgress(
+  userId: string,
+  item: ReviewInput,
+  setId: string,
+  previous: ProgressRow | undefined,
+  context: { now: Date; retention: number },
+) {
+  const { now, retention } = context;
+  const next = scheduleReview(previous ? toFsrs(previous) : null, item.rating, now, retention);
+  return {
     userId,
-    cardId: card.id,
-    setId: card.setId,
-    status: data.rating >= 3 ? ("known" as const) : ("learning" as const),
+    cardId: item.cardId,
+    setId,
+    status: item.rating >= 3 ? ("known" as const) : ("learning" as const),
     due: next.due,
     stability: next.stability,
     difficulty: next.difficulty,
@@ -134,29 +166,92 @@ export async function reviewInTransaction(
     lastReview: next.last_review ?? now,
     updatedAt: now,
   };
-  const [saved] = await tx
+}
+async function progressByCard(tx: Transaction, userId: string, cardIds: string[]) {
+  const rows = await tx
+    .select()
+    .from(cardProgress)
+    .where(and(eq(cardProgress.userId, userId), inArray(cardProgress.cardId, cardIds)));
+  return new Map(rows.map((row) => [row.cardId, row]));
+}
+/** Schedules unseen events: one read of prior progress, one upsert, one log insert. */
+async function scheduleBatch(
+  tx: Transaction,
+  userId: string,
+  items: readonly ReviewInput[],
+  setOf: ReadonlyMap<string, string>,
+  now: Date,
+) {
+  const previousByCard = await progressByCard(
+    tx,
+    userId,
+    items.map((item) => item.cardId),
+  );
+  const wasNew = (item: ReviewInput) => !previousByCard.get(item.cardId)?.reps;
+  const { remaining, prefs } = await newAllowance(tx, userId, now);
+  if (items.filter(wasNew).length > remaining) throw new ApiError(429, "NEW_CARD_LIMIT");
+  const context = { now, retention: prefs.retention };
+  const values = items.map((item) =>
+    nextProgress(userId, item, setOf.get(item.cardId)!, previousByCard.get(item.cardId), context),
+  );
+  const saved = await tx
     .insert(cardProgress)
     .values(values)
-    .onConflictDoUpdate({ target: [cardProgress.userId, cardProgress.cardId], set: values })
+    .onConflictDoUpdate({
+      target: [cardProgress.userId, cardProgress.cardId],
+      set: progressUpsertSet,
+    })
     .returning();
-  const snapshot = {
-    ...saved,
-    due: saved.due.toISOString(),
-    lastReview: saved.lastReview?.toISOString() ?? null,
-    updatedAt: saved.updatedAt.toISOString(),
-  };
-  await tx.insert(reviewLogs).values({
-    id: data.eventId,
-    userId,
-    cardId: card.id,
-    setId: card.setId,
-    rating: data.rating,
-    mode: data.mode,
-    durationMs: data.durationMs,
-    reviewedAt: now,
-    wasNew,
-    snapshot,
-  });
+  const snapshotByCard = new Map(saved.map((row) => [row.cardId, toSnapshot(row)]));
+  await tx.insert(reviewLogs).values(
+    items.map((item) => ({
+      id: item.eventId,
+      userId,
+      cardId: item.cardId,
+      setId: setOf.get(item.cardId)!,
+      rating: item.rating,
+      mode: item.mode,
+      durationMs: item.durationMs,
+      reviewedAt: now,
+      wasNew: wasNew(item),
+      snapshot: snapshotByCard.get(item.cardId)!,
+    })),
+  );
+  return new Map(items.map((item) => [item.eventId, snapshotByCard.get(item.cardId)!]));
+}
+/**
+ * Records several reviews in a constant number of queries. Caller holds the user lock before any
+ * set locks, so batches and single reviews share lock order. `verifiedSetId` skips the card
+ * lookup when the caller already checked that every card belongs to that studyable set.
+ */
+export async function reviewBatchInTransaction(
+  tx: Transaction,
+  userId: string,
+  inputs: readonly unknown[],
+  now = new Date(),
+  verifiedSetId?: string,
+): Promise<ReviewSnapshot[]> {
+  const items = z.array(reviewInputSchema).max(500).parse(inputs);
+  const unique = (values: string[]) => new Set(values).size === values.length;
+  if (!unique(items.map((item) => item.cardId)) || !unique(items.map((item) => item.eventId)))
+    throw new ApiError(400, "VALIDATION_ERROR");
+  const replayed = await replayedEvents(tx, userId, items);
+  const fresh = items.filter((item) => !replayed.has(item.eventId));
+  if (!fresh.length) return items.map((item) => replayed.get(item.eventId)!);
+  const setOf = verifiedSetId
+    ? new Map(fresh.map((item) => [item.cardId, verifiedSetId]))
+    : await studyableCards(tx, userId, fresh);
+  const saved = await scheduleBatch(tx, userId, fresh, setOf, now);
+  return items.map((item) => replayed.get(item.eventId) ?? saved.get(item.eventId)!);
+}
+/** One review; see reviewBatchInTransaction for the locking contract. */
+export async function reviewInTransaction(
+  tx: Transaction,
+  userId: string,
+  input: unknown,
+  now = new Date(),
+) {
+  const [snapshot] = await reviewBatchInTransaction(tx, userId, [input], now);
   return snapshot;
 }
 export async function reviewCard(db: Database, userId: string, input: unknown) {
@@ -316,7 +411,12 @@ export async function finishSession(
       cardsSeen: z.number().int().min(0).max(20000),
       correct: z.number().int().min(0).max(20000),
       incorrect: z.number().int().min(0).max(20000),
-      activeSeconds: z.number().int().min(0).max(MAX_SESSION_MS / 1000).optional(),
+      activeSeconds: z
+        .number()
+        .int()
+        .min(0)
+        .max(MAX_SESSION_MS / 1000)
+        .optional(),
     })
     .refine((v) => v.correct + v.incorrect <= v.cardsSeen)
     .parse(input);

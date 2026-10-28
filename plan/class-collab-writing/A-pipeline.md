@@ -29,7 +29,7 @@
 - **Test:** integration: 2 transaction review song song cùng bộ không chặn nhau (đo thời gian hoặc dùng `pg_locks`); `updateSet` vẫn chờ review đang chạy xong.
 
 ### A5. `putProgress` chạy tới 500 × ~8 query
-**Trạng thái:** todo
+**Trạng thái:** done — 500 thẻ: 4003 → ≤10 query (đo bằng drizzle logger); `putProgress` truyền `verifiedSetId` để bỏ tra cứu thẻ lần 2; lô trùng cardId/eventId → 400
 - **Vấn đề:** `progress.ts:51-72` gọi `reviewInTransaction` từng thẻ; mỗi lần ~8 query (`requireCard`, `requireStudySet`, `getPreferences`, `count(*)` review_logs, upsert, insert log) → 4.000 round trip khi giữ khoá user.
 - **Sửa:** `reviewBatchInTransaction(tx, userId, items: ReviewInput[], now)` trong `learning.ts`: kiểm tra mọi `cardId` thuộc bộ bằng 1 query; `newAllowance` 1 lần rồi trừ dần trong bộ nhớ (ném `NEW_CARD_LIMIT` khi hết); đọc `card_progress` của các thẻ 1 query; tính FSRS thuần; insert `card_progress` (upsert nhiều hàng) + `review_logs` (nhiều hàng) mỗi bảng 1 lần; kiểm tra `eventId` trùng bằng 1 query `inArray`. `reviewInTransaction` gọi batch với 1 phần tử (giữ chữ ký). `putProgress` gom thẻ `status !== "new"` thành 1 batch.
 - **Test:** integration: 500 thẻ ≤ 10 query (đếm qua drizzle `logger` tuỳ biến trong test); snapshot FSRS giống hàm cũ cho cùng input/`now`; `NEW_CARD_LIMIT` đúng khi batch vượt hạn mức.
