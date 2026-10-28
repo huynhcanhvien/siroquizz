@@ -29,6 +29,7 @@ import type { Database } from "../db/client";
 import { aiJobs, aiResultCache, aiUploads } from "../db/schema";
 import { getServerEnv } from "../env";
 import { getUpload } from "./storage";
+import { MAX_DOCUMENT_TOKENS } from "@/features/ai-generate/lib/document-limits";
 import {
   addUsage,
   assertDocumentBudget,
@@ -49,7 +50,8 @@ import {
   reserveCredits,
 } from "./credits";
 
-const PDF_PAGE_BATCH = 6;
+// Scanned PDF pages OCR'd per step; text pages are all read at once.
+const OCR_PAGE_BATCH = 6;
 const IMAGE_TYPES = new Set(["png", "jpg", "jpeg", "webp"]);
 // Steps in a row whose OCR timed out without progress before the job gives up.
 const MAX_STALLS = 5;
@@ -140,6 +142,37 @@ function noteThrottle(state: AiJobState, retryAfterMs: number) {
   if (state.throttledMs > MAX_THROTTLE_MS) throw new ApiError(429, "RATE_LIMITED");
 }
 
+type BytesOf = (upload: Upload) => Promise<Buffer>;
+type InspectProgress = NonNullable<AiJobState["inspect"]>;
+
+/**
+ * Counts pages and scans one upload after another, resuming from `state.inspect` so a large
+ * document set can be inspected over several steps. Returns false when it ran out of time.
+ */
+async function countUploads(ctx: StepContext, uploads: Upload[], bytesOf: BytesOf) {
+  const { state } = ctx;
+  const progress: InspectProgress = state.inspect ?? { index: 0, page: 1, ocrPages: 0, hashes: [] };
+  state.inspect = progress;
+  while (progress.index < uploads.length) {
+    if (Date.now() > ctx.launchUntil) return false;
+    const upload = uploads[progress.index];
+    const bytes = await bytesOf(upload);
+    const ext = validateMagic(bytes, upload.name, upload.mime);
+    if (progress.page === 1) progress.hashes.push(createHash("sha256").update(bytes).digest("hex"));
+    if (ext === "pdf") {
+      const pdf = await inspectPdf(bytes, progress.page, ctx.deadline);
+      progress.ocrPages += pdf.scannedPages;
+      if (pdf.nextPage) {
+        progress.page = pdf.nextPage;
+        continue;
+      }
+    } else if (IMAGE_TYPES.has(ext)) progress.ocrPages++;
+    progress.index++;
+    progress.page = 1;
+  }
+  return true;
+}
+
 /**
  * Checks every file before any provider call: page and OCR limits, whether the user can afford
  * the OCR, and whether an identical request already has a cached result.
@@ -147,20 +180,12 @@ function noteThrottle(state: AiJobState, retryAfterMs: number) {
 async function inspectUploads(
   ctx: StepContext,
   uploads: Upload[],
-  bytesOf: (upload: Upload) => Promise<Buffer>,
-) {
+  bytesOf: BytesOf,
+): Promise<"paused" | "cached" | "counted"> {
   const { db, userId, job, state } = ctx;
-  let ocrPages = 0;
-  const hashes: string[] = [];
-  for (const upload of uploads) {
-    const bytes = await bytesOf(upload);
-    const ext = validateMagic(bytes, upload.name, upload.mime);
-    hashes.push(createHash("sha256").update(bytes).digest("hex"));
-    if (ext === "pdf") {
-      const pdf = await inspectPdf(bytes);
-      ocrPages += pdf.scannedPages;
-    } else if (IMAGE_TYPES.has(ext)) ocrPages++;
-  }
+  if (!(await countUploads(ctx, uploads, bytesOf))) return "paused";
+  const { ocrPages, hashes } = state.inspect!;
+  delete state.inspect;
   if (ocrPages > MAX_OCR_PAGES) throw new ApiError(400, "OCR_PAGE_LIMIT");
   const ocrCredits = ocrPages * OCR_CREDITS_PER_PAGE;
   if (ocrCredits) {
@@ -170,7 +195,7 @@ async function inspectUploads(
   }
   state.pagesCounted = true;
   // Prompt-only requests are not cached: asking again should give fresh cards.
-  if (!uploads.length) return false;
+  if (!uploads.length) return "counted";
   state.cacheKey = createHash("sha256")
     .update(JSON.stringify({ v: CACHE_VERSION, hashes, prompt: job.prompt, options: job.options }))
     .digest("hex");
@@ -179,7 +204,7 @@ async function inspectUploads(
     .from(aiResultCache)
     .where(eq(aiResultCache.key, state.cacheKey))
     .limit(1);
-  if (!hit) return false;
+  if (!hit) return "counted";
   state.rawCards = generationResultSchema.parse(hit.result).cards.map((card) => ({
     term: card.term,
     definition: card.definition,
@@ -187,7 +212,68 @@ async function inspectUploads(
   }));
   state.cached = true;
   state.phase = "finalize";
-  return true;
+  return "cached";
+}
+
+/** Adds extracted text to the upload's slot, keeping a running token count (not re-estimated). */
+function appendText(state: AiJobState, text: string, tokens: number) {
+  state.texts[state.extractIndex] = (state.texts[state.extractIndex] ?? "") + text;
+  state.runningTokens = (state.runningTokens ?? 0) + tokens;
+  if (state.runningTokens > MAX_DOCUMENT_TOKENS) throw new ApiError(400, "DOCUMENT_TOO_LONG");
+}
+
+/** Reads the next range of a PDF; returns the delay to pause for when it stopped early. */
+async function readPdf(ctx: StepContext, bytes: Buffer): Promise<number | null> {
+  const { state, signal } = ctx;
+  const from = state.pdfPageCursor || 1;
+  const budget = MAX_DOCUMENT_TOKENS - (state.runningTokens ?? 0);
+  const range = await extractPdfPages(bytes, from, OCR_PAGE_BATCH, signal, ctx.deadline, budget);
+  appendText(state, range.text, range.tokens);
+  addUsage(state.usage, range.usage);
+  state.ocrPages = (state.ocrPages ?? 0) + range.ocrPages;
+  state.pdfPageCursor = range.nextPage;
+  if (range.nextPage !== from) state.throttledMs = 0;
+  if (range.retryAfterMs === undefined) {
+    if (range.nextPage === 0) state.extractIndex++;
+    return null;
+  }
+  // 0 means a page timed out or the step ran out of time rather than being throttled.
+  if (range.retryAfterMs) noteThrottle(state, range.retryAfterMs);
+  else {
+    state.stalls = range.nextPage === from ? (state.stalls ?? 0) + 1 : 0;
+    if (state.stalls > MAX_STALLS) throw new ApiError(504, "AI_TIMEOUT");
+  }
+  return range.retryAfterMs;
+}
+
+/** Reads one upload (or the next part of a PDF); returns the delay to pause for, or null. */
+async function readUpload(ctx: StepContext, upload: Upload, bytes: Buffer) {
+  const { state, signal } = ctx;
+  try {
+    if (validateMagic(bytes, upload.name, upload.mime) === "pdf") {
+      const pause = await readPdf(ctx, bytes);
+      if (pause !== null) return pause;
+    } else {
+      const doc = await extractDocument(bytes, upload.name, upload.mime, signal, ctx.deadline);
+      appendText(state, doc.text, estimateTokens(doc.text));
+      addUsage(state.usage, doc.usage);
+      state.ocrPages = (state.ocrPages ?? 0) + doc.ocrPages;
+      state.extractIndex++;
+      state.pdfPageCursor = 0;
+      state.throttledMs = 0;
+    }
+    state.stalls = 0;
+    return null;
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      noteThrottle(state, error.retryAfterMs);
+      return error.retryAfterMs;
+    }
+    if (!isTimeout(error)) throw error;
+    state.stalls = (state.stalls ?? 0) + 1;
+    if (state.stalls > MAX_STALLS) throw new ApiError(504, "AI_TIMEOUT");
+    return 0;
+  }
 }
 
 /** Reads uploaded files into `state.texts`, then prices the generation (or imports directly). */
@@ -196,68 +282,33 @@ export async function extractStep(ctx: StepContext): Promise<StepResult> {
   const ids = z.array(z.uuid()).parse(job.uploadIds);
   const uploads = await loadUploads(db, userId, ids);
   if (uploads.length !== ids.length) throw new ApiError(400, "UPLOAD_MISSING");
-  // Each file is downloaded at most once per step.
-  const downloads = new Map<string, Buffer>();
-  const bytesOf = async (upload: Upload) => {
-    const bytes = downloads.get(upload.id) ?? (await getUpload(upload.key, upload.size, signal));
-    downloads.set(upload.id, bytes);
-    return bytes;
+  // Only the file being worked on stays in memory (uploads total up to 200 MB).
+  let current: { id: string; bytes: Buffer } | null = null;
+  const bytesOf: BytesOf = async (upload) => {
+    if (current?.id !== upload.id)
+      current = { id: upload.id, bytes: await getUpload(upload.key, upload.size, signal) };
+    return current.bytes;
   };
-  if (!state.pagesCounted && (await inspectUploads(ctx, uploads, bytesOf))) {
-    await ctx.persist("validating");
-    return { status: "validating", stage: "validating" };
-  }
   const pause = async (retryAfterMs: number): Promise<StepResult> => {
     await ctx.persist("extracting");
     return { status: "extracting", stage: "reading", retryAfterMs };
   };
+  if (!state.pagesCounted) {
+    const inspected = await inspectUploads(ctx, uploads, bytesOf);
+    if (inspected === "paused") return pause(0);
+    if (inspected === "cached") {
+      await ctx.persist("validating");
+      return { status: "validating", stage: "validating" };
+    }
+  }
+  // Jobs saved before the running count existed estimate what they already read, once.
+  state.runningTokens ??= estimateTokens(state.texts.join("\n\n"));
   while (state.extractIndex < uploads.length) {
     signal.throwIfAborted();
     if (Date.now() > ctx.launchUntil) return pause(0);
     const upload = uploads[state.extractIndex];
-    const bytes = await bytesOf(upload);
-    try {
-      if (validateMagic(bytes, upload.name, upload.mime) === "pdf") {
-        const from = state.pdfPageCursor || 1;
-        const range = await extractPdfPages(bytes, from, PDF_PAGE_BATCH, signal, ctx.deadline);
-        state.texts[state.extractIndex] = (state.texts[state.extractIndex] ?? "") + range.text;
-        assertDocumentBudget(state.texts.join("\n\n"));
-        addUsage(state.usage, range.usage);
-        state.ocrPages = (state.ocrPages ?? 0) + range.ocrPages;
-        if (range.nextPage !== from) state.throttledMs = 0;
-        if (range.retryAfterMs !== undefined) {
-          state.pdfPageCursor = range.nextPage;
-          // 0 means a page timed out rather than being throttled.
-          if (range.retryAfterMs) noteThrottle(state, range.retryAfterMs);
-          else {
-            state.stalls = range.nextPage === from ? (state.stalls ?? 0) + 1 : 0;
-            if (state.stalls > MAX_STALLS) throw new ApiError(504, "AI_TIMEOUT");
-          }
-          return pause(range.retryAfterMs);
-        }
-        state.pdfPageCursor = range.nextPage;
-        if (range.nextPage === 0) state.extractIndex++;
-      } else {
-        const doc = await extractDocument(bytes, upload.name, upload.mime, signal, ctx.deadline);
-        state.texts[state.extractIndex] = doc.text;
-        addUsage(state.usage, doc.usage);
-        state.ocrPages = (state.ocrPages ?? 0) + doc.ocrPages;
-        state.extractIndex++;
-        state.pdfPageCursor = 0;
-        state.throttledMs = 0;
-      }
-      assertDocumentBudget(state.texts.join("\n\n"));
-      state.stalls = 0;
-    } catch (error) {
-      if (error instanceof RateLimitError) {
-        noteThrottle(state, error.retryAfterMs);
-        return pause(error.retryAfterMs);
-      }
-      if (!isTimeout(error)) throw error;
-      state.stalls = (state.stalls ?? 0) + 1;
-      if (state.stalls > MAX_STALLS) throw new ApiError(504, "AI_TIMEOUT");
-      return pause(0);
-    }
+    const delay = await readUpload(ctx, upload, await bytesOf(upload));
+    if (delay !== null) return pause(delay);
   }
   return planGeneration(ctx, ids.length > 0);
 }

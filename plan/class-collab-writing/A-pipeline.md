@@ -67,7 +67,7 @@
 - **Test:** integration: sau `extractStep` không còn `texts`; `listJobs` payload không có `state`.
 
 ### A11. PDF tải lại và parse lại mỗi 6 trang; inspect không deadline, giữ mọi upload trong RAM
-**Trạng thái:** todo
+**Trạng thái:** done — extractPdfPages đọc mọi trang text trong 1 lần, chỉ OCR ≤ 6 trang scan/step; dừng gần deadline sau ≥ 1 trang; inspect lưu state.inspect {index,page,ocrPages,hashes}; chỉ giữ 1 file trong RAM; state.runningTokens
 - **Vấn đề:** `job-steps.ts:51` `PDF_PAGE_BATCH = 6`, `187-193` cache tải chỉ sống 1 step, `202-227`; `extract.ts:272-311` `inspectPdf` duyệt mọi trang không kiểm deadline; `inspectUploads` (`job-steps.ts:143-151`) giữ toàn bộ upload (tới 200 MB) trong bộ nhớ; `estimateTokens` chạy lại trên toàn bộ text mỗi lô (`job-steps.ts:212,237`, `extract.ts:264`, `browser-ocr.ts`) → bậc hai.
 - **Sửa:** trang có text layer đọc hết trong 1 step (chỉ trang scan chia lô OCR); inspect từng upload, lưu `state.inspectCursor`; kiểm `ctx.deadline` trong vòng lặp trang; giữ `state.runningTokens` cộng dồn thay vì ước lượng lại.
 - **Test:** integration với PDF 60 trang text (fixture `tests/`): 1 step extract; deadline giả 1ms → step trả `retryAfterMs` và cursor tiến.

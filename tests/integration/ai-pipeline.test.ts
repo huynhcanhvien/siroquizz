@@ -4,6 +4,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { eq, sql } from "drizzle-orm";
 import { v7 } from "uuid";
+import { PDFDocument } from "pdf-lib";
 import * as schema from "@/server/db/schema";
 import type { Database } from "@/server/db/client";
 import type { AiJobState } from "@/features/ai-generate/schemas";
@@ -20,12 +21,16 @@ import {
 const provider = vi.hoisted(() => vi.fn());
 const files = vi.hoisted(() => new Map<string, Buffer>());
 const queue = vi.hoisted(() => ({ slots: 20 }));
+const downloads = vi.hoisted(() => ({ onDownload: (): void => undefined }));
 vi.mock("@/server/ai/groq", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/ai/groq")>()),
   groqJson: provider,
 }));
 vi.mock("@/server/ai/storage", () => ({
-  getUpload: vi.fn(async (key: string) => files.get(key)!),
+  getUpload: vi.fn(async (key: string) => {
+    downloads.onDownload();
+    return files.get(key)!;
+  }),
 }));
 vi.mock("@/server/env", () => ({
   getServerEnv: () => ({
@@ -110,6 +115,8 @@ beforeEach(async () => {
     .values({ id: owner, name: "Owner", email: "pipeline@example.com", emailVerified: true });
   files.clear();
   queue.slots = 20;
+  downloads.onDownload = () => undefined;
+  vi.restoreAllMocks();
   provider.mockReset().mockImplementation(freshCards);
 });
 afterAll(() => connection.end());
@@ -166,4 +173,53 @@ it("drops the saved state of cancelled and failed jobs", async () => {
   const failed = await createJob(db, owner, { prompt: "Cards", options, uploadIds: [] });
   await expect(runToEnd(failed.jobId)).resolves.toMatchObject({ status: "error" });
   expect(await jobState(failed.jobId)).toBeNull();
+});
+
+it("reads a 60-page text PDF in a single step", async () => {
+  const pdf = await PDFDocument.create();
+  for (let i = 0; i < 60; i++)
+    pdf.addPage([600, 800]).drawText(`page${i} vocabulary word`, { x: 40, y: 760, size: 12 });
+  const uploadId = await upload("book.pdf", "application/pdf", Buffer.from(await pdf.save()));
+  const { jobId } = await createJob(db, owner, { prompt: "Cards", options, uploadIds: [uploadId] });
+  const first = await stepJob(db, owner, jobId, new AbortController().signal);
+  // Before, text pages were read six per step: ten steps and ten downloads for this file.
+  expect(first.status).toBe("generating");
+  const state = (await jobState(jobId))!;
+  expect(state.chunks!.join("")).toContain("page59 vocabulary word");
+  expect(state.runningTokens).toBeGreaterThan(0);
+  expect(state.inspect).toBeUndefined();
+});
+
+it("resumes inspecting files in the next step when one step runs out of time", async () => {
+  const first = await upload("a.txt", "text/plain", Buffer.from("cat - mèo\ndog - chó\n"));
+  const second = await upload("b.txt", "text/plain", Buffer.from("fish - cá\nbird - chim\n"));
+  const realNow = Date.now.bind(Date);
+  let offset = 0;
+  vi.spyOn(Date, "now").mockImplementation(() => realNow() + offset);
+  // The first download is slow enough to use up the step's launch budget.
+  downloads.onDownload = () => {
+    offset += 31_000;
+    downloads.onDownload = () => undefined;
+  };
+  const { jobId } = await createJob(db, owner, {
+    prompt: "",
+    options,
+    uploadIds: [first, second],
+  });
+  const step = await stepJob(db, owner, jobId, new AbortController().signal);
+  expect(step).toMatchObject({ status: "extracting", retryAfterMs: 0 });
+  const paused = (await jobState(jobId))!;
+  expect(paused.pagesCounted).toBe(false);
+  expect(paused.inspect).toMatchObject({ index: 1, page: 1, ocrPages: 0 });
+  expect(paused.inspect!.hashes).toHaveLength(1);
+  const done = await runToEnd(jobId);
+  // Clear term/definition pairs are imported without the AI.
+  expect(done).toMatchObject({ status: "done", creditsCharged: 0 });
+  expect(done.result?.cards.map((card) => card.term).sort()).toEqual([
+    "bird",
+    "cat",
+    "dog",
+    "fish",
+  ]);
+  expect(provider).not.toHaveBeenCalled();
 });

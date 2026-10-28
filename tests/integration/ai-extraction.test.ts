@@ -1,7 +1,14 @@
 import { expect, it, vi } from "vitest";
 import { readFile } from "node:fs/promises";
 import { PDFDocument } from "pdf-lib";
-import { extractDocument, validateMagic, countPdfPages } from "@/server/ai/extract";
+import {
+  countPdfPages,
+  extractDocument,
+  extractPdfPages,
+  inspectPdf,
+  validateMagic,
+} from "@/server/ai/extract";
+import { estimateTokens } from "@/features/ai-generate/lib/output";
 import {
   presignUpload,
   verifyUploadSignature,
@@ -125,6 +132,53 @@ it("reads all 100 PDF pages with 20 vocabulary entries per page", async () => {
   expect(result.ocrPages).toBe(0);
   expect(result.text).toContain("word0 ");
   expect(result.text).toContain("word1999 ");
+});
+/** A PDF whose pages are text ("t") or a blank scan-like page with no text layer ("s"). */
+async function pdfOf(kinds: string) {
+  const pdf = await PDFDocument.create();
+  [...kinds].forEach((kind, i) => {
+    const page = pdf.addPage([600, 800]);
+    if (kind === "t")
+      for (let row = 0; row < 10; row++)
+        page.drawText(`page${i} word${row} definition`, { x: 40, y: 760 - row * 30, size: 12 });
+  });
+  return Buffer.from(await pdf.save());
+}
+const signal = () => new AbortController().signal;
+it("reads every text page in one call and batches only scanned pages for OCR", async () => {
+  const text = await extractPdfPages(await pdfOf("t".repeat(60)), 1, 6, signal());
+  expect(text).toMatchObject({ nextPage: 0, totalPages: 60, ocrPages: 0 });
+  expect(text.text).toContain("page59 word9");
+  expect(text.tokens).toBeGreaterThanOrEqual(estimateTokens(text.text));
+  const mixed = await pdfOf("tsst");
+  const first = await extractPdfPages(mixed, 1, 1, signal());
+  expect(first).toMatchObject({ nextPage: 3, ocrPages: 1 });
+  expect(first.text).toContain("page0 word0");
+  const rest = await extractPdfPages(mixed, 3, 1, signal());
+  expect(rest).toMatchObject({ nextPage: 0, ocrPages: 1 });
+  expect(rest.text).toContain("page3 word0");
+});
+it("stops reading pages near the deadline but always makes progress", async () => {
+  const bytes = await pdfOf("tttt");
+  const range = await extractPdfPages(bytes, 1, 6, signal(), Date.now() + 1);
+  expect(range).toMatchObject({ nextPage: 2, retryAfterMs: 0 });
+  expect(range.text).toContain("page0 word0");
+  expect(range.text).not.toContain("page1 word0");
+  await expect(inspectPdf(await pdfOf("tsts"), 1, Date.now() + 1)).resolves.toEqual({
+    pages: 4,
+    scannedPages: 0,
+    nextPage: 2,
+  });
+  await expect(inspectPdf(await pdfOf("tsts"), 2)).resolves.toEqual({
+    pages: 4,
+    scannedPages: 2,
+    nextPage: 0,
+  });
+});
+it("refuses a PDF over the remaining document budget while reading it", async () => {
+  await expect(
+    extractPdfPages(await pdfOf("tttt"), 1, 6, signal(), undefined, 20),
+  ).rejects.toMatchObject({ code: "DOCUMENT_TOO_LONG" });
 });
 it("signs local uploads, prevents tampering, expiry, replay and path traversal", async () => {
   const id = v7(),

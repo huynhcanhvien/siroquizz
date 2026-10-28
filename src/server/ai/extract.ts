@@ -182,73 +182,110 @@ export async function extractDocument(
 
 export interface PdfRange {
   text: string;
+  /** Estimated tokens of `text`, summed page by page (see estimateTokens). */
+  tokens: number;
   /** Page to resume at (1-based), or 0 when the document is fully read. */
   nextPage: number;
   totalPages: number;
   usage: Usage;
   /** Scanned pages read by OCR in this range (kept pages only; billed per page). */
   ocrPages: number;
-  /** Set when OCR was throttled: pages from `nextPage` on still need reading after this delay. */
+  /**
+   * Set when reading stopped early: OCR was throttled (the delay), or a page timed out or the
+   * step ran out of time (0). Pages from `nextPage` on still need reading.
+   */
   retryAfterMs?: number;
 }
 type PageOutcome = { ok: true; text: string; usage?: Usage } | { ok: false; error: unknown };
 const retryable = (error: unknown) =>
   error instanceof RateLimitError || (error instanceof ApiError && error.code === "AI_TIMEOUT");
+/** Time kept back from the deadline when deciding whether to read another page. */
+const PAGE_RESERVE_MS = 2_000;
+const nearDeadline = (deadline?: number) =>
+  deadline !== undefined && Date.now() > deadline - PAGE_RESERVE_MS;
+type PdfDocument = Awaited<Awaited<ReturnType<typeof openPdf>>["loading"]["promise"]>;
+type Canvas = Awaited<ReturnType<typeof openPdf>>["canvas"];
+
+async function renderPage(page: Awaited<ReturnType<PdfDocument["getPage"]>>, canvas: Canvas) {
+  const viewport = page.getViewport({ scale: 1.5 });
+  if (viewport.width * viewport.height > 10_000_000) throw new ApiError(400, "INVALID_FILE");
+  const image = canvas.createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+  await page.render({
+    canvas: image as unknown as HTMLCanvasElement,
+    canvasContext: image.getContext("2d") as unknown as CanvasRenderingContext2D,
+    viewport,
+  }).promise;
+  return image.encode("png");
+}
 
 /**
- * Extracts a bounded range of PDF pages so a long OCR job can advance across several short
- * serverless invocations. Scanned pages are OCR'd concurrently; if the provider throttles or the
- * step runs out of time, the pages read so far are kept and `nextPage` points at the first gap.
+ * Reads pages from `fromPage`: text layers inline, scanned pages rendered for OCR. Stops before
+ * the scanned page beyond `maxOcrPages`, or near the deadline (after at least one page).
+ */
+async function collectPages(
+  pdf: PdfDocument,
+  canvas: Canvas,
+  fromPage: number,
+  maxOcrPages: number,
+  signal: AbortSignal,
+  deadline?: number,
+) {
+  const pages: (string | Buffer)[] = [];
+  let scanned = 0;
+  for (let i = fromPage; i <= pdf.numPages; i++) {
+    signal.throwIfAborted();
+    if (i > fromPage && nearDeadline(deadline)) return { pages, nextPage: i, timedOut: true };
+    const page = await pdf.getPage(i);
+    const pageText = pageTextOf(await page.getTextContent());
+    if (pageText.trim().length >= MIN_PAGE_TEXT) pages.push(pageText);
+    else if (scanned >= maxOcrPages) {
+      page.cleanup();
+      return { pages, nextPage: i, timedOut: false };
+    } else {
+      pages.push(await renderPage(page, canvas));
+      scanned++;
+    }
+    page.cleanup();
+  }
+  return { pages, nextPage: 0, timedOut: false };
+}
+
+const ocrPage = async (item: string | Buffer, signal: AbortSignal, deadline?: number) => {
+  if (typeof item === "string") return { ok: true, text: item } as PageOutcome;
+  try {
+    const result = await ocr(item, signal, deadline);
+    return { ok: true, text: result.data.text, usage: result.usage } as PageOutcome;
+  } catch (error) {
+    return { ok: false, error } as PageOutcome;
+  }
+};
+
+/**
+ * Extracts PDF pages so a long OCR job can advance across several short serverless invocations:
+ * every text page is read in one call, at most `maxOcrPages` scanned pages are OCR'd. If the
+ * provider throttles or the step runs out of time, the pages read so far are kept and `nextPage`
+ * points at the first gap. Throws DOCUMENT_TOO_LONG once the text passes `budgetTokens`.
  */
 export async function extractPdfPages(
   bytes: Buffer,
   fromPage: number,
-  maxPages: number,
+  maxOcrPages: number,
   signal: AbortSignal,
   deadline?: number,
+  budgetTokens = MAX_DOCUMENT_TOKENS,
 ): Promise<PdfRange> {
   const { canvas, loading } = await openPdf(bytes);
   const pdf = await loading.promise;
   try {
     const totalPages = pdf.numPages;
-    const end = Math.min(totalPages, fromPage + maxPages - 1);
-    // Text layers are read inline; scanned pages are rendered now and OCR'd together below.
-    const pages: (string | Buffer)[] = [];
-    for (let i = fromPage; i <= end; i++) {
-      signal.throwIfAborted();
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      const pageText = pageTextOf(content);
-      if (pageText.trim().length >= MIN_PAGE_TEXT) pages.push(pageText);
-      else {
-        const viewport = page.getViewport({ scale: 1.5 });
-        if (viewport.width * viewport.height > 10_000_000) throw new ApiError(400, "INVALID_FILE");
-        const image = canvas.createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
-        await page.render({
-          canvas: image as unknown as HTMLCanvasElement,
-          canvasContext: image.getContext("2d") as unknown as CanvasRenderingContext2D,
-          viewport,
-        }).promise;
-        pages.push(await image.encode("png"));
-      }
-      page.cleanup();
-    }
-    const outcomes = await mapConcurrent(
-      pages,
-      OCR_CONCURRENCY,
-      async (item): Promise<PageOutcome> => {
-        if (typeof item === "string") return { ok: true, text: item };
-        try {
-          const result = await ocr(item, signal, deadline);
-          return { ok: true, text: result.data.text, usage: result.usage };
-        } catch (error) {
-          return { ok: false, error };
-        }
-      },
+    const read = await collectPages(pdf, canvas, fromPage, maxOcrPages, signal, deadline);
+    const outcomes = await mapConcurrent(read.pages, OCR_CONCURRENCY, (item) =>
+      ocrPage(item, signal, deadline),
     );
     signal.throwIfAborted();
     const usage = emptyUsage();
     let text = "",
+      tokens = 0,
       ocrPages = 0;
     // Provider tokens of every OCR call count against the shared key, kept page or not.
     for (const outcome of outcomes) if (outcome.ok && outcome.usage) addUsage(usage, outcome.usage);
@@ -257,13 +294,16 @@ export async function extractPdfPages(
         if (!retryable(outcome.error)) throw outcome.error;
         const retryAfterMs =
           outcome.error instanceof RateLimitError ? outcome.error.retryAfterMs : 0;
-        return { text, nextPage: fromPage + index, totalPages, usage, ocrPages, retryAfterMs };
+        const nextPage = fromPage + index;
+        return { text, tokens, nextPage, totalPages, usage, ocrPages, retryAfterMs };
       }
       if (outcome.usage) ocrPages++;
       text += outcome.text + "\n";
-      assertDocumentBudget(text);
+      tokens += estimateTokens(outcome.text + "\n");
+      if (tokens > budgetTokens) throw new ApiError(400, "DOCUMENT_TOO_LONG");
     }
-    return { text, nextPage: end >= totalPages ? 0 : end + 1, totalPages, usage, ocrPages };
+    const range = { text, tokens, nextPage: read.nextPage, totalPages, usage, ocrPages };
+    return read.timedOut ? { ...range, retryAfterMs: 0 } : range;
   } finally {
     await loading.destroy();
   }
@@ -292,20 +332,23 @@ async function openPdf(bytes: Buffer) {
 }
 /**
  * Counts a PDF's pages and how many of them are scans needing OCR, before any provider call, so
- * page limits and credit checks happen up front.
+ * page limits and credit checks happen up front. Near the deadline it stops after at least one
+ * page and returns the page to continue from as `nextPage` (0 when every page was counted).
  */
-export async function inspectPdf(bytes: Buffer) {
+export async function inspectPdf(bytes: Buffer, fromPage = 1, deadline?: number) {
   const { loading } = await openPdf(bytes);
   try {
     const pdf = await loading.promise;
     let scannedPages = 0;
-    for (let i = 1; i <= pdf.numPages; i++) {
+    for (let i = fromPage; i <= pdf.numPages; i++) {
+      if (i > fromPage && nearDeadline(deadline))
+        return { pages: pdf.numPages, scannedPages, nextPage: i };
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
       if (pageTextOf(content).trim().length < MIN_PAGE_TEXT) scannedPages++;
       page.cleanup();
     }
-    return { pages: pdf.numPages, scannedPages };
+    return { pages: pdf.numPages, scannedPages, nextPage: 0 };
   } finally {
     await loading.destroy();
   }
