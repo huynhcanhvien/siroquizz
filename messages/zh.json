@@ -678,7 +678,8 @@
     "suggestedPhonetic": "AI建议（可编辑）",
     "noPhonetic": "尚未填写",
     "useSuggestedPhonetic": "使用建议音标",
-    "estimateSource": "已读取约{tokens}个文本token；AI处理全部内容来选择卡片。"
+    "estimateSource": "已读取约{tokens}个文本token；AI处理全部内容来选择卡片。",
+    "batchProgress": "已处理 {done}/{total} 张卡片…"
   },
   "settings": {
     "title": "设置",

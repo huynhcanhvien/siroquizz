@@ -678,7 +678,8 @@
     "suggestedPhonetic": "AI suggestion (editable)",
     "noPhonetic": "None yet",
     "useSuggestedPhonetic": "Use suggested phonetic",
-    "estimateSource": "Read approximately {tokens} text tokens; AI processes all content to select cards."
+    "estimateSource": "Read approximately {tokens} text tokens; AI processes all content to select cards.",
+    "batchProgress": "Processed {done}/{total} cards…"
   },
   "settings": {
     "title": "Settings",

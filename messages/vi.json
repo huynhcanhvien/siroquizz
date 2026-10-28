@@ -678,7 +678,8 @@
     "suggestedPhonetic": "AI đề xuất (có thể chỉnh sửa)",
     "noPhonetic": "Chưa có",
     "useSuggestedPhonetic": "Dùng phiên âm đề xuất",
-    "estimateSource": "Đã đọc khoảng {tokens} token văn bản; AI xử lý toàn bộ nội dung để chọn thẻ."
+    "estimateSource": "Đã đọc khoảng {tokens} token văn bản; AI xử lý toàn bộ nội dung để chọn thẻ.",
+    "batchProgress": "Đã xử lý {done}/{total} thẻ…"
   },
   "settings": {
     "title": "Cài đặt",

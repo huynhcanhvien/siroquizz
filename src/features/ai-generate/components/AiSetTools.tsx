@@ -12,7 +12,37 @@ import { createHttpClient } from "@/lib/http-client";
 import type { StudySet } from "@/lib/types";
 import { useErrorMessage } from "@/lib/use-messages";
 const client = createHttpClient(),
-  schema = z.object({ cards: z.array(z.object({ id: z.string(), text: z.string() })) });
+  schema = z.object({
+    cards: z.array(z.object({ id: z.string(), text: z.string() })),
+    partial: z.boolean().default(false),
+    remainingIds: z.array(z.string()).default([]),
+  });
+type AiKind = "phonetics" | "examples";
+// The server answers within its time budget and returns the rest as remainingIds (500 cards ≈ 13
+// batches of 40); this bounds the follow-up requests for one click.
+const MAX_REQUESTS = 20;
+
+/** Asks the server again with the remaining cards until it has answered for all of them. */
+async function fetchSuggestions(kind: AiKind, setId: string, onProgress: (done: number) => void) {
+  let found = new Map<string, string>();
+  let ids: string[] | undefined;
+  for (let attempt = 0; attempt < MAX_REQUESTS; attempt++) {
+    const { data } = await client.request(`/api/v1/ai/${kind}`, schema, {
+      method: "POST",
+      body: { setId, ...(ids ? { ids } : kind === "phonetics" ? { scope: "all" } : {}) },
+    });
+    found = new Map([
+      ...found,
+      ...data.cards.map((card): [string, string] => [card.id, card.text]),
+    ]);
+    onProgress(found.size);
+    const remaining = data.remainingIds ?? [];
+    // Stop on a complete answer, or when a continuation made no progress.
+    if (!data.partial || !remaining.length || (ids && remaining.length >= ids.length)) break;
+    ids = remaining;
+  }
+  return [...found].map(([id, text]) => ({ id, text }));
+}
 export function AiSetTools({ set }: { set: StudySet }) {
   const t = useTranslations("ai"),
     tEditor = useTranslations("editor"),
@@ -20,20 +50,19 @@ export function AiSetTools({ set }: { set: StudySet }) {
     errorMessage = useErrorMessage(),
     update = useUpdateSet(set.id);
   const [busy, setBusy] = useState(false),
+    [progress, setProgress] = useState(0),
     [result, setResult] = useState<{
-      kind: "phonetics" | "examples";
+      kind: AiKind;
       cards: { id: string; text: string; selected: boolean }[];
     } | null>(null);
-  const run = async (kind: "phonetics" | "examples") => {
+  const run = async (kind: AiKind) => {
     setBusy(true);
+    setProgress(0);
     try {
-      const { data } = await client.request(`/api/v1/ai/${kind}`, schema, {
-        method: "POST",
-        body: { setId: set.id, ...(kind === "phonetics" ? { scope: "all" } : {}) },
-      });
+      const cards = await fetchSuggestions(kind, set.id, setProgress);
       setResult({
         kind,
-        cards: data.cards.map((card) => ({
+        cards: cards.map((card) => ({
           ...card,
           selected:
             kind === "examples" || !set.cards.find((c) => c.id === card.id)?.phonetic?.trim(),
@@ -81,6 +110,11 @@ export function AiSetTools({ set }: { set: StudySet }) {
           {t("createExamples")}
         </Button>
       </div>
+      {busy && progress > 0 ? (
+        <p role="status" className="mt-3 text-sm text-muted">
+          {t("batchProgress", { done: progress, total: set.cards.length })}
+        </p>
+      ) : null}
       <Dialog
         open={Boolean(result)}
         onOpenChange={(open) => {

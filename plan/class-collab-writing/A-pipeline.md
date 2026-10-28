@@ -43,7 +43,7 @@
 ## M2 — AI pipeline (gói WP2)
 
 ### A7. Tác vụ phụ gửi tới 500 thẻ một lần, không deadline, client timeout 15s
-**Trạng thái:** todo
+**Trạng thái:** done — maxTokens = min(4096, 256 + 40·n phiên âm / 90·n ví dụ) thay vì 60 + 40·n để chừa token reasoning; client lặp với `ids` = remainingIds
 - **Vấn đề:** `src/server/ai/auxiliary.ts:60-124`: với `setId` gửi toàn bộ thẻ trong 1 call, `maxTokens` mặc định 4096 (`groq.ts:60`), không `deadline` → mỗi attempt 50s × 3 vượt `maxDuration = 60`; model echo UUID (~20 token/thẻ) nên >150 thẻ phiên âm hoặc >60 ví dụ bị `AI_OUTPUT_TRUNCATED`; refund trong `catch` (L142-147) không chạy khi function bị kill. Client `AiSetTools.tsx:30-33` qua `http-client` timeout 15s (`http-client.ts:75`).
 - **Sửa:** chia lô 40 thẻ; id gửi model = chỉ số (`"0".."39"`), map lại UUID ở server; `maxTokens = min(4096, 60 + 40·n)`; `deadline = Date.now() + 45_000` truyền vào `groqJson`; chạy lô tuần tự, dừng khi còn < 8s, trả `{ cards, partial: boolean, remainingIds }`; quota: 1 lượt `ai_aux_usage` cho cả request. Client: `requestLong` (timeout 55s) trong `http-client.ts` cho `/ai/*`; `AiSetTools` lặp gọi với `remainingIds` tới khi `partial=false`, hiện tiến độ.
 - **Test:** unit `batchCards` (200 → 5 lô); integration với mock Groq: lô 2 hỏng → trả lô 1 + `partial`; deadline hết → `partial` và không ném.

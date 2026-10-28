@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { apiId, collectPages, createHttpClient } from "./http-client";
+import { LONG_REQUEST_TIMEOUT_MS, apiId, collectPages, createHttpClient } from "./http-client";
 
 const schema = z.object({ id: z.string() });
 const success = (data: unknown, meta?: unknown) =>
@@ -23,6 +23,16 @@ describe("HTTP transport", () => {
         signal: expect.any(AbortSignal),
       }),
     );
+  });
+  it("waits up to 55s for AI requests and 15s for everything else", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => success({ id: "1" }));
+    const client = createHttpClient(fetcher);
+    await client.request("/api/v1/ai/phonetics", schema, { method: "POST", body: {} });
+    await client.request("/api/v1/sets/1", schema);
+    expect(timeout.mock.calls.map(([ms]) => ms)).toEqual([LONG_REQUEST_TIMEOUT_MS, 15_000]);
+    expect(LONG_REQUEST_TIMEOUT_MS).toBe(55_000);
+    timeout.mockRestore();
   });
   it.each([
     [503, "AI_UNAVAILABLE"],
