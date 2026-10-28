@@ -191,7 +191,11 @@ export async function sessionOverview(
     .where(
       and(
         eq(writingDocs.sessionId, session.id),
-        since ? sql`${writingDocs.updatedAt} > ${since}::timestamptz` : undefined,
+        // A few seconds of overlap catch writes that committed after the previous poll
+        // although their timestamp is earlier; the client merges by id, so repeats are harmless.
+        since
+          ? sql`${writingDocs.updatedAt} > ${since}::timestamptz - interval '5 seconds'`
+          : undefined,
       ),
     )
     .orderBy(asc(writingDocs.updatedAt));

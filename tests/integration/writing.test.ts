@@ -291,6 +291,8 @@ describe("sync", () => {
     const first = await sessionOverview(db, teacher, sessionId, new URLSearchParams());
     expect(first.docs).toHaveLength(1);
     const since = new URLSearchParams({ since: first.serverTime });
+    // Documents untouched for longer than the overlap window are not sent again.
+    await db.update(schema.writingDocs).set({ updatedAt: new Date(Date.now() - 60_000) });
     expect((await sessionOverview(db, teacher, sessionId, since)).docs).toEqual([]);
     const a = new Client(author, docId);
     a.type(0, "Mới");

@@ -86,8 +86,8 @@ async function mergeUpdate(db: Database, userId: string, docId: string, update: 
         textPreview: preview(text, PREVIEW_CHARS),
         charCount: [...text].length,
         lastEditorId: userId,
-        // The database clock, which the roster's `since` polling also uses.
-        updatedAt: sql`now()`,
+        // The database clock at write time, which the roster's `since` polling also uses.
+        updatedAt: sql`clock_timestamp()`,
       })
       .where(eq(writingDocs.id, docId))
       .returning({ version: writingDocs.version });

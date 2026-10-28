@@ -82,13 +82,13 @@ it("routes a whole writing session: create, open, write, roster, sync", async ()
     update: toBase64(Y.encodeStateAsUpdate(replica)),
   })) as { version: number };
   expect(synced.version).toBe(1);
-  expect(limits).toHaveBeenCalledWith(`sync:${student}`, 60, 60);
+  expect(limits).toHaveBeenCalledWith(`sync:${student}`, 120, 60);
   expect(await call(teacher, "GET", `writing/docs/${doc.id}`)).toMatchObject({ version: 1 });
   const overview = (await call(teacher, "GET", `writing/sessions/${session.id}/overview`)) as {
     docs: { textPreview: string }[];
   };
   expect(overview.docs[0].textPreview).toBe("Mùa thu");
-  expect(limits).toHaveBeenCalledWith(`overview:${teacher}`, 30, 60);
+  expect(limits).toHaveBeenCalledWith(`overview:${teacher}`, 60, 60);
   expect(await call(student, "GET", `writing/sessions/${session.id}`)).toMatchObject({
     prompt: "Viết về mùa thu",
     myDocId: doc.id,

@@ -39,11 +39,13 @@ const merge = (a: Uint8Array | null, b: Uint8Array | null) =>
   a && b ? Y.mergeUpdates([a, b]) : (a ?? b);
 /** Errors after which local changes can never be saved: the editor becomes read-only. */
 const READ_ONLY_CODES: ReadonlySet<RepositoryErrorCode> = new Set(["FORBIDDEN", "SESSION_CLOSED"]);
-/** Errors after which local changes are dropped (the caller reloads or leaves). */
+/**
+ * Errors after which local changes are dropped; the caller must then rebuild the document from
+ * the server (or leave), because the local Y.Doc still contains them.
+ */
 const DROP_CODES: ReadonlySet<RepositoryErrorCode> = new Set([
   "DOC_TOO_LARGE",
   "NOT_FOUND",
-  "UNAUTHENTICATED",
   "VALIDATION",
 ]);
 

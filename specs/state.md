@@ -51,6 +51,12 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 
 ## Nhật ký
 
+### 2026-10-29 02:40 +07: 🧱 WP2 (A7–A13) + WP4 (C1–C13) xong trên nhánh `wp2-wp4-ai-writing` (đã rebase lên `feat/class-collab-writing`, chưa merge)
+
+- **WP2:** tác vụ phụ AI chia lô 40 thẻ, id theo chỉ số, deadline 45s, trả `partial`/`remainingIds`/`retryAfterMs` + continuation ký HMAC (lượt tiếp không trừ quota); token job đặt trước (`tokens_reserved`) và token aux/kiểm duyệt (`ai_aux_usage.tokens`) tính vào trần ngày (migration `0018_nasty_black_bird`); tài liệu dài/ít thẻ đọc theo phần ≤ 6.500 token (100k token/10 thẻ: 40 → ≤ 16 request); state job không giữ text 2 lần, poll queued không đọc state; PDF đọc mọi trang text trong 1 step, inspect tiếp tục được qua nhiều step; hướng dẫn tĩnh vào system prompt; cron kiểm duyệt không vỡ khi timeout, lease 58s, backoff mạng. `pnpm ai:eval`: trước/sau đều 1.0 mọi chỉ số; sau: 13.725 token prompt, 1.536 cached.
+- **WP4:** phiên viết bài trực tuyến (Quill 2 + Yjs + y-quill nạp động chỉ ở `/study/writing/[sessionId]`, ~78 KB gz), đồng bộ polling 2s/10s có fast path 1 select, mirror localStorage + keepalive, màu chữ theo vai trò, roster giáo viên, bộ thẻ tạm → tạo bộ thẻ và chia sẻ vào thư viện lớp qua `shareToClass`. Migration `0019_ancient_randall`.
+- Kiểm thử: unit 658 (dòng 95,9%), integration 293 (dòng 94,0%), e2e `writing` (2) + `classes` xanh; lint/typecheck sạch; build xanh.
+
 ### 2026-10-29 01:55 +07: 🧱 WP1 (A1–A6) + WP3 (B1–B10) xong trên nhánh `wp1-wp3-foundation-collab` (chưa merge)
 
 - **WP1:** rate limit ghi theo đường dẫn (`src/server/write-policy.ts`: tiến độ/ôn tập 120/phút, AI upload/step bỏ qua bucket chung); index FK cascade (migration `0016_mighty_steel_serpent`; xoá bộ 500 thẻ trên 100k progress+logs: 13 ms có index so với 4.400 ms không index); `listSets` trả `cardCount` + `progress` thay vì thẻ; khoá `FOR KEY SHARE` khi ghi tiến độ; `putProgress` 500 thẻ từ 4.003 xuống ≤ 10 query; tách `replaceDeck`/`writeSetFields`/`toCardDto`.

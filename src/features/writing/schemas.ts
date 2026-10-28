@@ -2,12 +2,17 @@ import { z } from "zod";
 import { classRoleSchema } from "@/features/classes/schemas";
 import { CONTENT_LANGUAGES } from "@/lib/types";
 import { BASE64_PATTERN } from "./lib/base64";
-import { MAX_PROMPT_CHARS, MAX_TITLE_CHARS } from "./lib/limits";
+import { MAX_PROMPT_CHARS, MAX_STATE_BYTES, MAX_TITLE_CHARS } from "./lib/limits";
 
 export const sessionStatusSchema = z.enum(["draft", "open", "closed"]);
 export const peerVisibilitySchema = z.enum(["hidden", "open"]);
 export const audienceSchema = z.enum(["teachers", "class"]);
 const base64 = z.string().max(200_000).regex(BASE64_PATTERN);
+/** Server answers can carry a whole stored document (up to MAX_STATE_BYTES). */
+const base64State = z
+  .string()
+  .max(Math.ceil((MAX_STATE_BYTES * 4) / 3) + 4)
+  .regex(BASE64_PATTERN);
 const isoDate = z.string().min(1);
 
 export const sessionInputSchema = z.object({
@@ -86,7 +91,7 @@ export const docStateSchema = z.object({
   sessionId: z.uuid(),
   authorId: z.string(),
   version: z.number().int(),
-  state: base64.nullable(),
+  state: base64State.nullable(),
   readOnly: z.boolean(),
 });
 export type DocState = z.infer<typeof docStateSchema>;
@@ -99,7 +104,7 @@ export const syncRequestSchema = z.object({
 export type SyncRequest = z.infer<typeof syncRequestSchema>;
 export const syncResponseSchema = z.object({
   version: z.number().int(),
-  update: base64.optional(),
+  update: base64State.optional(),
   readOnly: z.boolean(),
   session: sessionGateSchema,
 });

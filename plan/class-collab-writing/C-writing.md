@@ -103,7 +103,7 @@ export const requireSessionTeacher = (db, userId, sessionId) => …  // 403 nế
 Mã lỗi: `DOC_TOO_LARGE`, `SESSION_CLOSED`, `SCRATCH_LIMIT`, `SCRATCH_INCOMPLETE`.
 
 ## C6. Giao thức sync (hợp đồng giữa WP4a và WP4b)
-**Trạng thái:** done — client: sync-state (reducer/lịch) + sync-loop (mirror localStorage, keepalive khi ẩn/pagehide, backoff); hadRemote = version tăng hơn phần mình gửi (Yjs luôn gửi kèm delete set nên không dựa vào độ dài diff); replay mirror chạy sau khi bind Quill (listener gắn từ lúc tạo loop)
+**Trạng thái:** done — sau review: một vòng sync tại một thời điểm (cờ busy), lỗi bị từ chối → dựng lại doc từ server, flush cả phần in-flight khi đóng/ẩn trang, schema phản hồi cho phép tới MAX_STATE_BYTES, overview dùng clock_timestamp() + chồng 5s, limit sync 120/phút, overview 60/phút
 Request `POST /api/v1/writing/docs/:id/sync` body `{ sv: base64(Y.encodeStateVector(local)), update?: base64(pending đã gộp), version?: number }`.
 Server `syncDoc`:
 1. `requireDocAccess(db, userId, docId, update ? "write" : "read")`.

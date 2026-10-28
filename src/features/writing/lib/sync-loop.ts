@@ -140,6 +140,8 @@ export function createSyncLoop(options: SyncLoopOptions) {
   let state = initialSyncState(options.version, options.readOnly, now());
   let timer: ReturnType<typeof setTimeout> | null = null;
   let running = false;
+  // One round at a time: an "ok" from an older poll must never clear a newer round's update.
+  let busy = false;
   const dispatch = (event: SyncEvent) => {
     state = reduce(state, event);
     options.onChange(state, statusOf(state));
@@ -147,9 +149,14 @@ export function createSyncLoop(options: SyncLoopOptions) {
   };
   const tick = async () => {
     timer = null;
-    if (!running || state.inFlight) return;
+    if (!running || busy) return;
+    busy = true;
     dispatch({ type: "sent", at: now() });
-    await syncRound(options, state, dispatch, now);
+    try {
+      await syncRound(options, state, dispatch, now);
+    } finally {
+      busy = false;
+    }
     schedule();
   };
   const schedule = () => {
@@ -158,15 +165,21 @@ export function createSyncLoop(options: SyncLoopOptions) {
     const delay = running ? nextDelayMs(state, now()) : null;
     if (delay !== null) timer = setTimeout(() => void tick(), delay);
   };
-  /** Sends unsaved edits while the page is going away; small enough for a keepalive body. */
+  /**
+   * Sends everything unsaved while the page or document is going away (keepalive body limit),
+   * including a request that may be cut off by the unload, and saves the mirror right away.
+   */
   const flushNow = () => {
-    const unsaved = state.pending;
+    mirror.flush(state);
+    const unsaved = unsavedOf(state);
     if (!unsaved || state.readOnly || unsaved.length > MAX_UPDATE_BYTES) return;
     const sv = toBase64(Y.encodeStateVector(options.doc));
     options.beacon({ sv, version: state.version, update: toBase64(unsaved) });
   };
   const onUpdate = (update: Uint8Array, origin: unknown) => {
-    if (origin === "remote" || state.readOnly) return;
+    // Edits made just before the editor turns read-only are still sent; the server refuses
+    // them and the page reloads the document, so the local copy never silently diverges.
+    if (origin === "remote") return;
     dispatch({ type: "local", update, at: now() });
     if (running && !timer) schedule();
   };
@@ -176,7 +189,7 @@ export function createSyncLoop(options: SyncLoopOptions) {
     running = false;
     options.doc.off("update", onUpdate);
     if (timer) clearTimeout(timer);
-    mirror.flush(state);
+    flushNow();
   };
   const setHidden = (hidden: boolean) => {
     dispatch({ type: "visibility", hidden });

@@ -25,7 +25,8 @@ type Result = { data: unknown } | null;
 
 /** POST /writing/docs/:id/sync: the "write-fast" bucket (writePolicy) plus its own 60/min limit. */
 async function syncRoute(db: Database, userId: string, request: Request, docId: string) {
-  await enforceLimit(`sync:${userId}`, 60, 60);
+  // Twice the fastest poll rate (one per 2s), so two tabs or devices still fit.
+  await enforceLimit(`sync:${userId}`, 120, 60);
   return { data: await syncDoc(db, userId, docId, await readJson(request, MAX_SYNC_BODY_BYTES)) };
 }
 
@@ -42,7 +43,8 @@ async function sessionRoutes(db: Database, userId: string, request: Request, pat
     }
   }
   if (kind === "sessions" && id && sub === "overview" && method === "GET") {
-    await enforceLimit(`overview:${userId}`, 30, 60);
+    // The roster polls every 2s; leave room for refetches on mount and focus.
+    await enforceLimit(`overview:${userId}`, 60, 60);
     return { data: await sessionOverview(db, userId, id, new URL(request.url).searchParams) };
   }
   if (kind === "sessions" && id && sub === "docs" && method === "POST")

@@ -150,4 +150,37 @@ describe("sync loop", () => {
     expect(beacon).toHaveBeenCalledWith(expect.objectContaining({ update: expect.any(String) }));
     loop.stop();
   });
+
+  it("never runs two rounds at once, so a slow poll cannot swallow a newer edit", async () => {
+    const { remote, doc, loop } = setup();
+    const answer = remote.send.getMockImplementation()!;
+    let release: () => void = () => undefined;
+    remote.send.mockImplementationOnce(
+      (request) =>
+        new Promise((resolve) => {
+          release = () => resolve(answer(request));
+        }),
+    );
+    loop.start();
+    await vi.advanceTimersByTimeAsync(0);
+    doc.getText("quill").insert(0, "typed during a slow poll");
+    loop.syncNow();
+    await vi.advanceTimersByTimeAsync(FAST_MS);
+    expect(remote.send).toHaveBeenCalledTimes(1);
+    release();
+    await vi.advanceTimersByTimeAsync(FAST_MS);
+    expect(text(remote.doc)).toBe("typed during a slow poll");
+    expect(loop.state().pending).toBeNull();
+    loop.stop();
+  });
+
+  it("flushes everything unsaved, in flight included, when the document closes", async () => {
+    const { remote, doc, loop, beacon } = setup();
+    remote.send.mockImplementation(() => new Promise(() => undefined));
+    loop.start();
+    await vi.advanceTimersByTimeAsync(0);
+    doc.getText("quill").insert(0, "never confirmed");
+    loop.stop();
+    expect(beacon).toHaveBeenCalledTimes(1);
+  });
 });

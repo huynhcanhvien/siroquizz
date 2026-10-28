@@ -105,6 +105,10 @@ export default function Editor(props: EditorProps) {
       return void queryClient.resetQueries({ queryKey: writingKeys.doc(docId) });
     }
     toast(errorMessage(new RepositoryError(code)), "error");
+    // Refused edits were dropped from the sync state but are still in the local document:
+    // start again from the server copy so this tab never silently diverges.
+    if (code !== "UNAUTHENTICATED")
+      void queryClient.resetQueries({ queryKey: writingKeys.doc(docId) });
   };
   const { quill, chars, ref } = useQuill(setup, t("placeholder"), props.label);
   const { status, readOnly } = useSyncLoop(setup, Boolean(quill), onError);
