@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
 import { Select, Label } from "@/components/ui/fields";
 import { ProgressBar } from "@/components/ui/misc";
-import { useReview } from "@/features/srs/hooks";
+import { useRefreshLearning, useReview } from "@/features/srs/hooks";
 import { useBackgroundSave } from "@/features/srs/use-background-save";
 import { StarButton } from "@/features/srs/components/StarButton";
 import { useSaveCardStatus } from "@/features/progress/hooks";
@@ -38,7 +38,7 @@ function LearningSession({
     [answer, setAnswer] = useState<Answer>(),
     review = useReview(),
     localSave = useSaveCardStatus(set.id),
-    persist = useBackgroundSave(),
+    persist = useBackgroundSave({ onExit: useRefreshLearning() }),
     submittedEvent = useRef("");
   const item = state.round[0],
     card = set.cards.find((c) => c.id === item?.cardId);

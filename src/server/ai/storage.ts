@@ -7,6 +7,7 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { z } from "zod";
@@ -123,6 +124,35 @@ export async function deleteUpload(key: string) {
     await unlink(localPath(key)).catch((error) => {
       if (error.code !== "ENOENT") throw error;
     });
+}
+/** S3 DeleteObjects accepts at most this many keys per request. */
+export const DELETE_BATCH_SIZE = 1000;
+async function deleteObjectBatch(s3: S3Client, keys: string[]) {
+  const result = await s3.send(
+    new DeleteObjectsCommand({
+      Bucket: getServerEnv().S3_BUCKET,
+      Delete: { Objects: keys.map((Key) => ({ Key })), Quiet: true },
+    }),
+  );
+  const failed = new Set((result.Errors ?? []).map((error) => error.Key));
+  return keys.filter((key) => !failed.has(key));
+}
+/**
+ * Deletes stored objects in batches and returns the keys that are gone, so callers only drop
+ * the database rows whose object really left storage (a missing object counts as gone).
+ */
+export async function deleteStoredObjects(keys: readonly string[]): Promise<string[]> {
+  const s3 = client();
+  if (!s3) {
+    const results = await Promise.allSettled(keys.map((key) => deleteUpload(key)));
+    return keys.filter((_, index) => results[index].status === "fulfilled");
+  }
+  const batches = Array.from({ length: Math.ceil(keys.length / DELETE_BATCH_SIZE) }, (_, index) =>
+    keys.slice(index * DELETE_BATCH_SIZE, (index + 1) * DELETE_BATCH_SIZE),
+  );
+  const deleted: string[][] = [];
+  for (const batch of batches) deleted.push(await deleteObjectBatch(s3, batch));
+  return deleted.flat();
 }
 export async function readBinary(request: Request, size: number) {
   if (size > MAX_UPLOAD_BYTES) throw new ApiError(413, "INVALID_FILE");

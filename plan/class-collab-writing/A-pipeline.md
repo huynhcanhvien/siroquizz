@@ -87,27 +87,27 @@
 ## M4 — Build/CI/dọn dẹp (gói WP5)
 
 ### A14. Ảnh thẻ mồ côi không bao giờ xoá
-**Trạng thái:** todo
+**Trạng thái:** done — `cleanupOrphanCardImages` (ai/cleanup.ts) xoá tối đa 1000 `card_images` có `card_id null` và `created_at` > 24h mỗi lần cron, object S3 xoá bằng 1 lô `DeleteObjects`, chỉ xoá dòng có object đã đi; cron trả `removedImages`, `pnpm db:cleanup` cũng gọi. Test S3 giả ở `storage-cleanup.test.ts`. Còn lại (ngoài phạm vi): xoá hẳn user cascade xoá dòng `card_images` nên object S3 của user đó vẫn rò.
 - `card-images.ts:56` set `cardId = null` khi thay ảnh; `schema.ts:597` `onDelete: "set null"`; `ai/cleanup.ts` chỉ dọn `ai_uploads`. → Cron xoá `card_images` có `card_id null` và `created_at < now - 24h` kèm object S3 (`DeleteObjects` lô 1000). Test integration với adapter S3 giả.
 
 ### A15. Cleanup upload từng cái một
-**Trạng thái:** todo
+**Trạng thái:** done — `deleteStoredObjects` (storage.ts) gọi `DeleteObjects` lô ≤1000, trả key đã xoá; `cleanupAi` xoá tối đa 1000 upload/lần bằng 1 lô S3 + 1 `DELETE … WHERE id IN (…)`, giữ lại dòng có object xoá lỗi. Test `tests/integration/storage-cleanup.test.ts`.
 - `ai/cleanup.ts:7-11`: 1 call S3 + 1 delete mỗi upload, tối đa 500/ngày trong cron 60s, backlog có thể vượt. → `DeleteObjects` theo lô + `DELETE … WHERE id = ANY(...)`.
 
 ### A16. Rate limit đăng nhập chỉ trong bộ nhớ từng instance
-**Trạng thái:** todo
+**Trạng thái:** done (khác plan) — dùng `rateLimit.customStorage` (`src/server/auth-rate-limit.ts`, Upstash `Ratelimit.fixedWindow` theo từng rule, key băm sha256) khi có env Upstash; không có thì `storage: "memory"`. Không dùng `"secondary-storage"` vì Better Auth 1.7 khi có `secondaryStorage` sẽ chuyển cả session/verification sang Redis; không fallback `"database"` vì cần bảng `rateLimit` + migration, trong khi production đã bắt buộc Upstash (`rate-limit.ts`). Không có migration.
 - `auth.ts:91-100` đặt rule tuỳ chỉnh không `storage` → Better Auth dùng memory, tách theo instance Vercel. → `rateLimit.storage: "secondary-storage"` với Upstash khi có env, fallback `"database"`. Kiểm tra bằng docs Better Auth 1.7.
 
 ### A17. CI lặp mọi việc ở 3 shard và build 3 lần
-**Trạng thái:** todo
+**Trạng thái:** done — `ci.yml`: env chung đưa lên cấp workflow (giá trị giữ nguyên); job `quality` (lint/typecheck/unit coverage/migrate/integration) chạy 1 lần; job `build` (cache `.next/cache`) upload artifact `.next` trừ `cache` (`include-hidden-files: true`); job `e2e` matrix 3 tải artifact, chạy `copy-browser-ocr-assets` thay vì upload `public/vendor`, cache `~/.cache/ms-playwright` theo version, `E2E_PREBUILT=1` → `playwright.config.ts` chỉ `pnpm start`. Đã kiểm tra YAML parse và `pnpm build` không cần DB; chưa chạy được trên GitHub Actions.
 - `.github/workflows/ci.yml`: matrix 3 shard đều install/lint/typecheck/unit/migrate/integration/playwright install, và mỗi shard `next build` qua `webServer` (`playwright.config.ts:28`); không cache `.next/cache`, Playwright browsers. → job `quality` (1 lần) + job `build` upload artifact `.next` (+ `public/vendor`) + job `e2e` matrix 3 tải artifact, `E2E_PREBUILT=1` → `webServer.command = pnpm start --port 3100`; cache `~/.cache/ms-playwright` và `.next/cache` (`actions/cache`).
 
 ### A18. `--webpack` cố định vì lỗi Turbopack trên một máy
-**Trạng thái:** todo
+**Trạng thái:** done (giữ webpack mặc định) — thêm `dev:webpack`/`build:webpack` và `dev:turbopack`/`build:turbopack`; `dev`/`build` trỏ sang bản webpack nên `vercel.json` (`pnpm build`) và CI không đổi. Thử 2026-10-29 trên máy local: `next build` (Turbopack) **không còn panic**, pdf.worker vẫn được trace, nhưng compile 3,7 phút so với 17 giây của webpack → chưa đổi mặc định. Muốn chuyển: deploy Preview với Build Command `pnpm build:turbopack`, nếu ổn thì đổi `build` sang `pnpm build:turbopack`.
 - `package.json` `dev`/`build` dùng `--webpack` do Turbopack panic PostCSS worker "trên máy này" (`specs/state.md`). → `build`/`dev` mặc định không flag; thêm `dev:webpack`/`build:webpack`; thử Turbopack ở Vercel preview; nếu lỗi thì `vercel.json` `buildCommand: "pnpm build:webpack"`. Không chặn merge; ghi kết quả vào `specs/state.md`.
 
 ### A19. Ôn tập tải lại hàng đợi sau mỗi lần chấm
-**Trạng thái:** todo
+**Trạng thái:** done — mỗi lần chấm/vuốt chỉ `markStudyDataStale` (invalidate `due`/`stats`/`progress` với `refetchType: "none"`); vuốt thẻ ghi nhớ không còn refetch `progress` (đã cập nhật lạc quan). `useDue(…, enabled)` tắt khi phiên ôn đang chạy; `useBackgroundSave({ onExit })` gọi `useRefreshLearning` một lần sau lần lưu cuối khi phiên Ôn tập/Học kết thúc hoặc rời trang. Test `src/features/srs/study-refresh.test.tsx` + E2E `learning.spec.ts` "Review does not reload the queue after every rating".
 - `ReviewQueue.tsx:108` giữ `useDue` mounted khi `ActiveReview` làm việc trên snapshot; `srs/hooks.ts:63-68` invalidate `["due"]`, `["stats"]`, `["progress"]` mỗi lần chấm → chạy lại `dueCards` (`learning.ts:206-237`) mỗi thẻ. `progress/hooks.ts:50` invalidate mỗi lần vuốt. → tắt query `due` khi phiên đang chạy (`enabled: !active`), invalidate 1 lần khi kết thúc phiên; vuốt chỉ cập nhật cache cục bộ.
 
 ## Đã kiểm tra và thấy ổn (không sửa)

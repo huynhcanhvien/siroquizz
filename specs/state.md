@@ -57,6 +57,15 @@ Review code (agent code-reviewer, 2026-10-04 ~14:10) không thấy lỗi CRITICA
 - **WP4:** phiên viết bài trực tuyến (Quill 2 + Yjs + y-quill nạp động chỉ ở `/study/writing/[sessionId]`, ~78 KB gz), đồng bộ polling 2s/10s có fast path 1 select, mirror localStorage + keepalive, màu chữ theo vai trò, roster giáo viên, bộ thẻ tạm → tạo bộ thẻ và chia sẻ vào thư viện lớp qua `shareToClass`. Migration `0019_ancient_randall`.
 - Kiểm thử: unit 658 (dòng 95,9%), integration 293 (dòng 94,0%), e2e `writing` (2) + `classes` xanh; lint/typecheck sạch; build xanh.
 
+### 2026-10-29 02:09 +07: 🧹 WP5 (A14–A19) xong trên nhánh `wp5-cleanup-ci` (chưa merge)
+
+- **Dọn dẹp:** cron xoá `card_images` mồ côi > 24h kèm object S3 (`cleanupOrphanCardImages`); upload AI hết hạn xoá theo lô `DeleteObjects` ≤ 1000 + một `DELETE … IN (…)` (`deleteStoredObjects` trong `storage.ts`). Không migration.
+- **Rate limit đăng nhập:** Better Auth dùng `customStorage` Upstash (`src/server/auth-rate-limit.ts`) khi có `UPSTASH_REDIS_*`, không thì memory. Không dùng `secondaryStorage` vì nó kéo session sang Redis.
+- **CI:** job `quality` 1 lần, job `build` upload `.next`, `e2e` 3 shard chạy `next start` với `E2E_PREBUILT=1`; cache `.next/cache` và trình duyệt Playwright.
+- **Turbopack:** `next build` không flag nay build được trên máy này (không còn panic PostCSS), nhưng compile 3,7 phút so với 17 giây webpack → `build`/`dev` vẫn webpack; thêm `build:turbopack`/`dev:turbopack` để thử trên Vercel Preview.
+- **Ôn tập/Học/Thẻ ghi nhớ:** mỗi câu chỉ đánh dấu `due`/`stats`/`progress` stale (không refetch); làm mới 1 lần sau lần lưu cuối của phiên.
+- **Kiểm thử:** unit 560, integration 252 (dòng 92,5%), e2e `learning.spec.ts` xanh (cả chế độ `E2E_PREBUILT=1`). **Lưu ý:** `study.spec`, `starred-flashcards.spec`, `flashcard-corrections.spec` đỏ từ trước WP5 vì fixture `findSet` đọc `set.cards` từ `GET /sets` mà WP1 đã bỏ thẻ khỏi danh sách.
+
 ### 2026-10-29 01:55 +07: 🧱 WP1 (A1–A6) + WP3 (B1–B10) xong trên nhánh `wp1-wp3-foundation-collab` (chưa merge)
 
 - **WP1:** rate limit ghi theo đường dẫn (`src/server/write-policy.ts`: tiến độ/ôn tập 120/phút, AI upload/step bỏ qua bucket chung); index FK cascade (migration `0016_mighty_steel_serpent`; xoá bộ 500 thẻ trên 100k progress+logs: 13 ms có index so với 4.400 ms không index); `listSets` trả `cardCount` + `progress` thay vì thẻ; khoá `FOR KEY SHARE` khi ghi tiến độ; `putProgress` 500 thẻ từ 4.003 xuống ≤ 10 query; tách `replaceDeck`/`writeSetFields`/`toCardDto`.

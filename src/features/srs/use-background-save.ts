@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useToast } from "@/components/ui/Toast";
 import { RepositoryError } from "@/lib/repository-error";
 import { useErrorMessage } from "@/lib/use-messages";
@@ -28,12 +28,35 @@ async function saveWithRetry(save: () => Promise<unknown>): Promise<void> {
  * Saves run one after another so FSRS sees a card's reviews in the order they happened; a save
  * that still fails after retries is reported with a toast.
  */
-export function useBackgroundSave(): (save: () => Promise<unknown>) => void {
+export function useBackgroundSave({ onExit }: { onExit?: () => unknown } = {}): (
+  save: () => Promise<unknown>,
+) => void {
   const queue = useRef<Promise<void>>(Promise.resolve());
+  const saved = useRef(false);
+  const exit = useRef(onExit);
   const { toast } = useToast();
   const errorMessage = useErrorMessage();
+  useEffect(() => {
+    exit.current = onExit;
+  }, [onExit]);
+  // When the session ends, `onExit` (e.g. refetching the review queue) runs once, after the
+  // last queued save, so it reads what this session wrote.
+  useEffect(() => {
+    const pending = queue;
+    return () => {
+      if (!saved.current) return;
+      saved.current = false;
+      pending.current = pending.current
+        .then(() => exit.current?.())
+        .then(
+          () => undefined,
+          () => undefined,
+        );
+    };
+  }, []);
   return useCallback(
     (save) => {
+      saved.current = true;
       queue.current = queue.current
         .then(() => saveWithRetry(save))
         .catch((error: unknown) => toast(errorMessage(error), "error"));
